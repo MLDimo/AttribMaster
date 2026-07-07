@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/nightly-attribution",
+      "schedule": "0 2 * * *"
+    }
+  ]
+}
