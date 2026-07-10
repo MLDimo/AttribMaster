@@ -1,7 +1,8 @@
 "use client";
 
-import { BarChart3, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -23,9 +24,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2.5 p-4 sm:px-6">
           <div className="flex items-center gap-6">
             <Link href="/projects" className="flex items-center gap-2.5">
-              <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-                <BarChart3 className="size-5" />
-              </div>
+              <Image src="/logo-icon.png" alt="" width={36} height={36} className="drop-shadow-sm" priority />
               <div>
                 <h1 className="text-lg leading-tight font-semibold">AttribMaster</h1>
                 <p className="text-xs text-muted-foreground">GA4 · BigQuery · Multi-touch</p>

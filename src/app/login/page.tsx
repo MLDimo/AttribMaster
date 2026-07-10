@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3 } from "lucide-react";
+import Image from "next/image";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 
@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ParallaxBlob } from "@/components/effects/parallax-blob";
+import { ParallaxLogo } from "@/components/effects/parallax-logo";
 import { TiltCard } from "@/components/effects/tilt-card";
 
 export default function LoginPage() {
@@ -43,13 +44,12 @@ export default function LoginPage() {
     <div className="relative flex min-h-svh items-center justify-center overflow-hidden bg-gradient-to-b from-muted/40 to-background p-6">
       <ParallaxBlob className="-top-32 -left-32 size-[28rem]" />
       <ParallaxBlob className="-right-40 -bottom-40 size-[32rem]" />
+      <ParallaxLogo className="top-1/2 left-1/2 size-[36rem] -translate-x-1/2 -translate-y-1/2" />
 
       <TiltCard className="relative w-full max-w-sm">
         <Card className="shadow-xl">
           <CardHeader className="items-center text-center">
-            <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-              <BarChart3 className="size-5" />
-            </div>
+            <Image src="/logo-icon.png" alt="" width={40} height={40} className="mb-2 drop-shadow-sm" priority />
             <CardTitle>AttribMaster</CardTitle>
             <CardDescription>Connectez-vous pour accéder à vos projets</CardDescription>
           </CardHeader>

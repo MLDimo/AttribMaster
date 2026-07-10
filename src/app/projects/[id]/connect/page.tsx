@@ -1,6 +1,7 @@
 "use client";
 
-import { BarChart3, Check, ExternalLink } from "lucide-react";
+import { Check, ExternalLink } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -98,9 +99,7 @@ export default function ConnectBigQueryPage() {
       <TiltCard className="relative w-full max-w-md">
       <Card className="shadow-xl">
         <CardHeader className="items-center text-center">
-          <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-            <BarChart3 className="size-5" />
-          </div>
+          <Image src="/logo-icon.png" alt="" width={40} height={40} className="mb-2 drop-shadow-sm" />
           <CardTitle>Connecter BigQuery</CardTitle>
           <CardDescription>Étape 2 : relie ce projet à ton export GA4 BigQuery</CardDescription>
         </CardHeader>
