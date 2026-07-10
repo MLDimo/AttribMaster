@@ -38,10 +38,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center p-6">
-      <Card className="w-full max-w-sm">
+    <div className="flex min-h-svh items-center justify-center bg-gradient-to-b from-muted/40 to-background p-6">
+      <Card className="w-full max-w-sm shadow-xl">
         <CardHeader className="items-center text-center">
-          <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
             <BarChart3 className="size-5" />
           </div>
           <CardTitle>Attribution Tool</CardTitle>
