@@ -1,7 +1,10 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
+import { AnimatedNumber } from "@/components/effects/animated-number";
+import { StaggerContainer, StaggerItem } from "@/components/effects/motion";
 import { colorForSource } from "@/lib/attribution/colors";
 import type { SourceCredit } from "@/lib/attribution/types";
 
@@ -63,7 +66,12 @@ export function AttributionChart({ sources }: { sources: SourceCredit[] }) {
 
   return (
     <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
-      <div className="relative h-64 w-full shrink-0 sm:w-64">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.82, rotate: -12 }}
+        animate={{ opacity: 1, scale: 1, rotate: 0 }}
+        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+        className="relative h-64 w-full shrink-0 sm:w-64"
+      >
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -90,31 +98,38 @@ export function AttributionChart({ sources }: { sources: SourceCredit[] }) {
             />
           </PieChart>
         </ResponsiveContainer>
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.4, delay: 0.4 }}
+          className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"
+        >
           <span className="text-xs text-muted-foreground">Total</span>
           <span className="font-mono text-lg font-semibold tabular-nums">
-            {formatCurrency(total)}
+            <AnimatedNumber value={total} format={formatCurrency} />
           </span>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
-      <ul className="flex w-full flex-col gap-2">
+      <StaggerContainer className="flex w-full flex-col gap-2">
         {data.map((entry) => (
-          <li key={entry.name} className="flex items-center gap-3 text-sm">
-            <span
-              className="size-2.5 shrink-0 rounded-full"
-              style={{ backgroundColor: colorForSource(entry.name) }}
-            />
-            <span className="min-w-0 flex-1 truncate">{entry.name}</span>
-            <span className="font-mono tabular-nums text-muted-foreground">
-              {(entry.share * 100).toFixed(1)}%
-            </span>
-            <span className="font-mono w-20 text-right tabular-nums">
-              {formatCurrency(entry.value)}
-            </span>
-          </li>
+          <StaggerItem key={entry.name}>
+            <div className="flex items-center gap-3 text-sm">
+              <span
+                className="size-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: colorForSource(entry.name) }}
+              />
+              <span className="min-w-0 flex-1 truncate">{entry.name}</span>
+              <span className="font-mono tabular-nums text-muted-foreground">
+                {(entry.share * 100).toFixed(1)}%
+              </span>
+              <span className="font-mono w-20 text-right tabular-nums">
+                {formatCurrency(entry.value)}
+              </span>
+            </div>
+          </StaggerItem>
         ))}
-      </ul>
+      </StaggerContainer>
     </div>
   );
 }

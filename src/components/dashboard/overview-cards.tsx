@@ -2,6 +2,7 @@ import { ArrowDownRight, ArrowUpRight, Receipt, TrendingUp, Wallet } from "lucid
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
+import { AnimatedNumber } from "@/components/effects/animated-number";
 import { StaggerContainer, StaggerItem } from "@/components/effects/motion";
 import { TiltCard } from "@/components/effects/tilt-card";
 import type { OverviewResponse } from "@/lib/attribution/api-types";
@@ -11,6 +12,10 @@ function formatCurrency(value: number): string {
     style: "currency",
     currency: "EUR",
   }).format(value);
+}
+
+function formatCount(value: number): string {
+  return Math.round(value).toLocaleString("fr-FR");
 }
 
 function KpiIcon({ className, children }: { className: string; children: React.ReactNode }) {
@@ -47,7 +52,7 @@ export function OverviewCards({
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             <span className="font-mono text-2xl font-semibold tabular-nums tracking-tight">
-              {formatCurrency(totals.revenue)}
+              <AnimatedNumber value={totals.revenue} format={formatCurrency} />
             </span>
             {changeLabel && (
               <Badge variant={isPositive ? "success" : "destructive"} className="w-fit">
@@ -75,7 +80,7 @@ export function OverviewCards({
           </CardHeader>
           <CardContent>
             <span className="font-mono text-2xl font-semibold tabular-nums tracking-tight">
-              {totals.transactions}
+              <AnimatedNumber value={totals.transactions} format={formatCount} />
             </span>
           </CardContent>
         </Card>
@@ -93,7 +98,7 @@ export function OverviewCards({
           </CardHeader>
           <CardContent>
             <span className="font-mono text-2xl font-semibold tabular-nums tracking-tight">
-              {formatCurrency(totals.previousRevenue)}
+              <AnimatedNumber value={totals.previousRevenue} format={formatCurrency} />
             </span>
           </CardContent>
         </Card>

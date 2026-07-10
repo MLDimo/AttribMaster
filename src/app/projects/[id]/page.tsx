@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AppShell } from "@/components/layout/app-shell";
 import { AttributionChart } from "@/components/dashboard/attribution-chart";
 import { DateRangePicker } from "@/components/dashboard/date-range-picker";
@@ -278,6 +279,22 @@ export default function ProjectPage() {
             </FadeIn>
           )}
 
+          {connected && !overview && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              {[0, 1, 2].map((i) => (
+                <Card key={i} className="gap-3 py-5">
+                  <CardHeader className="flex-row items-center justify-between space-y-0">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="size-9 rounded-lg" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-7 w-32" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
           {connected && overview && (
             <OverviewCards totals={overview.totals} comparisonLabel={COMPARISON_LABELS[comparison]} />
           )}
@@ -293,7 +310,18 @@ export default function ProjectPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <AttributionChart sources={overview?.topSources ?? []} />
+                  {overview ? (
+                    <AttributionChart sources={overview.topSources} />
+                  ) : (
+                    <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
+                      <Skeleton className="size-64 shrink-0 rounded-full" />
+                      <div className="flex w-full flex-col gap-3">
+                        {[0, 1, 2].map((i) => (
+                          <Skeleton key={i} className="h-5 w-full" />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
               </FadeIn>
