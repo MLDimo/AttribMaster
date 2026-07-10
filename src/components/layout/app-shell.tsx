@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
+import { ParallaxBlob } from "@/components/effects/parallax-blob";
 
 const NAV_ITEMS = [
   { href: "/projects", label: "Projets" },
@@ -16,7 +17,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <div className="flex min-h-svh flex-col">
+    <div className="relative flex min-h-svh flex-col overflow-hidden">
+      <ParallaxBlob className="fixed -top-40 -right-40 z-0 size-[36rem] opacity-40" />
       <header className="sticky top-0 z-10 border-b bg-background/80 shadow-xs backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2.5 p-4 sm:px-6">
           <div className="flex items-center gap-6">

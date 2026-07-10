@@ -7,6 +7,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ParallaxBlob } from "@/components/effects/parallax-blob";
+import { TiltCard } from "@/components/effects/tilt-card";
 import type { BigQueryDatasetOption, GcpProjectOption } from "@/lib/gcp-oauth/discovery";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -89,8 +91,12 @@ export default function ConnectBigQueryPage() {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-gradient-to-b from-muted/40 to-background p-6">
-      <Card className="w-full max-w-md shadow-xl">
+    <div className="relative flex min-h-svh items-center justify-center overflow-hidden bg-gradient-to-b from-muted/40 to-background p-6">
+      <ParallaxBlob className="-top-32 -left-32 size-[28rem]" />
+      <ParallaxBlob className="-right-40 -bottom-40 size-[32rem]" />
+
+      <TiltCard className="relative w-full max-w-md">
+      <Card className="shadow-xl">
         <CardHeader className="items-center text-center">
           <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
             <BarChart3 className="size-5" />
@@ -175,6 +181,7 @@ export default function ConnectBigQueryPage() {
           </Button>
         </CardContent>
       </Card>
+      </TiltCard>
     </div>
   );
 }
