@@ -52,6 +52,19 @@ function normalizeRow(raw: RawAttributionRow): AttributionRow {
 
 export type DateRange = { from: string; to: string };
 
+/** Horodatage de la transaction la plus récente, pour juger de la fraîcheur des données. */
+export async function getLastDataTimestamp(projectId: string): Promise<string | null> {
+  const { client, project } = await getBigQueryClientForProject(projectId);
+  const table = `\`${project.gcp_project_id}.${project.bigquery_dataset}.${ATTRIBUTIONS_TABLE}\``;
+
+  const [rows] = await client.query({
+    query: `SELECT MAX(event_timestamp) AS last_event_timestamp FROM ${table}`,
+  });
+  const value = (rows[0] as { last_event_timestamp: BigQueryTimestampLike | string | null })
+    .last_event_timestamp;
+  return value ? unwrap(value) : null;
+}
+
 export async function getAttributionRows(
   projectId: string,
   { from, to }: DateRange

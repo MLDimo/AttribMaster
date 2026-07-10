@@ -8,31 +8,82 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { AppShell } from "@/components/layout/app-shell";
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
 import { isProjectConnected } from "@/lib/projects/types";
 import type { Account, Project } from "@/lib/projects/types";
 
+const HOUR_MS = 60 * 60 * 1000;
+
+type DataStatus = "fresh" | "stale" | "dead";
+
+function dataStatus(lastDataAt: string | null): DataStatus {
+  if (!lastDataAt) return "dead";
+  const ageHours = (Date.now() - new Date(lastDataAt).getTime()) / HOUR_MS;
+  if (ageHours < 24) return "fresh";
+  if (ageHours < 72) return "stale";
+  return "dead";
+}
+
+const STATUS_STYLES: Record<DataStatus, { dot: string; label: string }> = {
+  fresh: { dot: "bg-success", label: "Données à jour" },
+  stale: { dot: "bg-amber-500", label: "Pas de données depuis 24h+" },
+  dead: { dot: "bg-destructive", label: "Pas de données depuis 3j+" },
+};
+
+function StatusDot({ status }: { status: DataStatus }) {
+  const { dot, label } = STATUS_STYLES[status];
+  return (
+    <span className="flex items-center gap-2" title={label}>
+      <span className={`size-2.5 shrink-0 rounded-full ${dot}`} />
+    </span>
+  );
+}
+
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [lastDataById, setLastDataById] = useState<Record<string, string | null>>({});
   const [loaded, setLoaded] = useState(false);
   const [search, setSearch] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  function reload() {
-    return Promise.all([
+  async function reload() {
+    const [projectsList] = await Promise.all([
       fetch("/api/projects")
         .then((res) => (res.ok ? res.json() : { projects: [] }))
-        .then((json: { projects: Project[] }) => setProjects(json.projects)),
+        .then((json: { projects: Project[] }) => json.projects),
       fetch("/api/accounts")
         .then((res) => (res.ok ? res.json() : { accounts: [] }))
         .then((json: { accounts: Account[] }) => setAccounts(json.accounts)),
     ]);
+    setProjects(projectsList);
+
+    const connected = projectsList.filter(isProjectConnected);
+    const statuses = await Promise.all(
+      connected.map((project) =>
+        fetch(`/api/projects/${project.id}/status`)
+          .then((res) => (res.ok ? res.json() : { lastDataAt: null }))
+          .then((json: { lastDataAt: string | null }) => [project.id, json.lastDataAt] as const)
+      )
+    );
+    setLastDataById(Object.fromEntries(statuses));
   }
 
   useEffect(() => {
-    reload().finally(() => setLoaded(true));
+    async function run() {
+      await reload();
+      setLoaded(true);
+    }
+    void run();
   }, []);
 
   const filteredProjects = useMemo(() => {
@@ -86,31 +137,64 @@ export default function ProjectsPage() {
           </Card>
         )}
 
-        <div className="flex flex-col gap-2">
-          {filteredProjects.map((project) => (
-            <Card key={project.id}>
-              <CardContent className="flex items-center justify-between gap-3 px-4 py-3">
-                <Link
-                  href={`/projects/${project.id}`}
-                  className="flex flex-1 items-center gap-3 text-sm font-medium hover:underline"
-                >
-                  {project.name}
-                  {!isProjectConnected(project) && (
-                    <Badge variant="outline">Non connecté</Badge>
-                  )}
-                </Link>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  disabled={deletingId === project.id}
-                  onClick={() => handleDelete(project)}
-                >
-                  <Trash2 className="size-4 text-destructive" />
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {filteredProjects.length > 0 && (
+          <Card>
+            <CardContent className="px-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Projet</TableHead>
+                    <TableHead>Projet BigQuery</TableHead>
+                    <TableHead>Dataset</TableHead>
+                    <TableHead>Données</TableHead>
+                    <TableHead className="w-9" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredProjects.map((project) => {
+                    const connected = isProjectConnected(project);
+                    return (
+                      <TableRow key={project.id}>
+                        <TableCell>
+                          <Link
+                            href={`/projects/${project.id}`}
+                            className="flex items-center gap-2 font-medium hover:underline"
+                          >
+                            {project.name}
+                            {!connected && <Badge variant="outline">Non connecté</Badge>}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {project.gcp_project_id ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {project.ga4_dataset ?? "—"}
+                        </TableCell>
+                        <TableCell>
+                          {connected ? (
+                            <StatusDot status={dataStatus(lastDataById[project.id] ?? null)} />
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={deletingId === project.id}
+                            onClick={() => handleDelete(project)}
+                          >
+                            <Trash2 className="size-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </AppShell>
   );
