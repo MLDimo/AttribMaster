@@ -44,7 +44,7 @@ export default function LoginPage() {
     <div className="relative flex min-h-svh items-center justify-center overflow-hidden bg-gradient-to-b from-muted/40 to-background p-6">
       <ParallaxBlob className="-top-32 -left-32 size-[28rem]" />
       <ParallaxBlob className="-right-40 -bottom-40 size-[32rem]" />
-      <ParallaxLogo className="top-1/2 left-1/2 size-[36rem] -translate-x-1/2 -translate-y-1/2" />
+      <ParallaxLogo className="top-1/2 left-1/2 size-[64rem] -translate-x-1/2 -translate-y-1/2" />
 
       <motion.div
         initial={{ opacity: 0, y: 24, scale: 0.96 }}

@@ -36,7 +36,7 @@ export function ParallaxLogo({ className }: { className?: string }) {
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 0.55, scale: 1 }}
       transition={{ duration: 1.2, ease: "easeOut" }}
-      className={`pointer-events-none absolute flex items-center justify-center blur-md ${className ?? ""}`}
+      className={`pointer-events-none absolute flex items-center justify-center blur-sm ${className ?? ""}`}
     >
       <Image src="/logo.png" alt="" width={800} height={800} priority className="size-full object-contain" />
     </motion.div>
