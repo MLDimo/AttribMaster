@@ -7,12 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Table,
-  TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
+  MotionTableBody,
+  MotionTableRow,
 } from "@/components/ui/table";
+import { fadeUpVariants } from "@/components/effects/motion";
 import { colorForSource, sourceLabel } from "@/lib/attribution/colors";
 import type { TransactionsResponse } from "@/lib/attribution/api-types";
 import type { Touchpoint } from "@/lib/attribution/types";
@@ -163,7 +165,11 @@ export function TransactionsTable({
             </TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody>
+        <MotionTableBody
+          initial="hidden"
+          animate="show"
+          variants={{ show: { transition: { staggerChildren: 0.04 } } }}
+        >
           {!loading && data?.rows.length === 0 && (
             <TableRow>
               <TableCell colSpan={4} className="text-center text-muted-foreground">
@@ -172,7 +178,7 @@ export function TransactionsTable({
             </TableRow>
           )}
           {data?.rows.map((row) => (
-            <TableRow key={row.transaction_id}>
+            <MotionTableRow key={row.transaction_id} variants={fadeUpVariants}>
               <TableCell className="font-mono text-xs">{row.transaction_id}</TableCell>
               <TableCell>{formatDate(row.event_timestamp)}</TableCell>
               <TableCell className="max-w-md whitespace-normal">
@@ -181,9 +187,9 @@ export function TransactionsTable({
               <TableCell className="text-right font-mono tabular-nums">
                 {formatCurrency(row.purchase_revenue, row.currency)}
               </TableCell>
-            </TableRow>
+            </MotionTableRow>
           ))}
-        </TableBody>
+        </MotionTableBody>
       </Table>
 
       <div className="flex items-center justify-between text-sm text-muted-foreground">

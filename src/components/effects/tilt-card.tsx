@@ -1,10 +1,12 @@
 "use client";
 
+import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { useRef } from "react";
 
 /**
  * Effet 3D "tilt" au survol : incline légèrement l'élément selon la position
- * du curseur (perspective CSS). Désactivé si prefers-reduced-motion.
+ * du curseur (ressort Framer Motion, plus fluide qu'une transition CSS).
+ * Désactivé si prefers-reduced-motion.
  */
 export function TiltCard({
   children,
@@ -16,6 +18,14 @@ export function TiltCard({
   const ref = useRef<HTMLDivElement>(null);
   const reducedMotion = useRef<boolean | null>(null);
 
+  const px = useMotionValue(0);
+  const py = useMotionValue(0);
+  const springConfig = { stiffness: 300, damping: 25, mass: 0.5 };
+  const springX = useSpring(px, springConfig);
+  const springY = useSpring(py, springConfig);
+  const rotateX = useTransform(springY, (v) => v * -6);
+  const rotateY = useTransform(springX, (v) => v * 6);
+
   function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
     if (reducedMotion.current === null) {
       reducedMotion.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -25,25 +35,24 @@ export function TiltCard({
     const el = ref.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    const px = (e.clientX - rect.left) / rect.width - 0.5;
-    const py = (e.clientY - rect.top) / rect.height - 0.5;
-    el.style.transform = `perspective(800px) rotateX(${py * -6}deg) rotateY(${px * 6}deg) translateZ(0)`;
+    px.set((e.clientX - rect.left) / rect.width - 0.5);
+    py.set((e.clientY - rect.top) / rect.height - 0.5);
   }
 
   function handlePointerLeave() {
-    const el = ref.current;
-    if (!el) return;
-    el.style.transform = "perspective(800px) rotateX(0deg) rotateY(0deg) translateZ(0)";
+    px.set(0);
+    py.set(0);
   }
 
   return (
-    <div
+    <motion.div
       ref={ref}
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
-      className={`transition-transform duration-200 ease-out will-change-transform ${className ?? ""}`}
+      style={{ rotateX, rotateY, perspective: 800 }}
+      className={`will-change-transform ${className ?? ""}`}
     >
       {children}
-    </div>
+    </motion.div>
   );
 }

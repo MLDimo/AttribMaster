@@ -1,52 +1,82 @@
 "use client";
 
 import * as React from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-const Dialog = DialogPrimitive.Root;
-const DialogTrigger = DialogPrimitive.Trigger;
-const DialogPortal = DialogPrimitive.Portal;
-const DialogClose = DialogPrimitive.Close;
+const DialogOpenContext = React.createContext(false);
 
-function DialogOverlay({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
+function Dialog({
+  open,
+  defaultOpen,
+  onOpenChange,
+  ...props
+}: React.ComponentProps<typeof DialogPrimitive.Root>) {
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen ?? false);
+  const isControlled = open !== undefined;
+  const actualOpen = isControlled ? open : uncontrolledOpen;
+
+  function handleOpenChange(next: boolean) {
+    if (!isControlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  }
+
   return (
-    <DialogPrimitive.Overlay
-      data-slot="dialog-overlay"
-      className={cn(
-        "fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-        className
-      )}
-      {...props}
-    />
+    <DialogOpenContext.Provider value={actualOpen}>
+      <DialogPrimitive.Root open={actualOpen} onOpenChange={handleOpenChange} {...props} />
+    </DialogOpenContext.Provider>
   );
 }
+
+const DialogTrigger = DialogPrimitive.Trigger;
+const DialogClose = DialogPrimitive.Close;
 
 function DialogContent({
   className,
   children,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content>) {
+  const open = React.useContext(DialogOpenContext);
+
   return (
-    <DialogPortal>
-      <DialogOverlay />
-      <DialogPrimitive.Content
-        data-slot="dialog-content"
-        className={cn(
-          "bg-card fixed top-1/2 left-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-          className
-        )}
-        {...props}
-      >
-        {children}
-        <DialogPrimitive.Close className="ring-offset-background focus:ring-ring absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden">
-          <X className="size-4" />
-          <span className="sr-only">Fermer</span>
-        </DialogPrimitive.Close>
-      </DialogPrimitive.Content>
-    </DialogPortal>
+    <AnimatePresence>
+      {open && (
+        <DialogPrimitive.Portal forceMount>
+          <DialogPrimitive.Overlay forceMount asChild>
+            <motion.div
+              data-slot="dialog-overlay"
+              className="fixed inset-0 z-50 bg-black/50"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            />
+          </DialogPrimitive.Overlay>
+          <DialogPrimitive.Content forceMount asChild {...props}>
+            <motion.div
+              data-slot="dialog-content"
+              className={cn(
+                "bg-card fixed top-1/2 left-1/2 z-50 grid w-full max-w-lg gap-4 rounded-xl border p-6 shadow-lg",
+                className
+              )}
+              initial={{ opacity: 0, scale: 0.95, x: "-50%", y: "-45%" }}
+              animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
+              exit={{ opacity: 0, scale: 0.95, x: "-50%", y: "-45%" }}
+              transition={{ type: "spring", stiffness: 350, damping: 30 }}
+            >
+              {children}
+              <DialogPrimitive.Close className="ring-offset-background focus:ring-ring absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden">
+                <X className="size-4" />
+                <span className="sr-only">Fermer</span>
+              </DialogPrimitive.Close>
+            </motion.div>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      )}
+    </AnimatePresence>
   );
 }
 

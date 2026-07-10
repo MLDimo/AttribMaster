@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { motion } from "framer-motion";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 
@@ -46,10 +46,15 @@ export default function LoginPage() {
       <ParallaxBlob className="-right-40 -bottom-40 size-[32rem]" />
       <ParallaxLogo className="top-1/2 left-1/2 size-[36rem] -translate-x-1/2 -translate-y-1/2" />
 
-      <TiltCard className="relative w-full max-w-sm">
+      <motion.div
+        initial={{ opacity: 0, y: 24, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ type: "spring", stiffness: 200, damping: 22 }}
+        className="relative w-full max-w-sm"
+      >
+      <TiltCard>
         <Card className="shadow-xl">
           <CardHeader className="items-center text-center">
-            <Image src="/logo-icon.png" alt="" width={40} height={40} className="mb-2 drop-shadow-sm" priority />
             <CardTitle>AttribMaster</CardTitle>
             <CardDescription>Connectez-vous pour accéder à vos projets</CardDescription>
           </CardHeader>
@@ -103,6 +108,7 @@ export default function LoginPage() {
           </CardContent>
         </Card>
       </TiltCard>
+      </motion.div>
     </div>
   );
 }

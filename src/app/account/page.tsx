@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppShell } from "@/components/layout/app-shell";
+import { StaggerContainer, StaggerItem } from "@/components/effects/motion";
 import type { MyAccountInfo } from "@/lib/account/types";
 
 export default function AccountPage() {
@@ -22,7 +23,8 @@ export default function AccountPage() {
 
   return (
     <AppShell>
-      <div className="flex max-w-lg flex-col gap-5">
+      <StaggerContainer className="flex max-w-lg flex-col gap-5">
+        <StaggerItem>
         <Card>
           <CardHeader>
             <CardTitle>Mon compte</CardTitle>
@@ -39,7 +41,9 @@ export default function AccountPage() {
             </div>
           </CardContent>
         </Card>
+        </StaggerItem>
 
+        <StaggerItem>
         <Card>
           <CardHeader>
             <CardTitle>Connexion Google</CardTitle>
@@ -70,7 +74,8 @@ export default function AccountPage() {
             )}
           </CardContent>
         </Card>
-      </div>
+        </StaggerItem>
+      </StaggerContainer>
     </AppShell>
   );
 }

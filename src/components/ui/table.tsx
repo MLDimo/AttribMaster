@@ -1,4 +1,5 @@
 import * as React from "react";
+import { motion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
 
@@ -96,6 +97,10 @@ function TableCaption({
   );
 }
 
+/** Variantes animées, pour un effet d'apparition en cascade des lignes. */
+const MotionTableBody = motion.create(TableBody);
+const MotionTableRow = motion.create(TableRow);
+
 export {
   Table,
   TableHeader,
@@ -105,4 +110,6 @@ export {
   TableRow,
   TableCell,
   TableCaption,
+  MotionTableBody,
+  MotionTableRow,
 };

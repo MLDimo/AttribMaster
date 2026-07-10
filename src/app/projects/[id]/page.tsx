@@ -13,6 +13,7 @@ import { AttributionChart } from "@/components/dashboard/attribution-chart";
 import { DateRangePicker } from "@/components/dashboard/date-range-picker";
 import { OverviewCards } from "@/components/dashboard/overview-cards";
 import { TransactionsTable } from "@/components/dashboard/transactions-table";
+import { FadeIn } from "@/components/effects/motion";
 import type { OverviewResponse } from "@/lib/attribution/api-types";
 import { defaultRange } from "@/lib/attribution/date-range";
 import type { ComparisonMode } from "@/lib/attribution/date-range";
@@ -219,9 +220,12 @@ export default function ProjectPage() {
         <span className="font-medium text-foreground">{project.name}</span>
       </nav>
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-        <ProjectSettingsSidebar project={project} onRenamed={setProject} />
+        <FadeIn>
+          <ProjectSettingsSidebar project={project} onRenamed={setProject} />
+        </FadeIn>
 
         <div className="flex flex-1 flex-col gap-5">
+          <FadeIn delay={0.05}>
           <Card className="py-4">
             <CardContent className="flex flex-wrap items-end gap-4 px-4">
               <Field label="Période" icon={<Calendar className="size-3.5" />}>
@@ -259,8 +263,10 @@ export default function ProjectPage() {
               </Field>
             </CardContent>
           </Card>
+          </FadeIn>
 
           {!connected && (
+            <FadeIn delay={0.1}>
             <Card>
               <CardContent className="flex flex-col items-center gap-3 py-8 text-center text-sm text-muted-foreground">
                 <p>Ce projet n&apos;est pas encore connecté à BigQuery.</p>
@@ -269,6 +275,7 @@ export default function ProjectPage() {
                 </Button>
               </CardContent>
             </Card>
+            </FadeIn>
           )}
 
           {connected && overview && (
@@ -277,6 +284,7 @@ export default function ProjectPage() {
 
           {connected && (
             <>
+              <FadeIn delay={0.15}>
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -288,7 +296,9 @@ export default function ProjectPage() {
                   <AttributionChart sources={overview?.topSources ?? []} />
                 </CardContent>
               </Card>
+              </FadeIn>
 
+              <FadeIn delay={0.2}>
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -300,6 +310,7 @@ export default function ProjectPage() {
                   <TransactionsTable projectId={projectId} from={from} to={to} />
                 </CardContent>
               </Card>
+              </FadeIn>
             </>
           )}
         </div>

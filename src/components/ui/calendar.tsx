@@ -183,6 +183,12 @@ function CalendarDayButton({
   className,
   day,
   modifiers,
+  // Omis : incompatibles avec les props MotionProps du Button (framer-motion) sous-jacent.
+  onAnimationStart: _onAnimationStart,
+  onAnimationEnd: _onAnimationEnd,
+  onDrag: _onDrag,
+  onDragStart: _onDragStart,
+  onDragEnd: _onDragEnd,
   ...props
 }: React.ComponentProps<typeof DayButton>) {
   const defaultClassNames = getDefaultClassNames()

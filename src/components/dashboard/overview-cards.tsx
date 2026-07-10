@@ -2,6 +2,7 @@ import { ArrowDownRight, ArrowUpRight, Receipt, TrendingUp, Wallet } from "lucid
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
+import { StaggerContainer, StaggerItem } from "@/components/effects/motion";
 import { TiltCard } from "@/components/effects/tilt-card";
 import type { OverviewResponse } from "@/lib/attribution/api-types";
 
@@ -34,7 +35,8 @@ export function OverviewCards({
       : `${isPositive ? "+" : ""}${totals.revenueChangePct.toFixed(1)}%`;
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <StaggerContainer className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <StaggerItem>
       <TiltCard>
         <Card className="gap-3 py-5">
           <CardHeader className="flex-row items-center justify-between space-y-0">
@@ -60,7 +62,9 @@ export function OverviewCards({
           </CardContent>
         </Card>
       </TiltCard>
+      </StaggerItem>
 
+      <StaggerItem>
       <TiltCard>
         <Card className="gap-3 py-5">
           <CardHeader className="flex-row items-center justify-between space-y-0">
@@ -76,7 +80,9 @@ export function OverviewCards({
           </CardContent>
         </Card>
       </TiltCard>
+      </StaggerItem>
 
+      <StaggerItem>
       <TiltCard>
         <Card className="gap-3 py-5">
           <CardHeader className="flex-row items-center justify-between space-y-0">
@@ -92,6 +98,7 @@ export function OverviewCards({
           </CardContent>
         </Card>
       </TiltCard>
-    </div>
+      </StaggerItem>
+    </StaggerContainer>
   );
 }

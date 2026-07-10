@@ -10,14 +10,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Table,
-  TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
+  MotionTableBody,
+  MotionTableRow,
 } from "@/components/ui/table";
 import { AppShell } from "@/components/layout/app-shell";
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
+import { FadeIn, fadeUpVariants } from "@/components/effects/motion";
 import { isProjectConnected } from "@/lib/projects/types";
 import type { Account, Project } from "@/lib/projects/types";
 
@@ -109,7 +111,7 @@ export default function ProjectsPage() {
   return (
     <AppShell>
       <div className="flex flex-col gap-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <FadeIn className="flex flex-wrap items-center justify-between gap-3">
           <div className="relative w-full max-w-xs">
             <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -120,7 +122,7 @@ export default function ProjectsPage() {
             />
           </div>
           <CreateProjectDialog accounts={accounts} />
-        </div>
+        </FadeIn>
 
         {loaded && projects.length === 0 && (
           <Card>
@@ -139,6 +141,7 @@ export default function ProjectsPage() {
         )}
 
         {filteredProjects.length > 0 && (
+          <FadeIn>
           <Card>
             <CardContent>
               <Table>
@@ -151,11 +154,15 @@ export default function ProjectsPage() {
                     <TableHead className="w-9" />
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <MotionTableBody
+                  initial="hidden"
+                  animate="show"
+                  variants={{ show: { transition: { staggerChildren: 0.05 } } }}
+                >
                   {filteredProjects.map((project) => {
                     const connected = isProjectConnected(project);
                     return (
-                      <TableRow key={project.id} className="group">
+                      <MotionTableRow key={project.id} variants={fadeUpVariants} className="group">
                         <TableCell>
                           <Link
                             href={`/projects/${project.id}`}
@@ -191,13 +198,14 @@ export default function ProjectsPage() {
                             <Trash2 className="size-4 text-destructive" />
                           </Button>
                         </TableCell>
-                      </TableRow>
+                      </MotionTableRow>
                     );
                   })}
-                </TableBody>
+                </MotionTableBody>
               </Table>
             </CardContent>
           </Card>
+          </FadeIn>
         )}
       </div>
     </AppShell>

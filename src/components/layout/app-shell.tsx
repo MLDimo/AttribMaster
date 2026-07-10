@@ -1,12 +1,12 @@
 "use client";
 
+import { AnimatePresence, motion } from "framer-motion";
 import { LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { cn } from "@/lib/utils";
 import { ParallaxBlob } from "@/components/effects/parallax-blob";
 
 const NAV_ITEMS = [
@@ -37,14 +37,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={cn(
-                      "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                      active
-                        ? "bg-accent text-accent-foreground"
-                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                    )}
+                    className="relative rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-accent-foreground data-[active=true]:text-accent-foreground"
+                    data-active={active}
                   >
-                    {item.label}
+                    {active && (
+                      <motion.span
+                        layoutId="nav-active-pill"
+                        className="absolute inset-0 rounded-md bg-accent"
+                        transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                      />
+                    )}
+                    <span className="relative z-10">{item.label}</span>
                   </Link>
                 );
               })}
@@ -61,7 +64,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 p-4 sm:p-6">{children}</main>
+      <AnimatePresence mode="wait">
+        <motion.main
+          key={pathname}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          className="mx-auto w-full max-w-6xl flex-1 p-4 sm:p-6"
+        >
+          {children}
+        </motion.main>
+      </AnimatePresence>
     </div>
   );
 }
