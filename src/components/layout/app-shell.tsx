@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, LogOut, User } from "lucide-react";
+import { BarChart3, LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -50,12 +50,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </nav>
           </div>
           <div className="flex items-center gap-3">
-            <Link
-              href="/account"
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <User className="size-4" />
-            </Link>
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}
               className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"

@@ -106,7 +106,7 @@ function ProjectSettingsSidebar({
                 onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
                 disabled={saving}
               />
-              <Button size="sm" onClick={handleSaveName} disabled={saving}>
+              <Button size="sm" aria-label="Enregistrer le nom" onClick={handleSaveName} disabled={saving}>
                 <Check className="size-4" />
               </Button>
             </div>
@@ -214,6 +214,13 @@ export default function ProjectPage() {
 
   return (
     <AppShell>
+      <nav aria-label="Fil d'ariane" className="mb-4 flex items-center gap-1.5 text-sm text-muted-foreground">
+        <Link href="/projects" className="hover:text-foreground hover:underline">
+          Projets
+        </Link>
+        <span aria-hidden>/</span>
+        <span className="font-medium text-foreground">{project.name}</span>
+      </nav>
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <ProjectSettingsSidebar project={project} onRenamed={setProject} />
 

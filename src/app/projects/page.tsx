@@ -33,17 +33,18 @@ function dataStatus(lastDataAt: string | null): DataStatus {
   return "dead";
 }
 
-const STATUS_STYLES: Record<DataStatus, { dot: string; label: string }> = {
-  fresh: { dot: "bg-success", label: "Données à jour" },
-  stale: { dot: "bg-amber-500", label: "Pas de données depuis 24h+" },
-  dead: { dot: "bg-destructive", label: "Pas de données depuis 3j+" },
+const STATUS_STYLES: Record<DataStatus, { dot: string; label: string; text: string }> = {
+  fresh: { dot: "bg-success", label: "Données à jour (moins de 24h)", text: "À jour" },
+  stale: { dot: "bg-amber-500", label: "Pas de données depuis au moins 24h", text: "24h+" },
+  dead: { dot: "bg-destructive", label: "Pas de données depuis 3 jours ou plus", text: "3j+" },
 };
 
 function StatusDot({ status }: { status: DataStatus }) {
-  const { dot, label } = STATUS_STYLES[status];
+  const { dot, label, text } = STATUS_STYLES[status];
   return (
-    <span className="flex items-center gap-2" title={label}>
-      <span className={`size-2.5 shrink-0 rounded-full ${dot}`} />
+    <span className="flex items-center gap-1.5 text-xs text-muted-foreground" title={label}>
+      <span aria-hidden className={`size-2.5 shrink-0 rounded-full ${dot}`} />
+      {text}
     </span>
   );
 }
@@ -181,6 +182,7 @@ export default function ProjectsPage() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            aria-label={`Supprimer ${project.name}`}
                             disabled={deletingId === project.id}
                             onClick={() => handleDelete(project)}
                           >
