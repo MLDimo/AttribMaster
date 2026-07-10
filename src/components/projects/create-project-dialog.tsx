@@ -2,7 +2,7 @@
 
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -16,85 +16,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { isProjectConnected } from "@/lib/projects/types";
 import type { Account, Project } from "@/lib/projects/types";
 
-type ProjectSwitcherProps = {
-  selectedProjectId: string | null;
-  onSelectProject: (project: Project) => void;
-};
-
-export function ProjectSwitcher({ selectedProjectId, onSelectProject }: ProjectSwitcherProps) {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-
-  async function fetchProjects(): Promise<Project[]> {
-    const res = await fetch("/api/projects");
-    if (!res.ok) return [];
-    const json: { projects: Project[] } = await res.json();
-    return json.projects;
-  }
-
-  useEffect(() => {
-    Promise.all([
-      fetchProjects().then((projects) => setProjects(projects)),
-      fetch("/api/accounts")
-        .then((res) => (res.ok ? res.json() : { accounts: [] }))
-        .then((json: { accounts: Account[] }) => setAccounts(json.accounts)),
-    ]).finally(() => setLoaded(true));
-  }, []);
-
-  useEffect(() => {
-    if (!selectedProjectId && projects.length > 0) {
-      onSelectProject(projects[0]);
-    }
-  }, [projects, selectedProjectId, onSelectProject]);
-
-  function handleSelect(projectId: string) {
-    const project = projects.find((p) => p.id === projectId);
-    if (project) onSelectProject(project);
-  }
-
-  if (loaded && projects.length === 0) {
-    return (
-      <div className="flex items-center gap-3">
-        <p className="text-sm text-muted-foreground">Aucun projet pour l&apos;instant.</p>
-        <CreateProjectDialog accounts={accounts} open={dialogOpen} onOpenChange={setDialogOpen} />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <select
-        className="h-9 cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
-        value={selectedProjectId ?? ""}
-        onChange={(e) => handleSelect(e.target.value)}
-      >
-        {projects.map((project) => (
-          <option key={project.id} value={project.id}>
-            {project.name}
-            {!isProjectConnected(project) ? " (non connecté)" : ""}
-          </option>
-        ))}
-      </select>
-      <CreateProjectDialog accounts={accounts} open={dialogOpen} onOpenChange={setDialogOpen} />
-    </div>
-  );
-}
-
-function CreateProjectDialog({
-  accounts,
-  open,
-  onOpenChange,
-}: {
-  accounts: Account[];
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
+export function CreateProjectDialog({ accounts }: { accounts: Account[] }) {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -120,7 +46,7 @@ function CreateProjectDialog({
         throw new Error(json?.error ? JSON.stringify(json.error) : "Échec de la création");
       }
       const json: { project: Project } = await res.json();
-      onOpenChange(false);
+      setOpen(false);
       router.push(`/projects/${json.project.id}/connect`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de la création");
@@ -129,9 +55,9 @@ function CreateProjectDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button size="sm">
           <Plus className="size-4" />
           Nouveau projet
         </Button>

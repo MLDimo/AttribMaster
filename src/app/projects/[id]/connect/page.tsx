@@ -80,7 +80,7 @@ export default function ConnectBigQueryPage() {
         const json = await res.json().catch(() => null);
         throw new Error(json?.error ? JSON.stringify(json.error) : "Échec de la connexion");
       }
-      router.push("/");
+      router.push(`/projects/${projectId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de la connexion");
     } finally {
@@ -171,7 +171,7 @@ export default function ConnectBigQueryPage() {
           )}
 
           <Button variant="ghost" asChild>
-            <Link href="/">Retour au dashboard</Link>
+            <Link href={`/projects/${projectId}`}>Retour au dashboard</Link>
           </Button>
         </CardContent>
       </Card>

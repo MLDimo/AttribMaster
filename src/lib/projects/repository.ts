@@ -148,6 +148,26 @@ export async function connectProjectBigQuery(
   return rows[0];
 }
 
+export async function renameProject(projectId: string, name: string): Promise<Project> {
+  const userId = await requireUserId();
+  await requireProjectAccess(projectId, userId);
+
+  const db = getDbPool();
+  const { rows } = await db.query<Project>(
+    `update projects set name = $1 where id = $2 returning *`,
+    [name, projectId]
+  );
+  return rows[0];
+}
+
+export async function deleteProject(projectId: string): Promise<void> {
+  const userId = await requireUserId();
+  await requireProjectAccess(projectId, userId);
+
+  const db = getDbPool();
+  await db.query(`delete from projects where id = $1`, [projectId]);
+}
+
 /** Déchiffre le refresh token OAuth d'un projet. Utilisé côté serveur uniquement. */
 export async function getProjectOAuthToken(projectId: string): Promise<string | null> {
   const db = getDbPool();
