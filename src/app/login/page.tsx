@@ -50,7 +50,7 @@ export default function LoginPage() {
             <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
               <BarChart3 className="size-5" />
             </div>
-            <CardTitle>Attribution Tool</CardTitle>
+            <CardTitle>AttribMaster</CardTitle>
             <CardDescription>Connectez-vous pour accéder à vos projets</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

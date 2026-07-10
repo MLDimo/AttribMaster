@@ -44,7 +44,7 @@ export default function AccountPage() {
           <CardHeader>
             <CardTitle>Connexion Google</CardTitle>
             <CardDescription>
-              Utilisée pour te connecter à Attribution Tool avec ton compte Google.
+              Utilisée pour te connecter à AttribMaster avec ton compte Google.
             </CardDescription>
           </CardHeader>
           <CardContent>

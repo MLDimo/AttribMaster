@@ -27,7 +27,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <BarChart3 className="size-5" />
               </div>
               <div>
-                <h1 className="text-lg leading-tight font-semibold">Attribution Tool</h1>
+                <h1 className="text-lg leading-tight font-semibold">AttribMaster</h1>
                 <p className="text-xs text-muted-foreground">GA4 · BigQuery · Multi-touch</p>
               </div>
             </Link>
