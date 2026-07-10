@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { AppShell } from "@/components/layout/app-shell";
 import { AttributionChart } from "@/components/dashboard/attribution-chart";
+import { DateRangePicker } from "@/components/dashboard/date-range-picker";
 import { OverviewCards } from "@/components/dashboard/overview-cards";
 import { TransactionsTable } from "@/components/dashboard/transactions-table";
 import type { OverviewResponse } from "@/lib/attribution/api-types";
@@ -230,20 +231,14 @@ export default function ProjectPage() {
         <div className="flex flex-1 flex-col gap-5">
           <Card className="py-4">
             <CardContent className="flex flex-wrap items-end gap-4 px-4">
-              <Field label="Du" icon={<Calendar className="size-3.5" />}>
-                <Input
-                  type="date"
-                  value={from}
-                  onChange={(e) => setFrom(e.target.value)}
-                  className="w-40"
-                />
-              </Field>
-              <Field label="Au" icon={<Calendar className="size-3.5" />}>
-                <Input
-                  type="date"
-                  value={to}
-                  onChange={(e) => setTo(e.target.value)}
-                  className="w-40"
+              <Field label="Période" icon={<Calendar className="size-3.5" />}>
+                <DateRangePicker
+                  from={from}
+                  to={to}
+                  onChange={(nextFrom, nextTo) => {
+                    setFrom(nextFrom);
+                    setTo(nextTo);
+                  }}
                 />
               </Field>
               <Field label="Modèle d'attribution" icon={<SlidersHorizontal className="size-3.5" />}>
