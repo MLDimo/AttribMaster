@@ -14,14 +14,11 @@ import { DateRangePicker } from "@/components/dashboard/date-range-picker";
 import { OverviewCards } from "@/components/dashboard/overview-cards";
 import { TransactionsTable } from "@/components/dashboard/transactions-table";
 import type { OverviewResponse } from "@/lib/attribution/api-types";
+import { defaultRange } from "@/lib/attribution/date-range";
 import type { ComparisonMode } from "@/lib/attribution/date-range";
 import { isProjectConnected } from "@/lib/projects/types";
 import type { Project } from "@/lib/projects/types";
 import type { AttributionModel } from "@/lib/attribution/types";
-
-function toISODate(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
 
 const MODEL_LABELS: Record<AttributionModel, string> = {
   linear: "Linéaire",
@@ -158,13 +155,9 @@ export default function ProjectPage() {
   const params = useParams<{ id: string }>();
   const projectId = params.id;
 
-  const today = new Date();
-  const weekAgo = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
-
   const [project, setProject] = useState<Project | null>(null);
   const [notFound, setNotFound] = useState(false);
-  const [from, setFrom] = useState(toISODate(weekAgo));
-  const [to, setTo] = useState(toISODate(today));
+  const [{ from, to }, setRange] = useState(defaultRange());
   const [model, setModel] = useState<AttributionModel>("linear");
   const [comparison, setComparison] = useState<ComparisonMode>("previous_period");
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
@@ -235,10 +228,7 @@ export default function ProjectPage() {
                 <DateRangePicker
                   from={from}
                   to={to}
-                  onChange={(nextFrom, nextTo) => {
-                    setFrom(nextFrom);
-                    setTo(nextTo);
-                  }}
+                  onChange={(nextFrom, nextTo) => setRange({ from: nextFrom, to: nextTo })}
                 />
               </Field>
               <Field label="Modèle d'attribution" icon={<SlidersHorizontal className="size-3.5" />}>

@@ -1,36 +1,33 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AttribMaster
 
-## Getting Started
+SaaS d'attribution marketing multi-touch : connecte un export GA4 → BigQuery et calcule l'attribution (linéaire, U-shape, time-decay) sur les transactions.
 
-First, run the development server:
+## Stack
+
+- Next.js 16 (App Router) + Tailwind CSS v4
+- Auth.js v5 : login email/mot de passe + Google OAuth
+- Vercel Postgres / Neon : comptes, workspaces, projets
+- Google BigQuery : connexion OAuth par projet (1 projet = 1 dataset GA4), refresh token chiffré (AES-256-GCM)
+- Script d'attribution nocturne (`sql/nightly_attribution.sql`, cron Vercel à 2h, voir `vercel.json`)
+
+## Démarrer en local
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Ouvrir [http://localhost:3000](http://localhost:3000). Les variables d'environnement nécessaires sont documentées dans `.env` (non versionné).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `src/app` — pages et routes API (App Router)
+- `src/components` — composants UI (`ui/` = shadcn, `dashboard/`, `layout/`, `effects/`)
+- `src/lib` — logique métier (attribution, BigQuery, projets, comptes, crypto, OAuth GCP)
+- `db/migrations` — schéma Postgres (Auth.js, workspaces/projects, mot de passe)
+- `sql/` — DDL et script d'attribution BigQuery
+- `scripts/seed-admin.mjs` — création d'un compte admin (email + mot de passe)
 
-## Learn More
+## Déploiement
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Déployé sur Vercel. Voir `CLAUDE.md` pour la roadmap détaillée (V1 attribution, V2 multi-tenant, V3 facturation Stripe).
