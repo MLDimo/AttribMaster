@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, Trash2 } from "lucide-react";
+import { ArrowRight, Search, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -155,14 +155,15 @@ export default function ProjectsPage() {
                   {filteredProjects.map((project) => {
                     const connected = isProjectConnected(project);
                     return (
-                      <TableRow key={project.id}>
+                      <TableRow key={project.id} className="group">
                         <TableCell>
                           <Link
                             href={`/projects/${project.id}`}
-                            className="flex items-center gap-2 font-medium hover:underline"
+                            className="flex items-center gap-2 font-medium transition-colors group-hover:text-primary"
                           >
                             {project.name}
                             {!connected && <Badge variant="outline">Non connecté</Badge>}
+                            <ArrowRight className="size-3.5 -translate-x-1 text-primary opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100" />
                           </Link>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
@@ -185,6 +186,7 @@ export default function ProjectsPage() {
                             aria-label={`Supprimer ${project.name}`}
                             disabled={deletingId === project.id}
                             onClick={() => handleDelete(project)}
+                            className="hover:bg-destructive/10"
                           >
                             <Trash2 className="size-4 text-destructive" />
                           </Button>

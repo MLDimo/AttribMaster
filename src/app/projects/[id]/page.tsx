@@ -115,11 +115,11 @@ function ProjectSettingsSidebar({
             </div>
           ) : (
             <button
-              className="flex items-center gap-1.5 text-left font-medium hover:text-primary"
+              className="group flex items-center gap-1.5 text-left font-medium transition-colors hover:text-primary"
               onClick={() => setEditingName(true)}
             >
               {project.name}
-              <Pencil className="size-3.5 text-muted-foreground" />
+              <Pencil className="size-3.5 text-muted-foreground transition-colors group-hover:text-primary" />
             </button>
           )}
         </div>
@@ -202,7 +202,7 @@ export default function ProjectPage() {
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
             Ce projet n&apos;existe pas ou tu n&apos;y as pas accès.{" "}
-            <Link href="/projects" className="text-primary hover:underline">
+            <Link href="/projects" className="font-medium text-primary transition-colors hover:text-primary/70">
               Retour à la liste des projets
             </Link>
           </CardContent>
@@ -218,7 +218,7 @@ export default function ProjectPage() {
   return (
     <AppShell>
       <nav aria-label="Fil d'ariane" className="mb-4 flex items-center gap-1.5 text-sm text-muted-foreground">
-        <Link href="/projects" className="hover:text-foreground hover:underline">
+        <Link href="/projects" className="transition-colors hover:text-primary">
           Projets
         </Link>
         <span aria-hidden>/</span>
