@@ -140,7 +140,7 @@ export default function ProjectsPage() {
 
         {filteredProjects.length > 0 && (
           <Card>
-            <CardContent className="px-0">
+            <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>

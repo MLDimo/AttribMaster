@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, ChartPie, Check, GitCompare, Pencil, Receipt, SlidersHorizontal } from "lucide-react";
+import { Calendar, ChartPie, Check, GitCompare, Pencil, Receipt, Settings2, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -92,7 +92,10 @@ function ProjectSettingsSidebar({
   return (
     <Card className="h-fit w-full shrink-0 lg:w-72">
       <CardHeader>
-        <CardTitle className="text-sm">Paramètres du projet</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <Settings2 className="size-4 text-muted-foreground" />
+          Paramètres du projet
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 text-sm">
         <div className="flex flex-col gap-1.5">
