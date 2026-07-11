@@ -40,12 +40,15 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-svh items-center justify-center overflow-hidden bg-background p-6">
+    <div
+      className="relative flex min-h-svh items-center justify-center overflow-hidden bg-background p-6"
+      style={{ "--background": "#F8F3EC" } as React.CSSProperties}
+    >
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1.2, ease: "easeOut" }}
-        className="absolute inset-0 blur-[2px]"
+        className="absolute inset-0 blur-[6px]"
       >
         <ParticleThreads />
       </motion.div>
