@@ -10,6 +10,15 @@ function hexToRgb(hex: string): RGB {
   return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
 }
 
+/** Éclaircit une couleur (mélange vers le blanc) pour le trait "sheen" du grain de bois. */
+function lighten(c: RGB, amount: number): RGB {
+  return {
+    r: c.r + (255 - c.r) * amount,
+    g: c.g + (255 - c.g) * amount,
+    b: c.b + (255 - c.b) * amount,
+  };
+}
+
 /** Lit les couleurs du thème (variables CSS) plutôt que des hex en dur, pour rester clair/sombre-safe. */
 function readThemeStrokes(): RGB[] {
   const styles = getComputedStyle(document.documentElement);
@@ -62,13 +71,13 @@ export function ParticleThreads({ className }: { className?: string }) {
       canvasEl.height = height * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      const count = Math.max(28, Math.floor((width * height) / 18000));
+      const count = Math.max(40, Math.floor((width * height) / 14000));
       particles = Array.from({ length: count }, () => ({
         x: Math.random() * width,
         y: Math.random() * height,
-        dx: Math.random() * 0.3 - 0.15,
-        dy: Math.random() * 0.3 - 0.15,
-        size: Math.random() * 1.4 + 1,
+        dx: Math.random() * 0.4 - 0.2,
+        dy: Math.random() * 0.4 - 0.2,
+        size: Math.random() * 1.6 + 1.2,
       }));
     }
 
@@ -82,8 +91,8 @@ export function ParticleThreads({ className }: { className?: string }) {
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < mouse.radius && dist > 0) {
           const force = (mouse.radius - dist) / mouse.radius;
-          p.x -= (dx / dist) * force * 5;
-          p.y -= (dy / dist) * force * 5;
+          p.x -= (dx / dist) * force * 6;
+          p.y -= (dy / dist) * force * 6;
         }
       }
       p.x += p.dx;
@@ -98,7 +107,7 @@ export function ParticleThreads({ className }: { className?: string }) {
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         const deep = strokes[2];
-        ctx.fillStyle = `rgba(${deep.r},${deep.g},${deep.b},0.85)`;
+        ctx.fillStyle = `rgba(${deep.r},${deep.g},${deep.b},0.9)`;
         ctx.fill();
       }
 
@@ -113,7 +122,7 @@ export function ParticleThreads({ className }: { className?: string }) {
           if (dist >= maxDist) continue;
 
           const t = 1 - dist / maxDist;
-          const opacity = Math.min(1, t * 0.75);
+          const opacity = Math.min(1, t * 0.9);
           let nearMouse = false;
           if (mouse.x !== null && mouse.y !== null) {
             const mdx = pa.x - mouse.x;
@@ -121,14 +130,26 @@ export function ParticleThreads({ className }: { className?: string }) {
             nearMouse = Math.sqrt(mdx * mdx + mdy * mdy) < mouse.radius;
           }
           const stroke = nearMouse ? strokes[1] : strokes[a % strokes.length];
+          const lineWidth = 1.5 + t * 2.4;
 
           ctx.strokeStyle = `rgba(${stroke.r},${stroke.g},${stroke.b},${opacity})`;
-          ctx.lineWidth = 1.2 + t * 1.8;
+          ctx.lineWidth = lineWidth;
           ctx.lineCap = "round";
           ctx.beginPath();
           ctx.moveTo(pa.x, pa.y);
           ctx.lineTo(pb.x, pb.y);
           ctx.stroke();
+
+          // Reflet plus clair ("veine de bois") sur les connexions les plus proches.
+          if (t > 0.55) {
+            const sheen = lighten(strokes[1], 0.25);
+            ctx.strokeStyle = `rgba(${sheen.r},${sheen.g},${sheen.b},${opacity * 0.5})`;
+            ctx.lineWidth = Math.max(0.6, lineWidth * 0.35);
+            ctx.beginPath();
+            ctx.moveTo(pa.x + 0.4, pa.y + 0.4);
+            ctx.lineTo(pb.x + 0.4, pb.y + 0.4);
+            ctx.stroke();
+          }
         }
       }
     }
