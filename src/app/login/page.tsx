@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ParallaxBlob } from "@/components/effects/parallax-blob";
-import { ParallaxLogo } from "@/components/effects/parallax-logo";
+import { ParticleThreads } from "@/components/effects/particle-threads";
 import { TiltCard } from "@/components/effects/tilt-card";
 
 export default function LoginPage() {
@@ -41,10 +40,24 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-svh items-center justify-center overflow-hidden bg-gradient-to-b from-muted/40 to-background p-6">
-      <ParallaxBlob className="-top-32 -left-32 size-[28rem]" />
-      <ParallaxBlob className="-right-40 -bottom-40 size-[32rem]" />
-      <ParallaxLogo className="top-1/2 left-1/2 size-[64rem] -translate-x-1/2 -translate-y-1/2" />
+    <div className="relative flex min-h-svh items-center justify-center overflow-hidden bg-background grain-veil-bg grain-noise p-6">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1.2, ease: "easeOut" }}
+        className="absolute inset-0"
+      >
+        <ParticleThreads />
+      </motion.div>
+      <div className="blur-veil pointer-events-none absolute inset-0" />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(120% 90% at 50% 50%, transparent 55%, color-mix(in oklch, var(--foreground) 18%, transparent) 100%)",
+        }}
+      />
 
       <motion.div
         initial={{ opacity: 0, y: 24, scale: 0.96 }}
@@ -109,6 +122,15 @@ export default function LoginPage() {
         </Card>
       </TiltCard>
       </motion.div>
+
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1, delay: 0.6 }}
+        className="pointer-events-none absolute right-0 bottom-6 left-0 z-10 text-center text-xs tracking-widest text-muted-foreground uppercase"
+      >
+        Déplace ton curseur — les fils s&apos;écartent
+      </motion.p>
     </div>
   );
 }

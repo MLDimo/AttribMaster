@@ -27,7 +27,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Image src="/logo-icon.png" alt="" width={36} height={36} className="drop-shadow-sm" priority />
               <div>
                 <h1 className="text-lg leading-tight font-semibold">AttribMaster</h1>
-                <p className="text-xs text-muted-foreground">GA4 · BigQuery · Multi-touch</p>
               </div>
             </Link>
             <nav className="flex items-center gap-1">
