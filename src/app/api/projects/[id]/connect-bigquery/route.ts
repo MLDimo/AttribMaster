@@ -18,12 +18,19 @@ const bodySchema = z.object({
 async function provisionAttributionsTable(
   bigquery: BigQuery,
   gcpProjectId: string,
-  bigqueryDataset: string
+  bigqueryDataset: string,
+  ga4Dataset: string
 ) {
   const dataset = bigquery.dataset(bigqueryDataset);
   const [exists] = await dataset.exists();
   if (!exists) {
-    await bigquery.createDataset(bigqueryDataset);
+    // Le dataset d'attribution doit être dans la même location que l'export
+    // GA4 : BigQuery interdit de joindre/écrire entre deux datasets situés
+    // dans des locations différentes (sinon "createDataset" retombe sur la
+    // location par défaut "US", qui casse la requête si le GA4 export est
+    // ailleurs, ex: europe-west1).
+    const [ga4Metadata] = await bigquery.dataset(ga4Dataset).getMetadata();
+    await bigquery.createDataset(bigqueryDataset, { location: ga4Metadata.location });
   }
 
   const ddlPath = path.join(process.cwd(), "sql", "create_attributions_table.sql");
@@ -60,7 +67,7 @@ export async function POST(
   try {
     const authClient = authorizedClientFromRefreshToken(refreshToken);
     const bigquery = new BigQuery({ projectId: parsed.data.gcpProjectId, authClient });
-    await provisionAttributionsTable(bigquery, parsed.data.gcpProjectId, bigqueryDataset);
+    await provisionAttributionsTable(bigquery, parsed.data.gcpProjectId, bigqueryDataset, parsed.data.ga4Dataset);
   } catch (error) {
     // Non bloquant : le dataset/table peuvent être créés manuellement plus tard.
     console.error("[api/projects/[id]/connect-bigquery] provisioning failed", error);

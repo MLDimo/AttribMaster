@@ -51,7 +51,9 @@ purchases AS (
   SELECT
     (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'transaction_id') AS transaction_id,
     user_pseudo_id,
-    event_date,
+    -- event_date est STRING côté export GA4 (format YYYYMMDD), à convertir
+    -- pour matcher le type DATE de attributions_resumees.event_date.
+    PARSE_DATE('%Y%m%d', event_date) AS event_date,
     TIMESTAMP_MICROS(event_timestamp) AS event_timestamp,
     ecommerce.purchase_revenue AS purchase_revenue,
     (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'currency') AS currency
