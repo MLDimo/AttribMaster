@@ -1,4 +1,5 @@
 import { getBigQueryClientForProject, ATTRIBUTIONS_TABLE } from "@/lib/bigquery/client";
+import { getMockRows, MOCK_PROJECT_ID } from "./mock-data";
 import type { AttributionRow, Touchpoint } from "./types";
 
 type BigQueryTimestampLike = { value: string };
@@ -54,6 +55,11 @@ export type DateRange = { from: string; to: string };
 
 /** Horodatage de la transaction la plus récente, pour juger de la fraîcheur des données. */
 export async function getLastDataTimestamp(projectId: string): Promise<string | null> {
+  if (projectId === MOCK_PROJECT_ID) {
+    const rows = getMockRows();
+    return rows.length > 0 ? rows[rows.length - 1].event_timestamp : null;
+  }
+
   const { client, project } = await getBigQueryClientForProject(projectId);
   const table = `\`${project.gcp_project_id}.${project.bigquery_dataset}.${ATTRIBUTIONS_TABLE}\``;
 
@@ -69,6 +75,10 @@ export async function getAttributionRows(
   projectId: string,
   { from, to }: DateRange
 ): Promise<AttributionRow[]> {
+  if (projectId === MOCK_PROJECT_ID) {
+    return getMockRows().filter((row) => row.event_date >= from && row.event_date <= to);
+  }
+
   const { client, project } = await getBigQueryClientForProject(projectId);
   const table = `\`${project.gcp_project_id}.${project.bigquery_dataset}.${ATTRIBUTIONS_TABLE}\``;
 
@@ -111,6 +121,20 @@ export async function getTransactions(
     sortDir = "desc",
   }: TransactionsQuery
 ): Promise<TransactionsPage> {
+  if (projectId === MOCK_PROJECT_ID) {
+    let rows = getMockRows().filter((row) => row.event_date >= from && row.event_date <= to);
+    if (search) {
+      const needle = search.toLowerCase();
+      rows = rows.filter((row) => row.transaction_id.toLowerCase().includes(needle));
+    }
+    const orderColumn = sortBy === "purchase_revenue" ? "purchase_revenue" : "event_timestamp";
+    const direction = sortDir === "asc" ? 1 : -1;
+    rows = [...rows].sort((a, b) => (a[orderColumn] < b[orderColumn] ? -1 : a[orderColumn] > b[orderColumn] ? 1 : 0) * direction);
+    const total = rows.length;
+    const start = (page - 1) * pageSize;
+    return { rows: rows.slice(start, start + pageSize), total };
+  }
+
   const { client, project } = await getBigQueryClientForProject(projectId);
   const table = `\`${project.gcp_project_id}.${project.bigquery_dataset}.${ATTRIBUTIONS_TABLE}\``;
 
