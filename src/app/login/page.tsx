@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ParallaxBlob } from "@/components/effects/parallax-blob";
 import { ParticleThreads } from "@/components/effects/particle-threads";
 import { TiltCard } from "@/components/effects/tilt-card";
 
@@ -44,6 +45,9 @@ export default function LoginPage() {
       className="relative flex min-h-svh items-center justify-center overflow-hidden bg-background p-6"
       style={{ "--background": "#F8F3EC" } as React.CSSProperties}
     >
+      <ParallaxBlob className="-top-32 -left-32 size-[28rem]" />
+      <ParallaxBlob className="-right-40 -bottom-40 size-[32rem]" />
+
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
