@@ -8,7 +8,7 @@ import type {
 const TIME_DECAY_HALF_LIFE_DAYS = 7;
 
 /** Sous-ensemble des modèles calculables touchpoint par touchpoint (poids qui somment à 1). */
-type WeightedModel = Exclude<AttributionModel, "markov" | "shapley">;
+export type WeightedModel = Exclude<AttributionModel, "markov" | "shapley">;
 
 /** Poids (somme = 1) attribués à chaque touchpoint, du premier au dernier. */
 export function computeWeights(
@@ -339,4 +339,35 @@ export function aggregateCreditsBySource(
   if (model === "markov") return aggregateWithMarkov(rows);
   if (model === "shapley") return aggregateWithShapley(rows);
   return aggregateWithWeights(rows, model);
+}
+
+/**
+ * Part (%) de CETTE transaction attribuée à chaque touchpoint, pour affichage
+ * (ex: survol de la chaîne d'attribution). Pour les modèles pondérés
+ * (last_click/linear/u_shape/time_decay), c'est exact (computeWeights).
+ * Markov/Shapley ne produisent qu'une importance globale par canal (pas de
+ * poids par transaction) : on redistribue cette importance (topSources, déjà
+ * calculée pour la période/modèle courants) entre les touchpoints présents
+ * dans cette transaction, renormalisée à 100 %.
+ */
+export function computeRowSharePercents(
+  touchpoints: Touchpoint[],
+  model: AttributionModel,
+  topSources: SourceCredit[] = []
+): number[] {
+  const n = touchpoints.length;
+  if (n === 0) return [];
+
+  if (model !== "markov" && model !== "shapley") {
+    return computeWeights(touchpoints, model).map((w) => w * 100);
+  }
+
+  const shareByLabel = new Map(topSources.map((s) => [s.source, s.share]));
+  const rawShares = touchpoints.map((tp) => shareByLabel.get(sourceLabel(tp)) ?? 0);
+  const total = rawShares.reduce((sum, s) => sum + s, 0);
+  if (total === 0) {
+    const equalShare = 100 / n;
+    return touchpoints.map(() => equalShare);
+  }
+  return rawShares.map((s) => (s / total) * 100);
 }

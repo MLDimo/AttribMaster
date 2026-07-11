@@ -345,7 +345,13 @@ export default function ProjectPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <TransactionsTable projectId={projectId} from={from} to={to} />
+                  <TransactionsTable
+                    projectId={projectId}
+                    from={from}
+                    to={to}
+                    model={model}
+                    topSources={overview?.topSources ?? []}
+                  />
                 </CardContent>
               </Card>
               </FadeIn>

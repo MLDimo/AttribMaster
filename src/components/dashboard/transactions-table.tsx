@@ -14,22 +14,46 @@ import {
   MotionTableBody,
   MotionTableRow,
 } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { fadeUpVariants } from "@/components/effects/motion";
 import { colorForSource, sourceLabel } from "@/lib/attribution/colors";
+import { computeRowSharePercents } from "@/lib/attribution/models";
 import type { TransactionsResponse } from "@/lib/attribution/api-types";
-import type { Touchpoint } from "@/lib/attribution/types";
+import type { AttributionModel, SourceCredit, Touchpoint } from "@/lib/attribution/types";
 
-function AttributionChain({ touchpoints }: { touchpoints: Touchpoint[] }) {
+function formatPercent(value: number): string {
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)}%`;
+}
+
+function AttributionChain({
+  touchpoints,
+  model,
+  topSources,
+}: {
+  touchpoints: Touchpoint[];
+  model: AttributionModel;
+  topSources: SourceCredit[];
+}) {
+  const shares = computeRowSharePercents(touchpoints, model, topSources);
+
   return (
     <div className="flex flex-wrap items-center gap-1">
       {touchpoints.map((tp, i) => (
         <span key={i} className="flex items-center gap-1">
-          <span
-            className="rounded px-1.5 py-0.5 text-xs font-medium text-white"
-            style={{ backgroundColor: colorForSource(sourceLabel(tp.source, tp.medium)) }}
-          >
-            {tp.source} / {tp.medium}
-          </span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className="cursor-default rounded px-1.5 py-0.5 text-xs font-medium text-white transition-transform hover:scale-105"
+                style={{ backgroundColor: colorForSource(sourceLabel(tp.source, tp.medium)) }}
+              >
+                {tp.source} / {tp.medium}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <span className="font-semibold tabular-nums">{formatPercent(shares[i])}</span> de cette
+              conversion
+            </TooltipContent>
+          </Tooltip>
           {i < touchpoints.length - 1 && <span className="text-muted-foreground">→</span>}
         </span>
       ))}
@@ -59,10 +83,14 @@ export function TransactionsTable({
   projectId,
   from,
   to,
+  model,
+  topSources,
 }: {
   projectId: string;
   from: string;
   to: string;
+  model: AttributionModel;
+  topSources: SourceCredit[];
 }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -182,7 +210,7 @@ export function TransactionsTable({
               <TableCell className="font-mono text-xs">{row.transaction_id}</TableCell>
               <TableCell>{formatDate(row.event_timestamp)}</TableCell>
               <TableCell className="max-w-md whitespace-normal">
-                <AttributionChain touchpoints={row.touchpoints} />
+                <AttributionChain touchpoints={row.touchpoints} model={model} topSources={topSources} />
               </TableCell>
               <TableCell className="text-right font-mono tabular-nums">
                 {formatCurrency(row.purchase_revenue, row.currency)}
