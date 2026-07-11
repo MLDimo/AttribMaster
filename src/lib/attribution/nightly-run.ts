@@ -38,13 +38,25 @@ export async function runNightlyAttributionForProject(
 
   const [job] = await client.createQueryJob({
     query: sql,
-    params: { target_date: targetDate, lookback_days: lookbackDays },
-    types: { target_date: "DATE", lookback_days: "INT64" },
+    // Le paramètre DATE doit être encapsulé via client.date(...) : passer une
+    // simple string avec `types: { target_date: "DATE" }` est silencieusement
+    // interprété comme NULL par l'API BigQuery (bug constaté en prod : le
+    // script tournait sans erreur mais n'insérait jamais aucune ligne, car
+    // `_TABLE_SUFFIX BETWEEN NULL AND NULL` ne matche jamais rien).
+    params: { target_date: client.date(targetDate), lookback_days: lookbackDays },
+    types: { lookback_days: "INT64" },
   });
 
   await job.getQueryResults();
-  const [metadata] = await job.getMetadata();
-  const rowsInserted = Number(metadata?.statistics?.query?.dmlStats?.insertedRowCount ?? 0);
+  // Requête multi-statement (DECLARE + DELETE + INSERT) = un "script job" :
+  // les dmlStats vivent sur les jobs enfants, pas sur le job parent.
+  const [childJobs] = await client.getJobs({ parentJobId: job.id });
+  const childMetadata = await Promise.all(childJobs.map((j) => j.getMetadata()));
+  const insertStats = childMetadata
+    .map(([meta]) => meta)
+    .find((meta) => meta?.statistics?.query?.statementType === "INSERT")
+    ?.statistics?.query?.dmlStats;
+  const rowsInserted = Number(insertStats?.insertedRowCount ?? 0);
 
   return { projectId, projectName: project.name, targetDate, rowsInserted };
 }

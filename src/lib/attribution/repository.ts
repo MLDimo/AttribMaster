@@ -79,8 +79,9 @@ export async function getAttributionRows(
       FROM ${table}
       WHERE event_date BETWEEN @from AND @to
     `,
-    params: { from, to },
-    types: { from: "DATE", to: "DATE" },
+    // client.date(...) est requis : une string brute + `types: "DATE"` est
+    // silencieusement liée à NULL par l'API BigQuery (voir nightly-run.ts).
+    params: { from: client.date(from), to: client.date(to) },
   });
   return (rows as RawAttributionRow[]).map(normalizeRow);
 }
@@ -114,8 +115,10 @@ export async function getTransactions(
   const table = `\`${project.gcp_project_id}.${project.bigquery_dataset}.${ATTRIBUTIONS_TABLE}\``;
 
   const searchFilter = search ? "AND transaction_id LIKE @search" : "";
-  const params: Record<string, string | number> = { from, to };
-  const types: Record<string, string> = { from: "DATE", to: "DATE" };
+  // client.date(...) est requis : une string brute + `types: "DATE"` est
+  // silencieusement liée à NULL par l'API BigQuery (voir nightly-run.ts).
+  const params: Record<string, unknown> = { from: client.date(from), to: client.date(to) };
+  const types: Record<string, string> = {};
   if (search) {
     params.search = `%${search}%`;
     types.search = "STRING";
