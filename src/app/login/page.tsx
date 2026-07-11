@@ -40,7 +40,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-svh items-center justify-center overflow-hidden bg-background grain-veil-bg grain-noise p-6">
+    <div className="relative flex min-h-svh items-center justify-center overflow-hidden bg-background p-6">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -50,14 +50,6 @@ export default function LoginPage() {
         <ParticleThreads />
       </motion.div>
       <div className="blur-veil pointer-events-none absolute inset-0" />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(120% 90% at 50% 50%, transparent 55%, color-mix(in oklch, var(--foreground) 18%, transparent) 100%)",
-        }}
-      />
 
       <motion.div
         initial={{ opacity: 0, y: 24, scale: 0.96 }}

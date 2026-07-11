@@ -10,23 +10,10 @@ function hexToRgb(hex: string): RGB {
   return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
 }
 
-/** Éclaircit une couleur (mélange vers le blanc) pour le trait "sheen" du grain de bois. */
-function lighten(c: RGB, amount: number): RGB {
-  return {
-    r: c.r + (255 - c.r) * amount,
-    g: c.g + (255 - c.g) * amount,
-    b: c.b + (255 - c.b) * amount,
-  };
-}
-
-/** Lit les couleurs du thème (variables CSS) plutôt que des hex en dur, pour rester clair/sombre-safe. */
-function readThemeStrokes(): RGB[] {
-  const styles = getComputedStyle(document.documentElement);
-  const tokens = ["--primary", "--brand-accent", "--foreground", "--muted-foreground"];
-  return tokens.map((token) => {
-    const value = styles.getPropertyValue(token).trim();
-    return value.startsWith("#") ? hexToRgb(value) : { r: 138, g: 75, b: 46 };
-  });
+/** Lit la couleur "bois" du thème (variable CSS) plutôt qu'un hex en dur, pour rester clair/sombre-safe. */
+function readWoodStroke(): RGB {
+  const value = getComputedStyle(document.documentElement).getPropertyValue("--primary").trim();
+  return value.startsWith("#") ? hexToRgb(value) : { r: 138, g: 75, b: 46 };
 }
 
 type Particle = {
@@ -39,10 +26,9 @@ type Particle = {
 
 /**
  * Fond animé "fils qui se connectent" : particules reliées par des traits qui
- * s'écartent au passage du curseur. Couleurs lues depuis les tokens du thème
- * (--primary/--brand-accent/--foreground/--muted-foreground), donc cohérent
- * en clair comme en sombre. Se fige sur une image statique si l'utilisateur
- * préfère les animations réduites.
+ * s'écartent au passage du curseur, tous dans la même teinte bois (--primary),
+ * donc cohérent en clair comme en sombre. Se fige sur une image statique si
+ * l'utilisateur préfère les animations réduites.
  */
 export function ParticleThreads({ className }: { className?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -54,7 +40,7 @@ export function ParticleThreads({ className }: { className?: string }) {
     if (!ctx) return;
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const strokes = readThemeStrokes();
+    const wood = readWoodStroke();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     let width = 0;
     let height = 0;
@@ -71,7 +57,7 @@ export function ParticleThreads({ className }: { className?: string }) {
       canvasEl.height = height * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      const count = Math.max(40, Math.floor((width * height) / 14000));
+      const count = Math.max(22, Math.floor((width * height) / 26000));
       particles = Array.from({ length: count }, () => ({
         x: Math.random() * width,
         y: Math.random() * height,
@@ -106,8 +92,7 @@ export function ParticleThreads({ className }: { className?: string }) {
       for (const p of particles) {
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        const deep = strokes[2];
-        ctx.fillStyle = `rgba(${deep.r},${deep.g},${deep.b},0.9)`;
+        ctx.fillStyle = `rgba(${wood.r},${wood.g},${wood.b},0.9)`;
         ctx.fill();
       }
 
@@ -123,33 +108,14 @@ export function ParticleThreads({ className }: { className?: string }) {
 
           const t = 1 - dist / maxDist;
           const opacity = Math.min(1, t * 0.9);
-          let nearMouse = false;
-          if (mouse.x !== null && mouse.y !== null) {
-            const mdx = pa.x - mouse.x;
-            const mdy = pa.y - mouse.y;
-            nearMouse = Math.sqrt(mdx * mdx + mdy * mdy) < mouse.radius;
-          }
-          const stroke = nearMouse ? strokes[1] : strokes[a % strokes.length];
-          const lineWidth = 1.5 + t * 2.4;
 
-          ctx.strokeStyle = `rgba(${stroke.r},${stroke.g},${stroke.b},${opacity})`;
-          ctx.lineWidth = lineWidth;
+          ctx.strokeStyle = `rgba(${wood.r},${wood.g},${wood.b},${opacity})`;
+          ctx.lineWidth = 1.5 + t * 2.4;
           ctx.lineCap = "round";
           ctx.beginPath();
           ctx.moveTo(pa.x, pa.y);
           ctx.lineTo(pb.x, pb.y);
           ctx.stroke();
-
-          // Reflet plus clair ("veine de bois") sur les connexions les plus proches.
-          if (t > 0.55) {
-            const sheen = lighten(strokes[1], 0.25);
-            ctx.strokeStyle = `rgba(${sheen.r},${sheen.g},${sheen.b},${opacity * 0.5})`;
-            ctx.lineWidth = Math.max(0.6, lineWidth * 0.35);
-            ctx.beginPath();
-            ctx.moveTo(pa.x + 0.4, pa.y + 0.4);
-            ctx.lineTo(pb.x + 0.4, pb.y + 0.4);
-            ctx.stroke();
-          }
         }
       }
     }
