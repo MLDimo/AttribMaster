@@ -1,15 +1,23 @@
-const CHART_COLOR_COUNT = 5;
+const CHART_COLOR_COUNT = 12;
 
-function hashString(value: string): number {
-  let hash = 0;
-  for (let i = 0; i < value.length; i++) {
-    hash = (hash * 31 + value.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash);
-}
+/**
+ * Attribution de couleur par ordre de première apparition (pas par hash) :
+ * garantit que chaque source a une couleur différente de ses voisines tant
+ * que le nombre de sources distinctes ne dépasse pas la palette, et reste
+ * stable/cohérente entre le graphique, la légende et le tableau des
+ * transactions au sein d'une même session.
+ */
+const assignedIndex = new Map<string, number>();
+let nextIndex = 0;
 
 function colorIndexForSource(label: string): number {
-  return hashString(label) % CHART_COLOR_COUNT;
+  let index = assignedIndex.get(label);
+  if (index === undefined) {
+    index = nextIndex % CHART_COLOR_COUNT;
+    assignedIndex.set(label, index);
+    nextIndex += 1;
+  }
+  return index;
 }
 
 export function sourceLabel(source: string, medium: string): string {
