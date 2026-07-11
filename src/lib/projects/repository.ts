@@ -3,13 +3,13 @@ import { decryptSecret, encryptSecret } from "@/lib/crypto/secrets";
 import { getDbPool } from "@/lib/db/client";
 import type { Account, Project, ProjectMember } from "./types";
 
-async function requireUserId(): Promise<string> {
+export async function requireUserId(): Promise<string> {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Not authenticated");
   return session.user.id;
 }
 
-async function isOwnerOrAdmin(workspaceId: string, userId: string): Promise<boolean> {
+export async function isOwnerOrAdmin(workspaceId: string, userId: string): Promise<boolean> {
   const db = getDbPool();
   const { rows } = await db.query(
     `select 1 from workspace_members where workspace_id = $1 and user_id = $2 and role in ('owner', 'admin')`,
@@ -74,6 +74,16 @@ export async function getProjectAsService(projectId: string): Promise<Project | 
   return rows[0] ?? null;
 }
 
+/** Workspace "principal" d'un projet (le premier rattaché) : utile pour y créer un compte de facturation. */
+export async function getProjectPrimaryWorkspaceId(projectId: string): Promise<string | null> {
+  const db = getDbPool();
+  const { rows } = await db.query<{ workspace_id: string }>(
+    `select workspace_id from workspace_projects where project_id = $1 order by created_at asc limit 1`,
+    [projectId]
+  );
+  return rows[0]?.workspace_id ?? null;
+}
+
 /** Sans vérification d'accès : liste tous les projets configurés, pour le script de nuit. */
 export async function listAllProjectsAsService(): Promise<Project[]> {
   const db = getDbPool();
@@ -108,7 +118,7 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
   return project;
 }
 
-async function requireProjectAccess(projectId: string, userId: string): Promise<void> {
+export async function requireProjectAccess(projectId: string, userId: string): Promise<void> {
   const db = getDbPool();
   const { rows } = await db.query(
     `select 1 from workspace_projects wp

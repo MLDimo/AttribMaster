@@ -15,12 +15,14 @@ import { AttributionModelsGuide } from "@/components/dashboard/attribution-model
 import { DateRangePicker } from "@/components/dashboard/date-range-picker";
 import { OverviewCards } from "@/components/dashboard/overview-cards";
 import { ProjectMembers } from "@/components/dashboard/project-members";
+import { SubscriptionStatus } from "@/components/dashboard/subscription-status";
 import { TransactionsTable } from "@/components/dashboard/transactions-table";
+import { PlanPicker } from "@/components/billing/plan-picker";
 import { FadeIn } from "@/components/effects/motion";
 import type { OverviewResponse } from "@/lib/attribution/api-types";
 import { defaultRange } from "@/lib/attribution/date-range";
 import type { ComparisonMode } from "@/lib/attribution/date-range";
-import { isProjectConnected } from "@/lib/projects/types";
+import { isProjectConnected, isProjectSubscribed } from "@/lib/projects/types";
 import type { Project } from "@/lib/projects/types";
 import type { AttributionModel } from "@/lib/attribution/types";
 
@@ -159,6 +161,11 @@ function ProjectSettingsSidebar({
           <span className="text-xs font-medium text-muted-foreground">Collaborateurs</span>
           <ProjectMembers projectId={project.id} />
         </div>
+
+        <div className="flex flex-col gap-1.5 border-t pt-4">
+          <span className="text-xs font-medium text-muted-foreground">Abonnement</span>
+          <SubscriptionStatus project={project} />
+        </div>
       </CardContent>
     </Card>
   );
@@ -188,9 +195,11 @@ export default function ProjectPage() {
   }, [projectId]);
 
   const connected = project ? isProjectConnected(project) : false;
+  const subscribed = project ? isProjectSubscribed(project) : false;
+  const usable = connected && subscribed;
 
   useEffect(() => {
-    if (!projectId || !connected) return;
+    if (!projectId || !usable) return;
     const params = new URLSearchParams({ projectId, from, to, model, comparison });
     let cancelled = false;
     fetch(`/api/overview?${params.toString()}`)
@@ -201,7 +210,7 @@ export default function ProjectPage() {
     return () => {
       cancelled = true;
     };
-  }, [projectId, connected, from, to, model, comparison]);
+  }, [projectId, usable, from, to, model, comparison]);
 
   if (notFound) {
     return (
@@ -293,7 +302,20 @@ export default function ProjectPage() {
             </FadeIn>
           )}
 
-          {connected && !overview && (
+          {!subscribed && (
+            <FadeIn delay={0.12}>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Active un abonnement</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <PlanPicker projectId={projectId} />
+                </CardContent>
+              </Card>
+            </FadeIn>
+          )}
+
+          {usable && !overview && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               {[0, 1, 2].map((i) => (
                 <Card key={i} className="gap-3 py-5">
@@ -309,11 +331,11 @@ export default function ProjectPage() {
             </div>
           )}
 
-          {connected && overview && (
+          {usable && overview && (
             <OverviewCards totals={overview.totals} comparisonLabel={COMPARISON_LABELS[comparison]} />
           )}
 
-          {connected && (
+          {usable && (
             <>
               <FadeIn delay={0.15}>
               <Card>

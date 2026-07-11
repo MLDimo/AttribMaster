@@ -1,0 +1,43 @@
+import { NextRequest, NextResponse } from "next/server";
+
+import { getDbPool } from "@/lib/db/client";
+import { getProjectAsService, requireProjectAccess, requireUserId } from "@/lib/projects/repository";
+import { getStripeClient } from "@/lib/stripe/client";
+
+export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id: projectId } = await params;
+
+  try {
+    const userId = await requireUserId();
+    await requireProjectAccess(projectId, userId);
+
+    const project = await getProjectAsService(projectId);
+    if (!project?.billing_account_id) {
+      return NextResponse.json({ error: "Ce projet n'a pas de compte de facturation." }, { status: 400 });
+    }
+
+    const db = getDbPool();
+    const { rows } = await db.query<{ stripe_customer_id: string | null }>(
+      `select stripe_customer_id from billing_accounts where id = $1`,
+      [project.billing_account_id]
+    );
+    const customerId = rows[0]?.stripe_customer_id;
+    if (!customerId) {
+      return NextResponse.json({ error: "Compte de facturation invalide." }, { status: 400 });
+    }
+
+    const stripe = getStripeClient();
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/projects/${projectId}`,
+    });
+
+    return NextResponse.json({ url: portalSession.url });
+  } catch (error) {
+    if (error instanceof Error && error.message === "Not authorized on this project") {
+      return NextResponse.json({ error: "Tu n'as pas les droits pour gérer ce projet." }, { status: 403 });
+    }
+    console.error("[api/projects/[id]/billing-portal POST]", error);
+    return NextResponse.json({ error: "Failed to open billing portal" }, { status: 500 });
+  }
+}
