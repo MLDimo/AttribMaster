@@ -17,7 +17,13 @@ export type AttributionRow = {
   touchpoints: Touchpoint[];
 };
 
-export type AttributionModel = "linear" | "u_shape" | "time_decay";
+export type AttributionModel =
+  | "last_click"
+  | "linear"
+  | "time_decay"
+  | "u_shape"
+  | "markov"
+  | "shapley";
 
 export type SourceCredit = {
   source: string;

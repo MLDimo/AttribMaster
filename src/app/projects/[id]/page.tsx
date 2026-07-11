@@ -23,9 +23,12 @@ import type { Project } from "@/lib/projects/types";
 import type { AttributionModel } from "@/lib/attribution/types";
 
 const MODEL_LABELS: Record<AttributionModel, string> = {
+  last_click: "Last Click",
   linear: "Linéaire",
-  u_shape: "U-Shape",
-  time_decay: "Time-Decay",
+  time_decay: "Croissant",
+  u_shape: "En U",
+  markov: "Chaînes de Markov",
+  shapley: "Valeur de Shapley",
 };
 
 export const COMPARISON_LABELS: Record<ComparisonMode, string> = {

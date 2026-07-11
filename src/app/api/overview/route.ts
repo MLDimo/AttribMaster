@@ -10,7 +10,9 @@ const querySchema = z.object({
   projectId: z.string().uuid(),
   from: z.string().date().optional(),
   to: z.string().date().optional(),
-  model: z.enum(["linear", "u_shape", "time_decay"]).default("linear"),
+  model: z
+    .enum(["last_click", "linear", "time_decay", "u_shape", "markov", "shapley"])
+    .default("linear"),
   comparison: z
     .enum(["previous_period", "last_week", "last_month"])
     .default("previous_period"),
