@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { decryptSecret, encryptSecret } from "@/lib/crypto/secrets";
 import { getDbPool } from "@/lib/db/client";
-import type { Account, Project } from "./types";
+import type { Account, Project, ProjectMember } from "./types";
 
 async function requireUserId(): Promise<string> {
   const session = await auth();
@@ -31,29 +31,37 @@ export async function listMyAccounts(): Promise<Account[]> {
   return rows;
 }
 
+/** Un utilisateur a accès à un projet via son workspace, ou via un ajout direct (project_members). */
+const ACCESSIBLE_PROJECTS_WHERE = `
+  exists (
+    select 1 from workspace_projects wp
+    join workspace_members wm on wm.workspace_id = wp.workspace_id
+    where wp.project_id = p.id and wm.user_id = $1
+  )
+  or exists (
+    select 1 from project_members pm where pm.project_id = p.id and pm.user_id = $1
+  )
+`;
+
 export async function listAccessibleProjects(): Promise<Project[]> {
   const userId = await requireUserId();
   const db = getDbPool();
   const { rows } = await db.query<Project>(
     `select distinct p.* from projects p
-     join workspace_projects wp on wp.project_id = p.id
-     join workspace_members wm on wm.workspace_id = wp.workspace_id
-     where wm.user_id = $1
+     where ${ACCESSIBLE_PROJECTS_WHERE}
      order by p.name`,
     [userId]
   );
   return rows;
 }
 
-/** Retourne le projet seulement si l'utilisateur courant y a accès (via un de ses workspaces). */
+/** Retourne le projet seulement si l'utilisateur courant y a accès (via un workspace ou un ajout direct). */
 export async function getProject(projectId: string): Promise<Project | null> {
   const userId = await requireUserId();
   const db = getDbPool();
   const { rows } = await db.query<Project>(
     `select distinct p.* from projects p
-     join workspace_projects wp on wp.project_id = p.id
-     join workspace_members wm on wm.workspace_id = wp.workspace_id
-     where wm.user_id = $1 and p.id = $2`,
+     where p.id = $2 and (${ACCESSIBLE_PROJECTS_WHERE})`,
     [userId, projectId]
   );
   return rows[0] ?? null;
@@ -177,4 +185,76 @@ export async function getProjectOAuthToken(projectId: string): Promise<string | 
   );
   const encrypted = rows[0]?.oauth_refresh_token_encrypted;
   return encrypted ? decryptSecret(encrypted) : null;
+}
+
+/** Collaborateurs ajoutés directement au projet (par email). Visible par quiconque a accès au projet. */
+export async function listProjectMembers(projectId: string): Promise<ProjectMember[]> {
+  const project = await getProject(projectId);
+  if (!project) throw new Error("Project not found or not accessible");
+
+  const db = getDbPool();
+  const { rows } = await db.query<ProjectMember>(
+    `select u.id as user_id, u.name, u.email, u.image, pm.created_at
+     from project_members pm
+     join users u on u.id = pm.user_id
+     where pm.project_id = $1
+     order by pm.created_at asc`,
+    [projectId]
+  );
+  return rows;
+}
+
+export class ProjectMemberUserNotFoundError extends Error {
+  constructor() {
+    super("No user with this email");
+    this.name = "ProjectMemberUserNotFoundError";
+  }
+}
+
+/** Ajoute un collaborateur par email : doit déjà avoir un compte AttribMaster. Réservé owner/admin du projet. */
+export async function addProjectMember(projectId: string, email: string): Promise<ProjectMember> {
+  const userId = await requireUserId();
+  await requireProjectAccess(projectId, userId);
+
+  const db = getDbPool();
+  const { rows: userRows } = await db.query<{
+    id: string;
+    name: string | null;
+    email: string;
+    image: string | null;
+  }>(`select id, name, email, image from users where lower(email) = lower($1)`, [email]);
+  const user = userRows[0];
+  if (!user) throw new ProjectMemberUserNotFoundError();
+
+  await db.query(
+    `insert into project_members (project_id, user_id, added_by)
+     values ($1, $2, $3)
+     on conflict (project_id, user_id) do nothing`,
+    [projectId, user.id, userId]
+  );
+
+  const { rows } = await db.query<{ created_at: string }>(
+    `select created_at from project_members where project_id = $1 and user_id = $2`,
+    [projectId, user.id]
+  );
+
+  return {
+    user_id: user.id,
+    name: user.name,
+    email: user.email,
+    image: user.image,
+    created_at: rows[0].created_at,
+  };
+}
+
+/** Retire un collaborateur ajouté directement. Réservé owner/admin du projet. */
+export async function removeProjectMember(projectId: string, memberUserId: string): Promise<void> {
+  const userId = await requireUserId();
+  await requireProjectAccess(projectId, userId);
+
+  const db = getDbPool();
+  await db.query(`delete from project_members where project_id = $1 and user_id = $2`, [
+    projectId,
+    memberUserId,
+  ]);
 }

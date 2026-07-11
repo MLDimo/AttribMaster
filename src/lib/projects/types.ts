@@ -19,3 +19,11 @@ export type Account = {
   name: string;
   created_at: string;
 };
+
+export type ProjectMember = {
+  user_id: string;
+  name: string | null;
+  email: string;
+  image: string | null;
+  created_at: string;
+};

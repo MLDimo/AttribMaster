@@ -13,6 +13,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { AttributionChart } from "@/components/dashboard/attribution-chart";
 import { DateRangePicker } from "@/components/dashboard/date-range-picker";
 import { OverviewCards } from "@/components/dashboard/overview-cards";
+import { ProjectMembers } from "@/components/dashboard/project-members";
 import { TransactionsTable } from "@/components/dashboard/transactions-table";
 import { FadeIn } from "@/components/effects/motion";
 import type { OverviewResponse } from "@/lib/attribution/api-types";
@@ -151,6 +152,11 @@ function ProjectSettingsSidebar({
               {connected ? "Changer la connexion" : "Connecter BigQuery"}
             </Link>
           </Button>
+        </div>
+
+        <div className="flex flex-col gap-1.5 border-t pt-4">
+          <span className="text-xs font-medium text-muted-foreground">Collaborateurs</span>
+          <ProjectMembers projectId={project.id} />
         </div>
       </CardContent>
     </Card>
