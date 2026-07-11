@@ -14,7 +14,7 @@ const querySchema = z.object({
     .enum(["last_click", "linear", "time_decay", "u_shape", "markov", "shapley"])
     .default("linear"),
   comparison: z
-    .enum(["previous_period", "last_week", "last_month"])
+    .enum(["previous_period", "last_week", "last_month", "previous_year"])
     .default("previous_period"),
 });
 

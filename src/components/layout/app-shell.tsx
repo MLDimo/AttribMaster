@@ -8,6 +8,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { ParallaxBlob } from "@/components/effects/parallax-blob";
+import { ThemeToggle } from "@/components/effects/theme-toggle";
 
 const NAV_ITEMS = [
   { href: "/projects", label: "Projets" },
@@ -53,6 +54,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </nav>
           </div>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}
               className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ParallaxBlob } from "@/components/effects/parallax-blob";
 import { ParticleThreads } from "@/components/effects/particle-threads";
+import { ThemeToggle } from "@/components/effects/theme-toggle";
 import { TiltCard } from "@/components/effects/tilt-card";
 
 export default function LoginPage() {
@@ -41,10 +42,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div
-      className="relative flex min-h-svh items-center justify-center overflow-hidden bg-background p-6"
-      style={{ "--background": "#F8F3EC" } as React.CSSProperties}
-    >
+    <div className="relative flex min-h-svh items-center justify-center overflow-hidden bg-background p-6 [--background:#F8F3EC] dark:[--background:#1c140d]">
       <ParallaxBlob className="-top-32 -left-32 size-[28rem]" />
       <ParallaxBlob className="-right-40 -bottom-40 size-[32rem]" />
 
@@ -57,6 +55,7 @@ export default function LoginPage() {
         <ParticleThreads />
       </motion.div>
       <div className="blur-veil pointer-events-none absolute inset-0" />
+      <ThemeToggle className="absolute top-4 right-4 z-10" />
 
       <motion.div
         initial={{ opacity: 0, y: 24, scale: 0.96 }}

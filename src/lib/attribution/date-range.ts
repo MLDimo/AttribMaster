@@ -1,4 +1,4 @@
-export type ComparisonMode = "previous_period" | "last_week" | "last_month";
+export type ComparisonMode = "previous_period" | "last_week" | "last_month" | "previous_year";
 
 function toISODate(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -56,6 +56,8 @@ export function comparisonRange(
       return { from: shiftDays(from, -7), to: shiftDays(to, -7) };
     case "last_month":
       return { from: shiftMonths(from, -1), to: shiftMonths(to, -1) };
+    case "previous_year":
+      return { from: shiftMonths(from, -12), to: shiftMonths(to, -12) };
     case "previous_period":
     default:
       return previousPeriodRange(from, to);

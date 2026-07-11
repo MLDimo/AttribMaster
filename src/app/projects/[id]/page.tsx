@@ -35,6 +35,7 @@ export const COMPARISON_LABELS: Record<ComparisonMode, string> = {
   previous_period: "Période précédente",
   last_week: "Semaine dernière",
   last_month: "Mois dernier",
+  previous_year: "Année précédente (N-1)",
 };
 
 function Field({
