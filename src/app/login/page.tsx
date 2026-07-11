@@ -45,7 +45,7 @@ export default function LoginPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1.2, ease: "easeOut" }}
-        className="absolute inset-0"
+        className="absolute inset-0 blur-[2px]"
       >
         <ParticleThreads />
       </motion.div>
@@ -122,15 +122,6 @@ export default function LoginPage() {
         </Card>
       </TiltCard>
       </motion.div>
-
-      <motion.p
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 1, delay: 0.6 }}
-        className="pointer-events-none absolute right-0 bottom-6 left-0 z-10 text-center text-xs tracking-widest text-muted-foreground uppercase"
-      >
-        Déplace ton curseur — les fils s&apos;écartent
-      </motion.p>
     </div>
   );
 }
