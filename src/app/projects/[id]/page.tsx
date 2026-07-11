@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppShell } from "@/components/layout/app-shell";
 import { AttributionChart } from "@/components/dashboard/attribution-chart";
+import { AttributionModelsGuide } from "@/components/dashboard/attribution-models-guide";
 import { DateRangePicker } from "@/components/dashboard/date-range-picker";
 import { OverviewCards } from "@/components/dashboard/overview-cards";
 import { ProjectMembers } from "@/components/dashboard/project-members";
@@ -95,7 +96,7 @@ function ProjectSettingsSidebar({
   }
 
   return (
-    <Card className="h-fit w-full shrink-0 lg:w-72">
+    <Card className="h-fit w-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Settings2 className="size-4 text-muted-foreground" />
@@ -232,7 +233,10 @@ export default function ProjectPage() {
       </nav>
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <FadeIn>
-          <ProjectSettingsSidebar project={project} onRenamed={setProject} />
+          <div className="flex w-full shrink-0 flex-col gap-5 lg:w-72">
+            <ProjectSettingsSidebar project={project} onRenamed={setProject} />
+            <AttributionModelsGuide />
+          </div>
         </FadeIn>
 
         <div className="flex flex-1 flex-col gap-5">
