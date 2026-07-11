@@ -38,25 +38,30 @@ function AttributionChain({
 
   return (
     <div className="flex flex-wrap items-center gap-1">
-      {touchpoints.map((tp, i) => (
-        <span key={i} className="flex items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span
-                className="cursor-default rounded px-1.5 py-0.5 text-xs font-medium text-white transition-transform hover:scale-105"
-                style={{ backgroundColor: colorForSource(sourceLabel(tp.source, tp.medium)) }}
+      {touchpoints.map((tp, i) => {
+        const color = colorForSource(sourceLabel(tp.source, tp.medium));
+        return (
+          <span key={i} className="flex items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className="cursor-default rounded px-1.5 py-0.5 text-xs font-medium text-white transition-transform hover:scale-105"
+                  style={{ backgroundColor: color }}
+                >
+                  {tp.source} / {tp.medium}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent
+                className="border-none font-semibold tabular-nums text-white"
+                style={{ backgroundColor: color }}
               >
-                {tp.source} / {tp.medium}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              <span className="font-semibold tabular-nums">{formatPercent(shares[i])}</span> de cette
-              conversion
-            </TooltipContent>
-          </Tooltip>
-          {i < touchpoints.length - 1 && <span className="text-muted-foreground">→</span>}
-        </span>
-      ))}
+                {formatPercent(shares[i])}
+              </TooltipContent>
+            </Tooltip>
+            {i < touchpoints.length - 1 && <span className="text-muted-foreground">→</span>}
+          </span>
+        );
+      })}
     </div>
   );
 }
