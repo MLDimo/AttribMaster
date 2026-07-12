@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -175,6 +176,34 @@ export function TransactionsTable({
         />
       </div>
 
+      {/* Mobile : liste de cartes (une table à 4 colonnes ne tient pas sur un petit écran
+          sans perdre le contexte ID/date en scrollant vers le montant). */}
+      <div className="flex flex-col gap-2 sm:hidden">
+        {!loading && data?.rows.length === 0 && (
+          <p className="py-6 text-center text-sm text-muted-foreground">Aucune transaction trouvée.</p>
+        )}
+        {data?.rows.map((row) => (
+          <motion.div
+            key={row.transaction_id}
+            initial="hidden"
+            animate="show"
+            variants={fadeUpVariants}
+            className="flex flex-col gap-2 rounded-lg border p-3"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono text-xs text-muted-foreground">{row.transaction_id}</span>
+              <span className="font-mono text-sm font-semibold tabular-nums">
+                {formatCurrency(row.purchase_revenue, row.currency)}
+              </span>
+            </div>
+            <span className="text-xs text-muted-foreground">{formatDate(row.event_timestamp)}</span>
+            <AttributionChain touchpoints={row.touchpoints} model={model} topSources={topSources} />
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Desktop/tablette : table classique. */}
+      <div className="hidden sm:block">
       <Table>
         <TableHeader>
           <TableRow>
@@ -224,6 +253,7 @@ export function TransactionsTable({
           ))}
         </MotionTableBody>
       </Table>
+      </div>
 
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>{data?.total ?? 0} transaction(s)</span>
