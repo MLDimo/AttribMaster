@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, ChartPie, Check, GitCompare, Pencil, Receipt, Settings2, SlidersHorizontal } from "lucide-react";
+import { Calendar, ChartPie, Check, GitCompare, Pencil, Receipt, Settings2, SlidersHorizontal, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -14,10 +14,7 @@ import { AttributionChart } from "@/components/dashboard/attribution-chart";
 import { AttributionModelsGuide } from "@/components/dashboard/attribution-models-guide";
 import { DateRangePicker } from "@/components/dashboard/date-range-picker";
 import { OverviewCards } from "@/components/dashboard/overview-cards";
-import { ProjectMembers } from "@/components/dashboard/project-members";
-import { SubscriptionStatus } from "@/components/dashboard/subscription-status";
 import { TransactionsTable } from "@/components/dashboard/transactions-table";
-import { PlanPicker } from "@/components/billing/plan-picker";
 import { FadeIn } from "@/components/effects/motion";
 import type { OverviewResponse } from "@/lib/attribution/api-types";
 import { defaultRange } from "@/lib/attribution/date-range";
@@ -157,14 +154,13 @@ function ProjectSettingsSidebar({
           </Button>
         </div>
 
-        <div className="flex flex-col gap-1.5 border-t pt-4">
-          <span className="text-xs font-medium text-muted-foreground">Collaborateurs</span>
-          <ProjectMembers projectId={project.id} />
-        </div>
-
-        <div className="flex flex-col gap-1.5 border-t pt-4">
-          <span className="text-xs font-medium text-muted-foreground">Abonnement</span>
-          <SubscriptionStatus project={project} />
+        <div className="border-t pt-4">
+          <Button variant="outline" size="sm" className="w-fit" asChild>
+            <Link href={`/projects/${project.id}/manage`}>
+              <UsersRound className="size-4" />
+              Gérer le projet
+            </Link>
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -304,14 +300,14 @@ export default function ProjectPage() {
 
           {!subscribed && (
             <FadeIn delay={0.12}>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Active un abonnement</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <PlanPicker projectId={projectId} />
-                </CardContent>
-              </Card>
+            <Card>
+              <CardContent className="flex flex-col items-center gap-3 py-8 text-center text-sm text-muted-foreground">
+                <p>Ce projet n&apos;a pas d&apos;abonnement actif.</p>
+                <Button asChild size="sm">
+                  <Link href={`/projects/${projectId}/manage`}>Gérer l&apos;abonnement</Link>
+                </Button>
+              </CardContent>
+            </Card>
             </FadeIn>
           )}
 
