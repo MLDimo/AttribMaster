@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/table";
 import { AppShell } from "@/components/layout/app-shell";
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
+import { PlanBadge } from "@/components/projects/plan-badge";
 import { FadeIn, fadeUpVariants } from "@/components/effects/motion";
 import { isProjectConnected } from "@/lib/projects/types";
 import type { Account, Project } from "@/lib/projects/types";
@@ -170,6 +171,7 @@ export default function ProjectsPage() {
                           >
                             {project.name}
                             {!connected && <Badge variant="outline">Non connecté</Badge>}
+                            <PlanBadge project={project} />
                             <ArrowRight className="size-3.5 -translate-x-1 text-primary opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100" />
                           </Link>
                         </TableCell>
