@@ -435,11 +435,22 @@ export function HomePage({ authenticated }: { authenticated: boolean }) {
         </FadeIn>
       </section>
 
-      <footer className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center gap-2 border-t px-4 py-10 text-center text-sm text-muted-foreground sm:px-6">
+      <footer className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center gap-3 border-t px-4 py-10 text-center text-sm text-muted-foreground sm:px-6">
         <span>© {new Date().getFullYear()} AttribMaster</span>
-        <Link href={ctaHref} className="font-medium text-primary transition-colors hover:text-primary/70">
-          {ctaLabel}
-        </Link>
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          <Link href={ctaHref} className="font-medium text-primary transition-colors hover:text-primary/70">
+            {ctaLabel}
+          </Link>
+          <Link href="/mentions-legales" className="transition-colors hover:text-foreground">
+            Mentions légales
+          </Link>
+          <Link href="/cgu" className="transition-colors hover:text-foreground">
+            CGU
+          </Link>
+          <Link href="/cgv" className="transition-colors hover:text-foreground">
+            CGV
+          </Link>
+        </div>
       </footer>
     </div>
   );
