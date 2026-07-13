@@ -342,13 +342,19 @@ export function aggregateCreditsBySource(
 }
 
 /**
- * Part (%) de CETTE transaction attribuée à chaque touchpoint, pour affichage
- * (ex: survol de la chaîne d'attribution). Pour les modèles pondérés
- * (last_click/linear/u_shape/time_decay), c'est exact (computeWeights).
- * Markov/Shapley ne produisent qu'une importance globale par canal (pas de
- * poids par transaction) : on redistribue cette importance (topSources, déjà
- * calculée pour la période/modèle courants) entre les touchpoints présents
- * dans cette transaction, renormalisée à 100 %.
+ * Part (%) attribuée à chaque touchpoint, pour affichage (ex: survol de la
+ * chaîne d'attribution). Pour les modèles pondérés (last_click/linear/
+ * u_shape/time_decay), c'est exact et spécifique à CETTE transaction
+ * (computeWeights).
+ *
+ * Markov/Shapley ne produisent qu'une importance GLOBALE par canal (une
+ * mesure de portefeuille : elle se déduit en comparant plusieurs parcours
+ * entre eux, pas d'une transaction isolée) — il n'existe pas de décomposition
+ * "part de cette transaction" qui soit à la fois honnête et cohérente avec le
+ * total du camembert. On renvoie donc ici la part globale du canal (topSources,
+ * déjà calculée pour la période/modèle courants) telle quelle, identique
+ * partout où ce canal apparaît, plutôt que d'en inventer une version
+ * renormalisée par transaction qui ne recolle pas avec l'agrégat.
  */
 export function computeRowSharePercents(
   touchpoints: Touchpoint[],
@@ -363,11 +369,5 @@ export function computeRowSharePercents(
   }
 
   const shareByLabel = new Map(topSources.map((s) => [s.source, s.share]));
-  const rawShares = touchpoints.map((tp) => shareByLabel.get(sourceLabel(tp)) ?? 0);
-  const total = rawShares.reduce((sum, s) => sum + s, 0);
-  if (total === 0) {
-    const equalShare = 100 / n;
-    return touchpoints.map(() => equalShare);
-  }
-  return rawShares.map((s) => (s / total) * 100);
+  return touchpoints.map((tp) => (shareByLabel.get(sourceLabel(tp)) ?? 0) * 100);
 }

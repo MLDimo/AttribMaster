@@ -22,6 +22,9 @@ export function AttributionChain({
   selectedSource?: string | null;
 }) {
   const shares = computeRowSharePercents(touchpoints, model, topSources);
+  // Markov/Shapley : part globale du canal (portefeuille), pas une décomposition
+  // propre à cette transaction — voir le commentaire de computeRowSharePercents.
+  const isGlobalShare = model === "markov" || model === "shapley";
 
   return (
     <div className="flex flex-wrap items-center gap-1">
@@ -43,10 +46,11 @@ export function AttributionChain({
                 </span>
               </TooltipTrigger>
               <TooltipContent
-                className="border-none font-semibold tabular-nums text-white"
+                className="flex flex-col items-center gap-0.5 border-none text-center text-white"
                 style={{ backgroundColor: color }}
               >
-                {formatPercent(shares[i])}
+                <span className="font-semibold tabular-nums">{formatPercent(shares[i])}</span>
+                {isGlobalShare && <span className="text-[10px] opacity-80">part globale du canal</span>}
               </TooltipContent>
             </Tooltip>
             {i < touchpoints.length - 1 && <span className="text-muted-foreground">→</span>}
