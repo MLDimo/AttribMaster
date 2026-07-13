@@ -9,7 +9,7 @@ export default function CguPage() {
         <h2>1. Objet</h2>
         <p>
           Les présentes Conditions Générales d&apos;Utilisation (CGU) régissent l&apos;accès et l&apos;utilisation
-          du service AttribMaster (ci-après « le Service »), édité par MLDIMO WEB, SAS immatriculée au
+          du service AttribMaster (ci-après « le Service »), édité par MLDIMO WEB, SASU immatriculée au
           RCS de Nice sous le numéro 103 123 790 (ci-après « nous », « l&apos;Éditeur »). L&apos;utilisation du
           Service implique l&apos;acceptation pleine et entière des présentes CGU.
         </p>

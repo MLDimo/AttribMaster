@@ -10,7 +10,7 @@ export default function MentionsLegalesPage() {
         <p>
           Le site AttribMaster (ci-après « le Site ») est édité par :
           <br />
-          MLDIMO WEB, SAS au capital de [montant à compléter] €
+          MLDIMO WEB, SASU au capital de 300 €
           <br />
           Siège social : 18 rue Alberti, 06000 Nice, France
           <br />
@@ -20,7 +20,10 @@ export default function MentionsLegalesPage() {
           <br />
           Directeur de la publication : Martin Laroche, Président
           <br />
-          Contact : [email à compléter]
+          Contact :{" "}
+          <a href="mailto:contact@attribmaster.com" className="font-medium text-primary hover:underline">
+            contact@attribmaster.com
+          </a>
         </p>
       </section>
 
@@ -48,13 +51,23 @@ export default function MentionsLegalesPage() {
           <a href="/cgu" className="font-medium text-primary hover:underline">
             Conditions Générales d&apos;Utilisation
           </a>
-          . Pour exercer tes droits (accès, rectification, suppression), contacte-nous à [email à compléter].
+          . Pour exercer tes droits (accès, rectification, suppression), contacte-nous à{" "}
+          <a href="mailto:contact@attribmaster.com" className="font-medium text-primary hover:underline">
+            contact@attribmaster.com
+          </a>
+          .
         </p>
       </section>
 
       <section>
         <h2>Contact</h2>
-        <p>Pour toute question relative au Site, écris-nous à [email à compléter].</p>
+        <p>
+          Pour toute question relative au Site, écris-nous à{" "}
+          <a href="mailto:contact@attribmaster.com" className="font-medium text-primary hover:underline">
+            contact@attribmaster.com
+          </a>
+          .
+        </p>
       </section>
     </LegalPageLayout>
   );

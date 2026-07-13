@@ -9,7 +9,7 @@ export default function CgvPage() {
         <h2>1. Objet</h2>
         <p>
           Les présentes Conditions Générales de Vente (CGV) s&apos;appliquent à tout abonnement souscrit
-          auprès de MLDIMO WEB, SAS immatriculée au RCS de Nice sous le numéro 103 123 790 (ci-après
+          auprès de MLDIMO WEB, SASU immatriculée au RCS de Nice sous le numéro 103 123 790 (ci-après
           « nous ») pour l&apos;utilisation du service
           AttribMaster. Elles complètent nos{" "}
           <a href="/cgu" className="font-medium text-primary hover:underline">
