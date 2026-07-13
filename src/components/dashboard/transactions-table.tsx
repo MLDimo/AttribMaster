@@ -76,10 +76,15 @@ export function TransactionsTable({
     [projectId, from, to, search, page, sortBy, sortDir]
   );
 
+  // `query` initialisé à `null` (jamais égal à la vraie query calculée au premier
+  // rendu) pour que `loading` démarre à `true` : sinon le tableau affichait
+  // "Aucune transaction trouvée" pendant l'instant où la requête BigQuery est
+  // encore en vol, avant que la vraie réponse (potentiellement non vide)
+  // n'arrive.
   const [result, setResult] = useState<{
-    query: typeof query;
+    query: typeof query | null;
     data: TransactionsResponse | null;
-  }>({ query, data: null });
+  }>({ query: null, data: null });
 
   useEffect(() => {
     const params = new URLSearchParams({

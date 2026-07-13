@@ -21,7 +21,7 @@ export default function LoginPage() {
 
   async function signInWithGoogle() {
     setLoading(true);
-    await signIn("google", { callbackUrl: "/" });
+    await signIn("google", { callbackUrl: "/projects" });
   }
 
   async function signInWithCredentials(event: React.FormEvent) {
@@ -38,7 +38,7 @@ export default function LoginPage() {
       setError("Email ou mot de passe incorrect.");
       return;
     }
-    window.location.href = "/";
+    window.location.href = "/projects";
   }
 
   return (
