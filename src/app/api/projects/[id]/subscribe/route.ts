@@ -37,7 +37,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: "Billing account has no Stripe customer" }, { status: 500 });
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    // Dérivé de la requête entrante (pas d'une variable d'env statique) pour
+    // rester correct quel que soit le domaine/alias utilisé pour y accéder —
+    // sinon le cookie de session ne correspond pas au retour de Stripe et
+    // l'utilisateur atterrit sur /login au lieu de son projet.
+    const appUrl = request.nextUrl.origin;
     const stripe = getStripeClient();
 
     const lineItems = [{ price: priceIdFor(plan, interval), quantity: 1 }];

@@ -4,7 +4,7 @@ import { getDbPool } from "@/lib/db/client";
 import { getProjectAsService, requireProjectAccess, requireUserId } from "@/lib/projects/repository";
 import { getStripeClient } from "@/lib/stripe/client";
 
-export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = await params;
 
   try {
@@ -29,7 +29,9 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
     const stripe = getStripeClient();
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/projects/${projectId}`,
+      // Dérivé de la requête entrante, voir le commentaire équivalent dans
+      // subscribe/route.ts.
+      return_url: `${request.nextUrl.origin}/projects/${projectId}`,
     });
 
     return NextResponse.json({ url: portalSession.url });
