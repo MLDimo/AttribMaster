@@ -66,28 +66,13 @@ const FEATURES = [
   },
   {
     icon: Database,
-    title: "Connecté à GA4 + BigQuery",
+    title: "Basé sur les vrai données ",
     description: "Aucune donnée échantillonnée : les requêtes tournent directement sur ton export BigQuery.",
   },
   {
     icon: GitCompare,
     title: "Comparaisons de périodes",
     description: "N-1, semaine dernière, mois dernier — repère les tendances en un clic.",
-  },
-  {
-    icon: ChartPie,
-    title: "Dashboard premium",
-    description: "Graphiques animés, détail transaction par transaction, recherche et tri instantanés.",
-  },
-  {
-    icon: Users,
-    title: "Collaboration multi-projets",
-    description: "Invite des collaborateurs par email, sans limite de nombre, projet par projet.",
-  },
-  {
-    icon: CreditCard,
-    title: "Facturation flexible",
-    description: "Un compte de facturation réutilisable sur plusieurs projets, mensuel ou annuel.",
   },
 ];
 
@@ -205,8 +190,8 @@ export function HomePage({ authenticated }: { authenticated: boolean }) {
           </FadeIn>
           <FadeIn delay={0.1}>
             <p className="text-balance text-muted-foreground sm:text-lg">
-              AttribMaster reconstruit le vrai parcours de conversion depuis BigQuery — 6 modèles
-              d&apos;attribution calculés sur tes données réelles, sans échantillonnage.
+              AttribMaster reconstruit le vrai parcours de conversion depuis BigQuery.
+              <br />6 modèles d&apos;attribution calculés sur tes données réelles, sans échantillonnage.
             </p>
           </FadeIn>
           <FadeIn delay={0.15} className="flex flex-wrap items-center justify-center gap-3">
