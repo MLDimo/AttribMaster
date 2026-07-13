@@ -25,6 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AttributionDemo } from "@/components/home/attribution-demo";
 import { ParallaxBlob } from "@/components/effects/parallax-blob";
 import { ParticleThreads } from "@/components/effects/particle-threads";
+import { ThemeToggle } from "@/components/effects/theme-toggle";
 import { FadeIn, StaggerContainer, StaggerItem } from "@/components/effects/motion";
 import { PLANS, SETUP_FEE_EUROS } from "@/lib/billing/plans";
 
@@ -171,9 +172,12 @@ export function HomePage({ authenticated }: { authenticated: boolean }) {
             </a>
           ))}
         </nav>
-        <Button asChild size="sm">
-          <Link href={ctaHref}>{ctaLabel}</Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <Button asChild size="sm">
+            <Link href={ctaHref}>{ctaLabel}</Link>
+          </Button>
+        </div>
       </header>
 
       {/* Hero */}
