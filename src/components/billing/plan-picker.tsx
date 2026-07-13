@@ -54,7 +54,7 @@ export function PlanPicker({ projectId }: { projectId: string }) {
                     </span>
                     {interval === "monthly" && (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        + {SETUP_FEE_EUROS}€ de frais d&apos;installation (setup BigQuery inclus)
+                        + {SETUP_FEE_EUROS}€ d&apos;installation en option (setup BigQuery + projet)
                       </p>
                     )}
                   </>

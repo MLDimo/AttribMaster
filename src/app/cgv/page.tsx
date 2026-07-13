@@ -46,9 +46,10 @@ export default function CgvPage() {
       <section>
         <h2>4. Frais d&apos;installation</h2>
         <p>
-          Un abonnement mensuel aux plans Standard ou Pro inclut des frais d&apos;installation uniques de
-          50 €, couvrant la configuration complète de la connexion BigQuery (projet GCP, dataset GA4,
-          table d&apos;attribution). Ces frais sont offerts pour tout abonnement facturé annuellement.
+          Les frais d&apos;installation uniques de 50 €, couvrant la configuration complète de la
+          connexion BigQuery (projet GCP, dataset GA4, table d&apos;attribution), sont proposés en option
+          au moment de la souscription à un abonnement mensuel aux plans Standard ou Pro. Ils sont
+          offerts automatiquement pour tout abonnement facturé annuellement.
         </p>
       </section>
 

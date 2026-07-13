@@ -99,7 +99,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Que couvrent les frais d'installation ?",
-    a: "Les 50€ de frais d'installation couvrent tout le setup de ta connexion BigQuery — projet GCP, dataset GA4, table d'attribution. Offerts si tu choisis la facturation annuelle.",
+    a: "Les 50€ de frais d'installation couvrent tout le setup de ta connexion BigQuery — projet GCP, dataset GA4, table d'attribution. En mensuel c'est une option au moment de l'abonnement ; en annuel, c'est offert automatiquement.",
   },
   {
     q: "Puis-je annuler à tout moment ?",
@@ -307,7 +307,7 @@ export function HomePage({ authenticated }: { authenticated: boolean }) {
                           <span className="text-sm text-muted-foreground">{interval === "monthly" ? " / mois" : " / an"}</span>
                           {interval === "monthly" && (
                             <p className="mt-1 text-xs text-muted-foreground">
-                              + {SETUP_FEE_EUROS}€ de frais d&apos;installation (setup BigQuery inclus)
+                              + {SETUP_FEE_EUROS}€ d&apos;installation en option (setup BigQuery + projet)
                             </p>
                           )}
                         </>

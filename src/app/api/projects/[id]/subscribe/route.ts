@@ -9,6 +9,7 @@ const bodySchema = z
   .object({
     plan: z.enum(["standard", "pro"]),
     interval: z.enum(["monthly", "annual"]),
+    includeSetup: z.boolean().optional(),
     billingAccountId: z.string().uuid().optional(),
     newBillingAccountName: z.string().trim().min(1).optional(),
   })
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const { plan, interval, billingAccountId, newBillingAccountName } = parsed.data;
+  const { plan, interval, includeSetup, billingAccountId, newBillingAccountName } = parsed.data;
 
   try {
     const { billingAccount } = await prepareSubscription(projectId, {
@@ -40,7 +41,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const stripe = getStripeClient();
 
     const lineItems = [{ price: priceIdFor(plan, interval), quantity: 1 }];
-    if (interval === "monthly") {
+    // Facturation annuelle : installation toujours offerte. Facturation mensuelle :
+    // installation en option, ajoutée seulement si explicitement choisie.
+    if (interval === "monthly" && includeSetup) {
       lineItems.push({ price: setupFeePriceId(), quantity: 1 });
     }
 

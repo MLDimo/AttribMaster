@@ -28,8 +28,17 @@ export function SubscribeDialog({
   const [mode, setMode] = useState<"existing" | "new">("new");
   const [selectedAccountId, setSelectedAccountId] = useState("");
   const [newAccountName, setNewAccountName] = useState("");
+  const [includeSetup, setIncludeSetup] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Réinitialise l'option d'installation à chaque (ré)ouverture du dialogue
+  // (ajustement pendant le rendu plutôt qu'un setState synchrone dans un effet).
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) setIncludeSetup(false);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -58,6 +67,7 @@ export function SubscribeDialog({
         body: JSON.stringify({
           plan,
           interval,
+          includeSetup: interval === "monthly" && includeSetup,
           ...(mode === "existing"
             ? { billingAccountId: selectedAccountId }
             : { newBillingAccountName: newAccountName }),
@@ -85,8 +95,8 @@ export function SubscribeDialog({
           <DialogTitle>S&apos;abonner — {planInfo.label}</DialogTitle>
           <DialogDescription>
             {interval === "monthly"
-              ? `${planInfo.monthlyPriceEuros}€/mois + 50€ de frais d'installation (setup BigQuery inclus)`
-              : `${(planInfo.monthlyPriceEuros ?? 0) * 12}€/an, facturé annuellement — frais d'installation offerts`}
+              ? `${planInfo.monthlyPriceEuros}€/mois${includeSetup ? " + 50€ d'installation" : ""}`
+              : `${(planInfo.monthlyPriceEuros ?? 0) * 12}€/an, facturé annuellement — installation offerte`}
           </DialogDescription>
         </DialogHeader>
 
@@ -95,6 +105,24 @@ export function SubscribeDialog({
             <p className="py-4 text-center text-sm text-muted-foreground">Chargement…</p>
           ) : (
             <>
+              {interval === "monthly" && (
+                <label className="flex items-start gap-2 rounded-md border p-3 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={includeSetup}
+                    onChange={(e) => setIncludeSetup(e.target.checked)}
+                  />
+                  <span className="flex flex-col gap-0.5">
+                    <span className="font-medium">Ajouter l&apos;installation (+50€)</span>
+                    <span className="text-xs text-muted-foreground">
+                      Setup complet de la connexion BigQuery (projet GCP, dataset GA4, table
+                      d&apos;attribution).
+                    </span>
+                  </span>
+                </label>
+              )}
+
               {accounts.length > 0 && (
                 <div className="flex flex-col gap-2">
                   <Label>Compte de facturation</Label>
