@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppShell } from "@/components/layout/app-shell";
@@ -385,6 +385,14 @@ export default function ProjectPage() {
                     <Receipt className="size-4 text-muted-foreground" />
                     Transactions
                   </CardTitle>
+                  {(model === "markov" || model === "shapley") && (
+                    <CardDescription>
+                      Avec {MODEL_LABELS[model]}, la répartition indiquée par transaction est une
+                      estimation à titre indicatif, pas une valeur fiable : ce modèle calcule
+                      l&apos;importance des canaux sur l&apos;ensemble des transactions, pas sur une
+                      transaction isolée.
+                    </CardDescription>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <TransactionsTable
