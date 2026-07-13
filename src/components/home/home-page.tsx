@@ -76,29 +76,6 @@ const FEATURES = [
   },
 ];
 
-const PROCESS_STEPS = [
-  {
-    step: "01",
-    title: "Connecte ton compte Google",
-    description: "OAuth en deux clics, aucune clé API à copier-coller.",
-  },
-  {
-    step: "02",
-    title: "Choisis ton dataset BigQuery",
-    description: "Sélectionne le projet GCP et le dataset GA4 à analyser.",
-  },
-  {
-    step: "03",
-    title: "Choisis un modèle d'attribution",
-    description: "Bascule entre les 6 modèles à tout moment, inclus dans tous les plans.",
-  },
-  {
-    step: "04",
-    title: "Découvre tes vrais chiffres",
-    description: "Dashboard, transactions, comparaisons de périodes — tout est prêt.",
-  },
-];
-
 const FAQ_ITEMS = [
   {
     q: "Ai-je besoin de compétences techniques ?",
@@ -270,24 +247,6 @@ export function HomePage({ authenticated }: { authenticated: boolean }) {
                   <p className="text-sm text-muted-foreground">{feature.description}</p>
                 </CardContent>
               </Card>
-            </StaggerItem>
-          ))}
-        </StaggerContainer>
-      </section>
-
-      {/* Process */}
-      <section className="relative z-10 mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
-        <FadeIn className="mb-8 flex flex-col items-center gap-2 text-center">
-          <h2 className="text-2xl font-semibold">Opérationnel en quelques minutes</h2>
-        </FadeIn>
-        <StaggerContainer className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {PROCESS_STEPS.map((step) => (
-            <StaggerItem key={step.step}>
-              <div className="flex flex-col gap-2">
-                <span className="font-mono text-3xl font-semibold text-primary/40">{step.step}</span>
-                <h3 className="font-semibold">{step.title}</h3>
-                <p className="text-sm text-muted-foreground">{step.description}</p>
-              </div>
             </StaggerItem>
           ))}
         </StaggerContainer>
