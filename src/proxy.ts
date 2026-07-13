@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 
 // Comparaison exacte (pas de préfixe) : "/" ne doit pas rendre tout le site public.
-const PUBLIC_PATHS = ["/", "/login", "/mentions-legales", "/cgu", "/cgv"];
+const PUBLIC_PATHS = ["/", "/login", "/mentions-legales", "/cgu", "/cgv", "/politique-de-confidentialite"];
 
 export default auth((request) => {
   const isPublicPath = PUBLIC_PATHS.includes(request.nextUrl.pathname);

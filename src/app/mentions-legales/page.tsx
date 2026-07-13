@@ -47,9 +47,9 @@ export default function MentionsLegalesPage() {
       <section>
         <h2>Données personnelles</h2>
         <p>
-          Le traitement des données personnelles est décrit dans nos{" "}
-          <a href="/cgu" className="font-medium text-primary hover:underline">
-            Conditions Générales d&apos;Utilisation
+          Le traitement des données personnelles est décrit en détail dans notre{" "}
+          <a href="/politique-de-confidentialite" className="font-medium text-primary hover:underline">
+            Politique de confidentialité
           </a>
           . Pour exercer tes droits (accès, rectification, suppression), contacte-nous à{" "}
           <a href="mailto:contact@attribmaster.com" className="font-medium text-primary hover:underline">

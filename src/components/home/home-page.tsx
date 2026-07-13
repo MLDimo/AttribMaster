@@ -450,6 +450,9 @@ export function HomePage({ authenticated }: { authenticated: boolean }) {
           <Link href="/cgv" className="transition-colors hover:text-foreground">
             CGV
           </Link>
+          <Link href="/politique-de-confidentialite" className="transition-colors hover:text-foreground">
+            Confidentialité
+          </Link>
         </div>
       </footer>
     </div>

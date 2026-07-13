@@ -5,6 +5,7 @@ const LEGAL_LINKS = [
   { href: "/mentions-legales", label: "Mentions légales" },
   { href: "/cgu", label: "CGU" },
   { href: "/cgv", label: "CGV" },
+  { href: "/politique-de-confidentialite", label: "Confidentialité" },
 ];
 
 export function LegalPageLayout({
