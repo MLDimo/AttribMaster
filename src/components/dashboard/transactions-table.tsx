@@ -44,12 +44,14 @@ export function TransactionsTable({
   to,
   model,
   topSources,
+  selectedSource,
 }: {
   projectId: string;
   from: string;
   to: string;
   model: AttributionModel;
   topSources: SourceCredit[];
+  selectedSource?: string | null;
 }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -150,7 +152,12 @@ export function TransactionsTable({
               </span>
             </div>
             <span className="text-xs text-muted-foreground">{formatDate(row.event_timestamp)}</span>
-            <AttributionChain touchpoints={row.touchpoints} model={model} topSources={topSources} />
+            <AttributionChain
+              touchpoints={row.touchpoints}
+              model={model}
+              topSources={topSources}
+              selectedSource={selectedSource}
+            />
           </motion.div>
         ))}
       </div>
@@ -197,7 +204,12 @@ export function TransactionsTable({
               <TableCell className="font-mono text-xs">{row.transaction_id}</TableCell>
               <TableCell>{formatDate(row.event_timestamp)}</TableCell>
               <TableCell className="max-w-md whitespace-normal">
-                <AttributionChain touchpoints={row.touchpoints} model={model} topSources={topSources} />
+                <AttributionChain
+              touchpoints={row.touchpoints}
+              model={model}
+              topSources={topSources}
+              selectedSource={selectedSource}
+            />
               </TableCell>
               <TableCell className="text-right font-mono tabular-nums">
                 {formatCurrency(row.purchase_revenue, row.currency)}

@@ -52,7 +52,15 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
-export function AttributionChart({ sources }: { sources: SourceCredit[] }) {
+export function AttributionChart({
+  sources,
+  selectedSource,
+  onSelectSource,
+}: {
+  sources: SourceCredit[];
+  selectedSource?: string | null;
+  onSelectSource?: (source: string | null) => void;
+}) {
   if (sources.length === 0) {
     return (
       <div className="flex h-72 items-center justify-center text-sm text-muted-foreground">
@@ -63,6 +71,10 @@ export function AttributionChart({ sources }: { sources: SourceCredit[] }) {
 
   const data = sources.map((s) => ({ name: s.source, value: s.revenue, share: s.share }));
   const total = data.reduce((sum, d) => sum + d.value, 0);
+
+  function toggleSource(name: string) {
+    onSelectSource?.(selectedSource === name ? null : name);
+  }
 
   return (
     <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
@@ -87,7 +99,13 @@ export function AttributionChart({ sources }: { sources: SourceCredit[] }) {
               isAnimationActive={false}
             >
               {data.map((entry) => (
-                <Cell key={entry.name} fill={colorForSource(entry.name)} />
+                <Cell
+                  key={entry.name}
+                  fill={colorForSource(entry.name)}
+                  fillOpacity={!selectedSource || selectedSource === entry.name ? 1 : 0.2}
+                  cursor="pointer"
+                  onClick={() => toggleSource(entry.name)}
+                />
               ))}
             </Pie>
             <Tooltip
@@ -112,23 +130,32 @@ export function AttributionChart({ sources }: { sources: SourceCredit[] }) {
       </motion.div>
 
       <StaggerContainer className="flex w-full flex-col gap-2">
-        {data.map((entry) => (
-          <StaggerItem key={entry.name}>
-            <div className="flex items-center gap-3 text-sm">
-              <span
-                className="size-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: colorForSource(entry.name) }}
-              />
-              <span className="min-w-0 flex-1 truncate">{entry.name}</span>
-              <span className="font-mono tabular-nums text-muted-foreground">
-                {(entry.share * 100).toFixed(1)}%
-              </span>
-              <span className="font-mono w-20 text-right tabular-nums">
-                {formatCurrency(entry.value)}
-              </span>
-            </div>
-          </StaggerItem>
-        ))}
+        {data.map((entry) => {
+          const dimmed = Boolean(selectedSource) && selectedSource !== entry.name;
+          return (
+            <StaggerItem key={entry.name}>
+              <button
+                type="button"
+                onClick={() => toggleSource(entry.name)}
+                className={`flex w-full items-center gap-3 rounded-md px-1.5 py-1 text-left text-sm transition-opacity hover:opacity-100 ${
+                  dimmed ? "opacity-40" : "opacity-100"
+                }`}
+              >
+                <span
+                  className="size-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: colorForSource(entry.name) }}
+                />
+                <span className="min-w-0 flex-1 truncate">{entry.name}</span>
+                <span className="font-mono tabular-nums text-muted-foreground">
+                  {(entry.share * 100).toFixed(1)}%
+                </span>
+                <span className="font-mono w-20 text-right tabular-nums">
+                  {formatCurrency(entry.value)}
+                </span>
+              </button>
+            </StaggerItem>
+          );
+        })}
       </StaggerContainer>
     </div>
   );

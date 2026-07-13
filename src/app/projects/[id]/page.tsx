@@ -177,6 +177,15 @@ export default function ProjectPage() {
   const [model, setModel] = useState<AttributionModel>("linear");
   const [comparison, setComparison] = useState<ComparisonMode>("previous_period");
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
+
+  // Une source sélectionnée n'a plus de sens si la période/le modèle change
+  // (ajustement pendant le rendu plutôt qu'un setState synchrone dans un effet).
+  const [prevSourceFilters, setPrevSourceFilters] = useState({ from, to, model });
+  if (prevSourceFilters.from !== from || prevSourceFilters.to !== to || prevSourceFilters.model !== model) {
+    setPrevSourceFilters({ from, to, model });
+    setSelectedSource(null);
+  }
 
   useEffect(() => {
     fetch(`/api/projects/${projectId}`)
@@ -343,7 +352,11 @@ export default function ProjectPage() {
                 </CardHeader>
                 <CardContent>
                   {overview ? (
-                    <AttributionChart sources={overview.topSources} />
+                    <AttributionChart
+                      sources={overview.topSources}
+                      selectedSource={selectedSource}
+                      onSelectSource={setSelectedSource}
+                    />
                   ) : (
                     <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
                       <Skeleton className="size-64 shrink-0 rounded-full" />
@@ -373,6 +386,7 @@ export default function ProjectPage() {
                     to={to}
                     model={model}
                     topSources={overview?.topSources ?? []}
+                    selectedSource={selectedSource}
                   />
                 </CardContent>
               </Card>

@@ -35,6 +35,7 @@ const EXAMPLE_AMOUNT = 340;
 
 export function AttributionDemo() {
   const [model, setModel] = useState<"last_click" | "shapley">("last_click");
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const sources = model === "last_click" ? LAST_CLICK : SHAPLEY;
 
   return (
@@ -65,11 +66,16 @@ export function AttributionDemo() {
             {EXAMPLE_AMOUNT.toLocaleString("fr-FR")} €
           </span>
         </div>
-        <AttributionChain touchpoints={EXAMPLE_TOUCHPOINTS} model={model} topSources={sources} />
-        <p className="text-xs text-muted-foreground">Survole chaque source pour voir sa part du crédit.</p>
+        <AttributionChain
+          touchpoints={EXAMPLE_TOUCHPOINTS}
+          model={model}
+          topSources={sources}
+          selectedSource={selectedSource}
+        />
+        <p className="text-xs text-muted-foreground">Survole chaque source pour voir sa part de la conversion.</p>
       </div>
 
-      <AttributionChart sources={sources} />
+      <AttributionChart sources={sources} selectedSource={selectedSource} onSelectSource={setSelectedSource} />
 
       <p className="text-center text-sm text-muted-foreground">
         {model === "last_click"
