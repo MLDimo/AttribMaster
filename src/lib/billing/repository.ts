@@ -23,6 +23,31 @@ export async function listMyBillingAccounts(): Promise<BillingAccount[]> {
   return rows;
 }
 
+export type BillingAccountWithProjects = BillingAccount & {
+  projects: { id: string; name: string }[];
+};
+
+/** Comptes de facturation + les projets qui les utilisent, pour la page "Mon compte". */
+export async function listMyBillingAccountsWithProjects(): Promise<BillingAccountWithProjects[]> {
+  const userId = await requireUserId();
+  const db = getDbPool();
+  const { rows } = await db.query<BillingAccountWithProjects>(
+    `select ba.*,
+       coalesce(
+         json_agg(json_build_object('id', p.id, 'name', p.name)) filter (where p.id is not null),
+         '[]'
+       ) as projects
+     from billing_accounts ba
+     join workspace_members wm on wm.workspace_id = ba.workspace_id
+     left join projects p on p.billing_account_id = ba.id
+     where wm.user_id = $1 and wm.role in ('owner', 'admin')
+     group by ba.id
+     order by ba.name`,
+    [userId]
+  );
+  return rows;
+}
+
 async function requireBillingAccountAccess(billingAccountId: string, userId: string): Promise<BillingAccount> {
   const db = getDbPool();
   const { rows } = await db.query<BillingAccount>(
