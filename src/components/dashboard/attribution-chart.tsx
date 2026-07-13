@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { useState } from "react";
+import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 
 import { AnimatedNumber } from "@/components/effects/animated-number";
 import { StaggerContainer, StaggerItem } from "@/components/effects/motion";
@@ -52,29 +53,6 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
-function ChartTooltipContent({
-  active,
-  payload,
-}: {
-  active?: boolean;
-  payload?: Array<{ value: number; payload: { name: string; share: number } }>;
-}) {
-  if (!active || !payload?.length) return null;
-  const { name, share } = payload[0].payload;
-
-  return (
-    <div className="rounded-md border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md">
-      <div className="flex items-center gap-1.5 font-medium">
-        <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: colorForSource(name) }} />
-        {name}
-      </div>
-      <div className="mt-1 font-mono tabular-nums text-muted-foreground">
-        {formatCurrency(payload[0].value)} · {(share * 100).toFixed(1)}%
-      </div>
-    </div>
-  );
-}
-
 export function AttributionChart({
   sources,
   selectedSource,
@@ -84,6 +62,8 @@ export function AttributionChart({
   selectedSource?: string | null;
   onSelectSource?: (source: string | null) => void;
 }) {
+  const [hoveredName, setHoveredName] = useState<string | null>(null);
+
   if (sources.length === 0) {
     return (
       <div className="flex h-72 items-center justify-center text-sm text-muted-foreground">
@@ -94,6 +74,7 @@ export function AttributionChart({
 
   const data = sources.map((s) => ({ name: s.source, value: s.revenue, share: s.share }));
   const total = data.reduce((sum, d) => sum + d.value, 0);
+  const hovered = data.find((d) => d.name === hoveredName) ?? null;
 
   function toggleSource(name: string) {
     onSelectSource?.(selectedSource === name ? null : name);
@@ -129,22 +110,43 @@ export function AttributionChart({
                   cursor="pointer"
                   style={{ outline: "none" }}
                   onClick={() => toggleSource(entry.name)}
+                  onMouseEnter={() => setHoveredName(entry.name)}
+                  onMouseLeave={() => setHoveredName(null)}
                 />
               ))}
             </Pie>
-            <Tooltip content={<ChartTooltipContent />} wrapperStyle={{ outline: "none" }} />
           </PieChart>
         </ResponsiveContainer>
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.4, delay: 0.4 }}
-          className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"
+          className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-8 text-center"
         >
-          <span className="text-xs text-muted-foreground">Total</span>
-          <span className="font-mono text-lg font-semibold tabular-nums">
-            <AnimatedNumber value={total} format={formatCurrency} />
-          </span>
+          {hovered ? (
+            <>
+              <span className="flex max-w-full items-center gap-1.5 truncate text-xs font-medium">
+                <span
+                  className="size-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: colorForSource(hovered.name) }}
+                />
+                <span className="truncate">{hovered.name}</span>
+              </span>
+              <span className="font-mono text-lg font-semibold tabular-nums">
+                {formatCurrency(hovered.value)}
+              </span>
+              <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                {(hovered.share * 100).toFixed(1)}%
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="text-xs text-muted-foreground">Total</span>
+              <span className="font-mono text-lg font-semibold tabular-nums">
+                <AnimatedNumber value={total} format={formatCurrency} />
+              </span>
+            </>
+          )}
         </motion.div>
       </motion.div>
 
@@ -156,6 +158,8 @@ export function AttributionChart({
               <button
                 type="button"
                 onClick={() => toggleSource(entry.name)}
+                onMouseEnter={() => setHoveredName(entry.name)}
+                onMouseLeave={() => setHoveredName(null)}
                 className={`flex w-full items-center gap-3 rounded-md px-1.5 py-1 text-left text-sm transition-opacity hover:opacity-100 ${
                   dimmed ? "opacity-40" : "opacity-100"
                 }`}
