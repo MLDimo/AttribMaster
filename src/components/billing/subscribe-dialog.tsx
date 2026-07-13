@@ -85,7 +85,7 @@ export function SubscribeDialog({
           <DialogTitle>S&apos;abonner — {planInfo.label}</DialogTitle>
           <DialogDescription>
             {interval === "monthly"
-              ? `${planInfo.monthlyPriceEuros}€/mois + 50€ de frais d'installation`
+              ? `${planInfo.monthlyPriceEuros}€/mois + 50€ de frais d'installation (setup BigQuery inclus)`
               : `${(planInfo.monthlyPriceEuros ?? 0) * 12}€/an, facturé annuellement — frais d'installation offerts`}
           </DialogDescription>
         </DialogHeader>

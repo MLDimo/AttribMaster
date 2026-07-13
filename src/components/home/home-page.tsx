@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,7 @@ import { AttributionDemo } from "@/components/home/attribution-demo";
 import { ParallaxBlob } from "@/components/effects/parallax-blob";
 import { ParticleThreads } from "@/components/effects/particle-threads";
 import { FadeIn, StaggerContainer, StaggerItem } from "@/components/effects/motion";
-import { PLANS } from "@/lib/billing/plans";
+import { PLANS, SETUP_FEE_EUROS } from "@/lib/billing/plans";
 
 const NAV_LINKS = [
   { href: "#demo", label: "Démo" },
@@ -134,6 +135,10 @@ const FAQ_ITEMS = [
     a: "Oui : un même compte de facturation peut être réutilisé sur autant de projets que tu veux, ou tu peux en créer un nouveau à chaque fois.",
   },
   {
+    q: "Que couvrent les frais d'installation ?",
+    a: "Les 50€ de frais d'installation couvrent tout le setup de ta connexion BigQuery — projet GCP, dataset GA4, table d'attribution. Offerts si tu choisis la facturation annuelle.",
+  },
+  {
     q: "Puis-je annuler à tout moment ?",
     a: "Oui, résiliation en un clic depuis ton espace de facturation, aucun engagement.",
   },
@@ -146,6 +151,7 @@ const FAQ_ITEMS = [
 export function HomePage({ authenticated }: { authenticated: boolean }) {
   const ctaHref = authenticated ? "/projects" : "/login";
   const ctaLabel = authenticated ? "Aller à mes projets" : "Se connecter";
+  const [interval, setInterval] = useState<"monthly" | "annual">("monthly");
 
   return (
     <div className="relative flex min-h-svh flex-col overflow-x-hidden bg-background">
@@ -190,7 +196,7 @@ export function HomePage({ authenticated }: { authenticated: boolean }) {
           </FadeIn>
           <FadeIn delay={0.05}>
             <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-              Le dernier clic te fait mal allouer ton budget marketing.
+              Marre de ne rien comprendre à ton attribution marketing ?
             </h1>
           </FadeIn>
           <FadeIn delay={0.1}>
@@ -303,6 +309,31 @@ export function HomePage({ authenticated }: { authenticated: boolean }) {
           <h2 className="text-2xl font-semibold">Un plan pour chaque taille de projet</h2>
           <p className="text-sm text-muted-foreground">Facturation par projet, mensuelle ou annuelle.</p>
         </FadeIn>
+
+        <FadeIn delay={0.05} className="mb-8 flex items-center justify-center gap-1 self-center rounded-full border bg-muted/50 p-1 text-sm">
+          <button
+            onClick={() => setInterval("monthly")}
+            className={`rounded-full px-3.5 py-1.5 font-medium transition-colors ${
+              interval === "monthly" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Mensuel
+          </button>
+          <button
+            onClick={() => setInterval("annual")}
+            className={`rounded-full px-3.5 py-1.5 font-medium transition-colors ${
+              interval === "annual" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Annuel
+          </button>
+          {interval === "annual" && (
+            <span className="mr-1.5 rounded-full bg-success/15 px-2 py-1 text-xs font-medium text-success">
+              Frais d&apos;installation offerts
+            </span>
+          )}
+        </FadeIn>
+
         <StaggerContainer className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {PLANS.map((plan) => {
             const isPopular = plan.id === "pro";
@@ -322,9 +353,14 @@ export function HomePage({ authenticated }: { authenticated: boolean }) {
                       {plan.selfServe ? (
                         <>
                           <span className="font-mono text-2xl font-semibold tabular-nums">
-                            {plan.monthlyPriceEuros}€
+                            {interval === "monthly" ? plan.monthlyPriceEuros : (plan.monthlyPriceEuros ?? 0) * 12}€
                           </span>
-                          <span className="text-sm text-muted-foreground"> / mois</span>
+                          <span className="text-sm text-muted-foreground">{interval === "monthly" ? " / mois" : " / an"}</span>
+                          {interval === "monthly" && (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              + {SETUP_FEE_EUROS}€ de frais d&apos;installation (setup BigQuery inclus)
+                            </p>
+                          )}
                         </>
                       ) : (
                         <>
