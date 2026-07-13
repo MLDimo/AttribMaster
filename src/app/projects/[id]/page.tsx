@@ -14,6 +14,7 @@ import { AttributionChart } from "@/components/dashboard/attribution-chart";
 import { AttributionModelsGuide } from "@/components/dashboard/attribution-models-guide";
 import { DateRangePicker } from "@/components/dashboard/date-range-picker";
 import { OverviewCards } from "@/components/dashboard/overview-cards";
+import { RefreshDataButton } from "@/components/dashboard/refresh-data-button";
 import { TransactionsTable } from "@/components/dashboard/transactions-table";
 import { FadeIn } from "@/components/effects/motion";
 import type { OverviewResponse } from "@/lib/attribution/api-types";
@@ -178,6 +179,7 @@ export default function ProjectPage() {
   const [comparison, setComparison] = useState<ComparisonMode>("previous_period");
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
 
   // Une source sélectionnée n'a plus de sens si la période/le modèle change
   // (ajustement pendant le rendu plutôt qu'un setState synchrone dans un effet).
@@ -215,7 +217,7 @@ export default function ProjectPage() {
     return () => {
       cancelled = true;
     };
-  }, [projectId, usable, from, to, model, comparison]);
+  }, [projectId, usable, from, to, model, comparison, refreshTick]);
 
   if (notFound) {
     return (
@@ -238,12 +240,17 @@ export default function ProjectPage() {
 
   return (
     <AppShell>
-      <nav aria-label="Fil d'ariane" className="mb-4 flex items-center gap-1.5 text-sm text-muted-foreground">
-        <Link href="/projects" className="transition-colors hover:text-primary">
-          Projets
-        </Link>
-        <span aria-hidden>/</span>
-        <span className="font-medium text-foreground">{project.name}</span>
+      <nav aria-label="Fil d'ariane" className="mb-4 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+        <div className="flex items-center gap-1.5">
+          <Link href="/projects" className="transition-colors hover:text-primary">
+            Projets
+          </Link>
+          <span aria-hidden>/</span>
+          <span className="font-medium text-foreground">{project.name}</span>
+        </div>
+        {usable && (
+          <RefreshDataButton projectId={projectId} onDone={() => setRefreshTick((t) => t + 1)} />
+        )}
       </nav>
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <FadeIn>
