@@ -123,8 +123,16 @@ export function AttributionChart({
           transition={{ duration: 0.4, delay: 0.4 }}
           className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-8 text-center"
         >
-          {hovered ? (
-            <>
+          {/* Toujours monté (visibilité togglée en CSS) pour que le compteur ne se
+              relance pas depuis 0 à chaque survol : seul le montage initial doit animer. */}
+          <div className={`flex flex-col items-center ${hovered ? "invisible" : "visible"}`}>
+            <span className="text-xs text-muted-foreground">Total</span>
+            <span className="font-mono text-lg font-semibold tabular-nums">
+              <AnimatedNumber value={total} format={formatCurrency} />
+            </span>
+          </div>
+          {hovered && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
               <span className="flex max-w-full items-center gap-1.5 truncate text-xs font-medium">
                 <span
                   className="size-2 shrink-0 rounded-full"
@@ -138,14 +146,7 @@ export function AttributionChart({
               <span className="font-mono text-xs text-muted-foreground tabular-nums">
                 {(hovered.share * 100).toFixed(1)}%
               </span>
-            </>
-          ) : (
-            <>
-              <span className="text-xs text-muted-foreground">Total</span>
-              <span className="font-mono text-lg font-semibold tabular-nums">
-                <AnimatedNumber value={total} format={formatCurrency} />
-              </span>
-            </>
+            </div>
           )}
         </motion.div>
       </motion.div>
