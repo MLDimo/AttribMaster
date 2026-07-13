@@ -52,6 +52,29 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
+function ChartTooltipContent({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ value: number; payload: { name: string; share: number } }>;
+}) {
+  if (!active || !payload?.length) return null;
+  const { name, share } = payload[0].payload;
+
+  return (
+    <div className="rounded-md border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md">
+      <div className="flex items-center gap-1.5 font-medium">
+        <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: colorForSource(name) }} />
+        {name}
+      </div>
+      <div className="mt-1 font-mono tabular-nums text-muted-foreground">
+        {formatCurrency(payload[0].value)} · {(share * 100).toFixed(1)}%
+      </div>
+    </div>
+  );
+}
+
 export function AttributionChart({
   sources,
   selectedSource,
@@ -109,12 +132,7 @@ export function AttributionChart({
                 />
               ))}
             </Pie>
-            <Tooltip
-              formatter={(value, _name, item) => [
-                `${formatCurrency(Number(value))} (${(((item.payload as { share: number }).share) * 100).toFixed(1)}%)`,
-                (item.payload as { name: string }).name,
-              ]}
-            />
+            <Tooltip content={<ChartTooltipContent />} wrapperStyle={{ outline: "none" }} />
           </PieChart>
         </ResponsiveContainer>
         <motion.div
