@@ -66,7 +66,7 @@ const FEATURES = [
   },
   {
     icon: Database,
-    title: "Basé sur les vrai données ",
+    title: "Données 100 % réelles",
     description: "Aucune donnée échantillonnée : les requêtes tournent directement sur ton export BigQuery.",
   },
   {
