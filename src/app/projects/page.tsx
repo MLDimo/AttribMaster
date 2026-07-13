@@ -141,7 +141,7 @@ export default function ProjectsPage() {
           </Card>
         )}
 
-        {filteredProjects.length > 0 && (
+        {loaded && filteredProjects.length > 0 && (
           <FadeIn>
           <Card>
             <CardContent>
