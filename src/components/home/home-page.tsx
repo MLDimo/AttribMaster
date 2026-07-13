@@ -3,16 +3,13 @@
 import { motion } from "framer-motion";
 import {
   ArrowRight,
-  ChartPie,
   Check,
-  CreditCard,
   Database,
   FileSpreadsheet,
   FilterX,
   GitCompare,
   Sparkles,
   TrendingDown,
-  Users,
   Waypoints,
 } from "lucide-react";
 import Image from "next/image";
