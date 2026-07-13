@@ -4,21 +4,21 @@ export const metadata = { title: "Mentions légales — AttribMaster" };
 
 export default function MentionsLegalesPage() {
   return (
-    <LegalPageLayout title="Mentions légales" updatedAt="[À COMPLÉTER]">
+    <LegalPageLayout title="Mentions légales" updatedAt="13 juillet 2026">
       <section>
         <h2>Éditeur du site</h2>
         <p>
           Le site AttribMaster (ci-après « le Site ») est édité par :
           <br />
-          [Raison sociale à compléter], [forme juridique, ex : SASU] au capital de [montant] €
+          MLDIMO WEB, SAS au capital de [montant à compléter] €
           <br />
-          Siège social : [adresse à compléter]
+          Siège social : 18 rue Alberti, 06000 Nice, France
           <br />
-          RCS [ville] [numéro] — SIRET [numéro]
+          RCS Nice 103 123 790 — SIRET 103 123 790 00018
           <br />
-          Numéro de TVA intracommunautaire : [numéro]
+          Numéro de TVA intracommunautaire : FR67 103123790
           <br />
-          Directeur de la publication : [nom à compléter]
+          Directeur de la publication : Martin Laroche, Président
           <br />
           Contact : [email à compléter]
         </p>

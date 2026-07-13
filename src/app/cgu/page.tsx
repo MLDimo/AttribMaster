@@ -4,14 +4,14 @@ export const metadata = { title: "CGU — AttribMaster" };
 
 export default function CguPage() {
   return (
-    <LegalPageLayout title="Conditions Générales d'Utilisation" updatedAt="[À COMPLÉTER]">
+    <LegalPageLayout title="Conditions Générales d'Utilisation" updatedAt="13 juillet 2026">
       <section>
         <h2>1. Objet</h2>
         <p>
           Les présentes Conditions Générales d&apos;Utilisation (CGU) régissent l&apos;accès et l&apos;utilisation
-          du service AttribMaster (ci-après « le Service »), édité par [Raison sociale à compléter]
-          (ci-après « nous », « l&apos;Éditeur »). L&apos;utilisation du Service implique l&apos;acceptation pleine
-          et entière des présentes CGU.
+          du service AttribMaster (ci-après « le Service »), édité par MLDIMO WEB, SAS immatriculée au
+          RCS de Nice sous le numéro 103 123 790 (ci-après « nous », « l&apos;Éditeur »). L&apos;utilisation du
+          Service implique l&apos;acceptation pleine et entière des présentes CGU.
         </p>
       </section>
 
