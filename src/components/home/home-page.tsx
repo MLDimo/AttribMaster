@@ -372,7 +372,7 @@ export function HomePage({ authenticated }: { authenticated: boolean }) {
           </p>
           <Button size="lg" asChild>
             <Link href={ctaHref}>
-              {ctaLabel}
+              {authenticated ? ctaLabel : "Commencer"}
               <ArrowRight className="size-4" />
             </Link>
           </Button>
