@@ -1,5 +1,7 @@
-import { redirect } from "next/navigation";
+import { auth } from "@/auth";
+import { HomePage } from "@/components/home/home-page";
 
-export default function Home() {
-  redirect("/projects");
+export default async function Home() {
+  const session = await auth();
+  return <HomePage authenticated={Boolean(session?.user)} />;
 }

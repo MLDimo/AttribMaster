@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 
-const PUBLIC_PATHS = ["/login"];
+// Comparaison exacte (pas de préfixe) : "/" ne doit pas rendre tout le site public.
+const PUBLIC_PATHS = ["/", "/login"];
 
 export default auth((request) => {
-  const isPublicPath = PUBLIC_PATHS.some((path) => request.nextUrl.pathname.startsWith(path));
+  const isPublicPath = PUBLIC_PATHS.includes(request.nextUrl.pathname);
   const isApiPath = request.nextUrl.pathname.startsWith("/api");
 
   if (!request.auth && !isPublicPath && !isApiPath) {
