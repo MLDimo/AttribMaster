@@ -126,12 +126,16 @@ export function ParticleThreads({ className }: { className?: string }) {
       animationFrameId = requestAnimationFrame(animate);
     }
 
+    // "pointermove"/"pointerleave" couvrent aussi le tactile : sans ce filtre, faire
+    // défiler la page au doigt sur mobile fait fuir les particules comme un curseur.
     function handlePointerMove(e: PointerEvent) {
+      if (e.pointerType !== "mouse") return;
       const rect = canvas!.getBoundingClientRect();
       mouse.x = e.clientX - rect.left;
       mouse.y = e.clientY - rect.top;
     }
-    function handlePointerLeave() {
+    function handlePointerLeave(e: PointerEvent) {
+      if (e.pointerType !== "mouse") return;
       mouse.x = null;
       mouse.y = null;
     }
