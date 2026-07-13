@@ -201,7 +201,7 @@ export function HomePage({ authenticated }: { authenticated: boolean }) {
           </FadeIn>
           <FadeIn delay={0.1}>
             <p className="text-balance text-muted-foreground sm:text-lg">
-              AttribMaster reconstruit le vrai parcours de conversion depuis GA4 et BigQuery — 6 modèles
+              AttribMaster reconstruit le vrai parcours de conversion depuis BigQuery — 6 modèles
               d&apos;attribution calculés sur tes données réelles, sans échantillonnage.
             </p>
           </FadeIn>
@@ -251,6 +251,7 @@ export function HomePage({ authenticated }: { authenticated: boolean }) {
         <FadeIn className="mb-8 flex flex-col items-center gap-2 text-center">
           <h2 className="text-2xl font-semibold">Le même mois, deux vérités différentes</h2>
           <p className="text-sm text-muted-foreground">Change juste de modèle d&apos;attribution.</p>
+          <p className="text-sm text-muted-foreground">6 modèles d&apos;attribution disponibles.</p>
         </FadeIn>
         <FadeIn delay={0.1}>
           <Card>
@@ -336,7 +337,7 @@ export function HomePage({ authenticated }: { authenticated: boolean }) {
 
         <StaggerContainer className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {PLANS.map((plan) => {
-            const isPopular = plan.id === "pro";
+            const isPopular = plan.id === "standard";
             return (
               <StaggerItem key={plan.id}>
                 <Card className={`relative h-full ${isPopular ? "border-primary shadow-md" : ""}`}>

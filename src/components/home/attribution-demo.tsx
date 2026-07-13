@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 
+import { AttributionChain } from "@/components/dashboard/attribution-chain";
 import { AttributionChart } from "@/components/dashboard/attribution-chart";
-import type { SourceCredit } from "@/lib/attribution/types";
+import type { SourceCredit, Touchpoint } from "@/lib/attribution/types";
 
 const TOTAL = 10000;
 
@@ -22,6 +23,15 @@ const SHAPLEY: SourceCredit[] = [
   { source: "email / newsletter", revenue: 1500, share: 0.15 },
   { source: "organic / search", revenue: 800, share: 0.08 },
 ];
+
+// Un parcours client réaliste : découverte payante, relance, nurture, achat en direct.
+const EXAMPLE_TOUCHPOINTS: Touchpoint[] = [
+  { source: "google", medium: "cpc", campaign: null, timestamp: "2026-07-01T09:00:00Z", position: 0 },
+  { source: "meta", medium: "paid social", campaign: null, timestamp: "2026-07-04T18:30:00Z", position: 1 },
+  { source: "email", medium: "newsletter", campaign: null, timestamp: "2026-07-08T08:00:00Z", position: 2 },
+  { source: "direct", medium: "none", campaign: null, timestamp: "2026-07-09T20:15:00Z", position: 3 },
+];
+const EXAMPLE_AMOUNT = 340;
 
 export function AttributionDemo() {
   const [model, setModel] = useState<"last_click" | "shapley">("last_click");
@@ -46,6 +56,17 @@ export function AttributionDemo() {
         >
           Valeur de Shapley
         </button>
+      </div>
+
+      <div className="flex flex-col gap-2 rounded-lg border p-3 text-left">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs text-muted-foreground">Exemple : un parcours d&apos;achat réel</span>
+          <span className="font-mono text-sm font-semibold tabular-nums">
+            {EXAMPLE_AMOUNT.toLocaleString("fr-FR")} €
+          </span>
+        </div>
+        <AttributionChain touchpoints={EXAMPLE_TOUCHPOINTS} model={model} topSources={sources} />
+        <p className="text-xs text-muted-foreground">Survole chaque source pour voir sa part du crédit.</p>
       </div>
 
       <AttributionChart sources={sources} />
