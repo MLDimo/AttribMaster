@@ -52,6 +52,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       mode: "subscription",
       customer: billingAccount.stripe_customer_id,
       line_items: lineItems,
+      allow_promotion_codes: true,
       metadata,
       subscription_data: { metadata },
       success_url: `${appUrl}/projects/${projectId}?subscribed=1`,
