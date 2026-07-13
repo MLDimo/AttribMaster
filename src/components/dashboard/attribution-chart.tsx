@@ -104,6 +104,7 @@ export function AttributionChart({
                   fill={colorForSource(entry.name)}
                   fillOpacity={!selectedSource || selectedSource === entry.name ? 1 : 0.2}
                   cursor="pointer"
+                  style={{ outline: "none" }}
                   onClick={() => toggleSource(entry.name)}
                 />
               ))}

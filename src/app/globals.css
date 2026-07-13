@@ -176,3 +176,14 @@
     background: color-mix(in oklch, var(--background) 32%, transparent);
   }
 }
+
+/* Recharts rend les secteurs cliquables focusables pour l'accessibilité clavier,
+   ce qui affiche un contour carré par défaut du navigateur sur une forme ronde
+   au clic. On garde le survol/clic fonctionnels sans ce halo visuel incohérent. */
+.recharts-wrapper svg:focus,
+.recharts-wrapper g:focus,
+.recharts-surface:focus,
+.recharts-pie-sector:focus,
+.recharts-sector:focus {
+  outline: none;
+}
