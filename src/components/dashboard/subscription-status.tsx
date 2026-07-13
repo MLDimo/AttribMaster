@@ -57,7 +57,7 @@ export function SubscriptionStatus({ project }: { project: Project }) {
           {STATUS_LABELS[project.subscription_status] ?? project.subscription_status}
         </span>
       </span>
-      {subscribed && (
+      {subscribed && project.stripe_subscription_id && (
         <Button variant="outline" size="sm" className="mt-2 w-fit" onClick={handleManage} disabled={openingPortal}>
           {openingPortal ? <Loader2 className="size-3.5 animate-spin" /> : "Gérer l'abonnement"}
         </Button>
