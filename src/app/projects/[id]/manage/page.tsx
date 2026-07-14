@@ -1,6 +1,6 @@
 "use client";
 
-import { CreditCard, Users } from "lucide-react";
+import { CreditCard, RefreshCw, Users } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -9,9 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppShell } from "@/components/layout/app-shell";
 import { PlanPicker } from "@/components/billing/plan-picker";
 import { ProjectMembers } from "@/components/dashboard/project-members";
+import { RefreshDataButton } from "@/components/dashboard/refresh-data-button";
 import { SubscriptionStatus } from "@/components/dashboard/subscription-status";
 import { FadeIn } from "@/components/effects/motion";
-import { isProjectSubscribed } from "@/lib/projects/types";
+import { isProjectConnected, isProjectSubscribed } from "@/lib/projects/types";
 import type { Project } from "@/lib/projects/types";
 
 export default function ManageProjectPage() {
@@ -67,7 +68,23 @@ export default function ManageProjectPage() {
       </nav>
 
       <div className="flex max-w-2xl flex-col gap-5">
-        <FadeIn>
+        {isProjectConnected(project) && isProjectSubscribed(project) && (
+          <FadeIn>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <RefreshCw className="size-4 text-muted-foreground" />
+                  Données
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <RefreshDataButton projectId={project.id} onDone={() => {}} />
+              </CardContent>
+            </Card>
+          </FadeIn>
+        )}
+
+        <FadeIn delay={0.02}>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
