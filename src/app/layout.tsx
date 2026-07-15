@@ -18,7 +18,8 @@ const firaCode = Fira_Code({
 
 export const metadata: Metadata = {
   title: "AttribMaster",
-  description: "SaaS d'attribution marketing (GA4 + BigQuery)",
+  description:
+    "Devenez maître de votre attribution marketing avec des données réelles, fiables et sans approximation.",
 };
 
 export default function RootLayout({
