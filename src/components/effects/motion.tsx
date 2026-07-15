@@ -33,7 +33,8 @@ export function FadeIn({
 export function StaggerContainer({
   children,
   className,
-}: {
+  ...rest
+}: React.ComponentPropsWithoutRef<typeof motion.div> & {
   children: React.ReactNode;
   className?: string;
 }) {
@@ -43,6 +44,7 @@ export function StaggerContainer({
       animate="show"
       variants={{ show: { transition: { staggerChildren: 0.06 } } }}
       className={className}
+      {...rest}
     >
       {children}
     </motion.div>

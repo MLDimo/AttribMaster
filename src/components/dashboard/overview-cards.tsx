@@ -40,7 +40,7 @@ export function OverviewCards({
       : `${isPositive ? "+" : ""}${totals.revenueChangePct.toFixed(1)}%`;
 
   return (
-    <StaggerContainer className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <StaggerContainer className="grid grid-cols-1 gap-4 sm:grid-cols-3" data-testid="overview-cards">
       <StaggerItem>
       <TiltCard>
         <Card className="gap-3 py-5">

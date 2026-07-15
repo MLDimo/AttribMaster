@@ -81,7 +81,7 @@ export function AttributionChart({
   }
 
   return (
-    <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
+    <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center" data-testid="attribution-chart">
       <motion.div
         initial={{ opacity: 0, scale: 0.82, rotate: -12 }}
         animate={{ opacity: 1, scale: 1, rotate: 0 }}
