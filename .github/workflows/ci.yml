@@ -38,10 +38,6 @@ jobs:
       STRIPE_PRICE_PRO_ANNUAL: ${{ secrets.TEST_STRIPE_PRICE_PRO_ANNUAL }}
       STRIPE_PRICE_SETUP_FEE: ${{ secrets.TEST_STRIPE_PRICE_SETUP_FEE }}
       NEXT_PUBLIC_APP_URL: "https://attrib-master-git-main-mldimos-projects.vercel.app"
-      # Optionnels : n'active les tests Google/BigQuery réels que s'ils existent.
-      TEST_GOOGLE_REFRESH_TOKEN: ${{ secrets.TEST_GOOGLE_REFRESH_TOKEN }}
-      TEST_GCP_PROJECT_ID: ${{ secrets.TEST_GCP_PROJECT_ID }}
-      TEST_GA4_DATASET: ${{ secrets.TEST_GA4_DATASET }}
     steps:
       - uses: actions/checkout@v4
 
