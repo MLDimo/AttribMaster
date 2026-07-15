@@ -1,9 +1,9 @@
 import NeonAdapter from "@auth/neon-adapter";
-import bcrypt from "bcryptjs";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 
+import { verifyCredentials } from "@/lib/auth/credentials";
 import { getDbPool } from "@/lib/db/client";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -29,28 +29,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Mot de passe", type: "password" },
       },
       async authorize(credentials) {
-        const email = credentials?.email;
-        const password = credentials?.password;
-        if (typeof email !== "string" || typeof password !== "string") {
-          return null;
-        }
-
-        const pool = getDbPool();
-        const { rows } = await pool.query(
-          `select id, name, email, password_hash from users where email = $1`,
-          [email]
-        );
-        const user = rows[0];
-        if (!user?.password_hash) {
-          return null;
-        }
-
-        const valid = await bcrypt.compare(password, user.password_hash);
-        if (!valid) {
-          return null;
-        }
-
-        return { id: user.id, name: user.name, email: user.email };
+        return verifyCredentials(credentials?.email, credentials?.password);
       },
     }),
   ],

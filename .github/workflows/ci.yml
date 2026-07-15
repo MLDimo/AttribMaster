@@ -1,0 +1,66 @@
+name: CI
+
+# Gate obligatoire avant mise en production : ce workflow tourne sur toute PR
+# vers `production` (et sur push vers `main`/`production` pour un retour
+# rapide). Configurer une "required status check" sur la branche `production`
+# pour ce job empêche le merge tant qu'il n'est pas vert.
+on:
+  pull_request:
+    branches: [production]
+  push:
+    branches: [main, production]
+
+jobs:
+  test:
+    name: Typecheck, lint, build, test
+    runs-on: ubuntu-latest
+    env:
+      # Base preprod dédiée aux tests — jamais la production.
+      DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+      DATABASE_URL_UNPOOLED: ${{ secrets.TEST_DATABASE_URL_UNPOOLED }}
+      ENCRYPTION_KEY: ${{ secrets.TEST_ENCRYPTION_KEY }}
+      AUTH_SECRET: ${{ secrets.TEST_AUTH_SECRET }}
+      AUTH_TRUST_HOST: "true"
+      CRON_SECRET: ${{ secrets.TEST_CRON_SECRET }}
+      # Placeholders non-sensibles : aucun test n'exerce un vrai flow Google
+      # sign-in, NextAuth a juste besoin que ces valeurs existent.
+      AUTH_GOOGLE_ID: "ci-placeholder"
+      AUTH_GOOGLE_SECRET: "ci-placeholder"
+      GOOGLE_CLIENT_ID: "ci-placeholder"
+      GOOGLE_CLIENT_SECRET: "ci-placeholder"
+      # Stripe TEST mode uniquement (jamais les clés live).
+      STRIPE_SECRET_KEY: ${{ secrets.TEST_STRIPE_SECRET_KEY }}
+      STRIPE_PUBLISHABLE_KEY: ${{ secrets.TEST_STRIPE_PUBLISHABLE_KEY }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.TEST_STRIPE_WEBHOOK_SECRET }}
+      STRIPE_PRICE_STANDARD_MONTHLY: ${{ secrets.TEST_STRIPE_PRICE_STANDARD_MONTHLY }}
+      STRIPE_PRICE_STANDARD_ANNUAL: ${{ secrets.TEST_STRIPE_PRICE_STANDARD_ANNUAL }}
+      STRIPE_PRICE_PRO_MONTHLY: ${{ secrets.TEST_STRIPE_PRICE_PRO_MONTHLY }}
+      STRIPE_PRICE_PRO_ANNUAL: ${{ secrets.TEST_STRIPE_PRICE_PRO_ANNUAL }}
+      STRIPE_PRICE_SETUP_FEE: ${{ secrets.TEST_STRIPE_PRICE_SETUP_FEE }}
+      NEXT_PUBLIC_APP_URL: "https://attrib-master-git-main-mldimos-projects.vercel.app"
+      # Optionnels : n'active les tests Google/BigQuery réels que s'ils existent.
+      TEST_GOOGLE_REFRESH_TOKEN: ${{ secrets.TEST_GOOGLE_REFRESH_TOKEN }}
+      TEST_GCP_PROJECT_ID: ${{ secrets.TEST_GCP_PROJECT_ID }}
+      TEST_GA4_DATASET: ${{ secrets.TEST_GA4_DATASET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm run test

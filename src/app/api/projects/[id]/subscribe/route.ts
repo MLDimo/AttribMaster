@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { prepareSubscription } from "@/lib/billing/repository";
 import { getStripeClient } from "@/lib/stripe/client";
-import { priceIdFor, setupFeePriceId } from "@/lib/stripe/prices";
+import { buildSubscriptionLineItems } from "@/lib/stripe/checkout";
 
 const bodySchema = z
   .object({
@@ -44,12 +44,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const appUrl = request.nextUrl.origin;
     const stripe = getStripeClient();
 
-    const lineItems = [{ price: priceIdFor(plan, interval), quantity: 1 }];
-    // Facturation annuelle : installation toujours offerte. Facturation mensuelle :
-    // installation en option, ajoutée seulement si explicitement choisie.
-    if (interval === "monthly" && includeSetup) {
-      lineItems.push({ price: setupFeePriceId(), quantity: 1 });
-    }
+    const lineItems = buildSubscriptionLineItems(plan, interval, includeSetup);
 
     const metadata = { projectId, billingAccountId: billingAccount.id, plan, interval };
     const session = await stripe.checkout.sessions.create({
