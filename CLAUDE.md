@@ -39,8 +39,11 @@ V2 (multi-tenant) et V3 (Stripe) de la roadmap initiale sont livrées. La 2FA
   les baselines linux se régénèrent via Docker `mcr.microsoft.com/playwright`)
 - CI GitHub Actions (`.github/workflows/ci.yml`) sur PR→production et push main/production ;
   secrets `TEST_*` dans le repo GitHub
-- **Mise en prod = push `main:production`** (fast-forward), uniquement si CI verte.
-  Toute modif de source nécessite `npm run build` avant `npx playwright test`
+- **Mise en prod = PR `main`→`production`** via `gh pr create --base production --head main`
+  puis `gh pr merge --auto --merge`. La branche `production` est protégée SANS bypass
+  (push direct impossible, même admin) : le merge n'a lieu que si le check
+  "Typecheck, lint, build, test" est vert. Auto-merge activé sur le repo.
+- Toute modif de source nécessite `npm run build` avant `npx playwright test`
   (le webServer sert le bundle pré-buildé)
 
 ## Règles
