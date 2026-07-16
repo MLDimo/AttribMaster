@@ -12,9 +12,6 @@ export async function DELETE(
     await removeProjectMember(id, userId);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    if (error instanceof Error && error.message === "Not authorized on this project") {
-      return NextResponse.json({ error: "Tu n'as pas les droits pour gérer ce projet." }, { status: 403 });
-    }
     return apiErrorResponse(error, "[api/projects/[id]/members/[userId] DELETE]", "Failed to remove member");
   }
 }

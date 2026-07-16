@@ -61,9 +61,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    if (error instanceof Error && error.message === "Not authorized on this project") {
-      return NextResponse.json({ error: "Tu n'as pas les droits pour gérer ce projet." }, { status: 403 });
-    }
     return apiErrorResponse(error, "[api/projects/[id]/subscribe POST]", "Failed to start checkout");
   }
 }

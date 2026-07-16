@@ -6,7 +6,7 @@ import Google from "next-auth/providers/google";
 import { verifyCredentials } from "@/lib/auth/credentials";
 import { getDbPool } from "@/lib/db/client";
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const { handlers, auth } = NextAuth({
   adapter: NeonAdapter(getDbPool()),
   // Le provider Credentials n'est pas compatible avec les sessions "database" ;
   // on passe donc en JWT (l'adapter reste utilisé pour persister users/accounts

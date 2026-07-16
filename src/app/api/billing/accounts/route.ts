@@ -29,9 +29,6 @@ export async function POST(request: NextRequest) {
     const account = await createBillingAccount(parsed.data.workspaceId, parsed.data.name);
     return NextResponse.json({ account });
   } catch (error) {
-    if (error instanceof Error && error.message === "Not authorized on this workspace") {
-      return NextResponse.json({ error: "Tu n'as pas les droits sur ce workspace." }, { status: 403 });
-    }
     return apiErrorResponse(error, "[api/billing/accounts POST]", "Failed to create billing account");
   }
 }

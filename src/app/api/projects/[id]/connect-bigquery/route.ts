@@ -4,7 +4,7 @@ import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { toDateOnly } from "@/lib/attribution/nightly-run";
+import { yesterdayDateOnly } from "@/lib/attribution/nightly-run";
 import { enqueueHistoricalBackfill, processQueue } from "@/lib/attribution/queue";
 import { discoverGa4HistoryStartDate } from "@/lib/bigquery/client";
 import { authorizedClientFromRefreshToken } from "@/lib/gcp-oauth/client";
@@ -110,7 +110,7 @@ export async function POST(
       parsed.data.ga4Dataset
     );
     if (startDate) {
-      const endDate = toDateOnly(new Date(Date.now() - 24 * 60 * 60 * 1000));
+      const endDate = yesterdayDateOnly();
       const enqueuedDays = await enqueueHistoricalBackfill(id, startDate, endDate);
       const { processed } = await processQueue(Date.now() + 40_000, id);
       backfill = { enqueuedDays, processedNow: processed };

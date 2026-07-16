@@ -40,9 +40,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         { status: 404 }
       );
     }
-    if (error instanceof Error && error.message === "Not authorized on this project") {
-      return NextResponse.json({ error: "Tu n'as pas les droits pour gérer ce projet." }, { status: 403 });
-    }
     return apiErrorResponse(error, "[api/projects/[id]/members POST]", "Failed to add member");
   }
 }

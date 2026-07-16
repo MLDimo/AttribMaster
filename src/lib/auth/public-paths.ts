@@ -1,5 +1,5 @@
 /** Comparaison exacte (pas de préfixe) : "/" ne doit pas rendre tout le site public. */
-export const PUBLIC_PATHS = [
+const PUBLIC_PATHS = [
   "/",
   "/login",
   "/mentions-legales",

@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { UnauthenticatedError } from "@/lib/auth/errors";
+import { NotAuthorizedError, UnauthenticatedError } from "@/lib/auth/errors";
 import { decryptSecret, encryptSecret } from "@/lib/crypto/secrets";
 import { getDbPool } from "@/lib/db/client";
 import type { Account, Project, ProjectMember } from "./types";
@@ -101,7 +101,7 @@ export type CreateProjectInput = {
 export async function createProject(input: CreateProjectInput): Promise<Project> {
   const userId = await requireUserId();
   if (!(await isOwnerOrAdmin(input.accountId, userId))) {
-    throw new Error("Not authorized on this account");
+    throw new NotAuthorizedError("account");
   }
 
   const db = getDbPool();
@@ -127,7 +127,7 @@ export async function requireProjectAccess(projectId: string, userId: string): P
      where wp.project_id = $1 and wm.user_id = $2 and wm.role in ('owner', 'admin')`,
     [projectId, userId]
   );
-  if (rows.length === 0) throw new Error("Not authorized on this project");
+  if (rows.length === 0) throw new NotAuthorizedError("project");
 }
 
 /** Étape 2 : stocke le refresh token OAuth obtenu depuis Google (chiffré, jamais en clair en base). */

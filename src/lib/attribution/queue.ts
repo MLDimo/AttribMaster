@@ -1,9 +1,14 @@
 import { getDbPool } from "@/lib/db/client";
 import { listAllProjectsAsService } from "@/lib/projects/repository";
 import { isProjectConnected, isProjectSubscribed } from "@/lib/projects/types";
-import { runNightlyAttributionForProject, toDateOnly } from "@/lib/attribution/nightly-run";
+import {
+  daysAgoDateOnly,
+  runNightlyAttributionForProject,
+  toDateOnly,
+  yesterdayDateOnly,
+} from "@/lib/attribution/nightly-run";
 
-export type JobStatus = "pending" | "processing" | "done" | "failed";
+type JobStatus = "pending" | "processing" | "done" | "failed";
 
 export type NightlyJob = {
   id: string;
@@ -25,14 +30,6 @@ export type NightlyJob = {
  * à chaque tick de cron plutôt que de ne traiter "hier" qu'une seule fois.
  */
 const BACKFILL_DAYS = 3;
-
-function daysAgo(n: number): string {
-  return toDateOnly(new Date(Date.now() - n * 24 * 60 * 60 * 1000));
-}
-
-function yesterday(): string {
-  return daysAgo(1);
-}
 
 /**
  * Ajoute un job en file (idempotent) : si un job pour ce projet+jour est déjà
@@ -67,7 +64,7 @@ export async function enqueueJob(
  * connecté + abonné, appelé chaque jour par le cron.
  */
 export async function enqueueBackfillForAllProjects(): Promise<NightlyJob[]> {
-  const targetDates = Array.from({ length: BACKFILL_DAYS }, (_, i) => daysAgo(i + 1));
+  const targetDates = Array.from({ length: BACKFILL_DAYS }, (_, i) => daysAgoDateOnly(i + 1));
   const projects = (await listAllProjectsAsService()).filter(
     (p) => isProjectConnected(p) && isProjectSubscribed(p)
   );
@@ -102,7 +99,7 @@ export async function enqueueHistoricalBackfill(
 
 /** Enfile un run "hier" à la demande pour un seul projet (bouton Actualiser). */
 export async function enqueueManualRefresh(projectId: string): Promise<NightlyJob> {
-  return enqueueJob(projectId, yesterday(), "manual");
+  return enqueueJob(projectId, yesterdayDateOnly(), "manual");
 }
 
 /**

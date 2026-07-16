@@ -10,6 +10,14 @@ export function toDateOnly(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+export function daysAgoDateOnly(n: number): string {
+  return toDateOnly(new Date(Date.now() - n * 24 * 60 * 60 * 1000));
+}
+
+export function yesterdayDateOnly(): string {
+  return daysAgoDateOnly(1);
+}
+
 async function loadSql(fileName: string, project: Project): Promise<string> {
   const filePath = path.join(process.cwd(), "sql", fileName);
   const raw = await fs.readFile(filePath, "utf8");
@@ -29,7 +37,7 @@ export type NightlyRunResult = {
 /** Exécute le script de nuit pour un seul projet (par défaut: hier). */
 export async function runNightlyAttributionForProject(
   projectId: string,
-  targetDate: string = toDateOnly(new Date(Date.now() - 24 * 60 * 60 * 1000)),
+  targetDate: string = yesterdayDateOnly(),
   lookbackDays: number = DEFAULT_LOOKBACK_DAYS
 ): Promise<NightlyRunResult> {
   const { client, project } = await getBigQueryClientForProjectAsService(projectId);

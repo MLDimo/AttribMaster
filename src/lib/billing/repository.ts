@@ -1,3 +1,4 @@
+import { NotAuthorizedError } from "@/lib/auth/errors";
 import { getDbPool } from "@/lib/db/client";
 import {
   getProjectAsService,
@@ -64,7 +65,7 @@ async function requireBillingAccountAccess(billingAccountId: string, userId: str
 export async function createBillingAccount(workspaceId: string, name: string): Promise<BillingAccount> {
   const userId = await requireUserId();
   if (!(await isOwnerOrAdmin(workspaceId, userId))) {
-    throw new Error("Not authorized on this workspace");
+    throw new NotAuthorizedError("workspace");
   }
 
   const stripe = getStripeClient();

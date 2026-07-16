@@ -1,60 +1,51 @@
-# Project: Attribution Tool SaaS (GA4 + BigQuery + Addingwell)
+# AttribMaster — SaaS d'attribution marketing (GA4 + BigQuery)
 
-## Tech Stack
-- **Database:** Vercel Postgres / Neon (`@neondatabase/serverless`)
-- **Auth:** Auth.js / NextAuth v5 (Google OAuth, adaptateur `@auth/neon-adapter`)
-- **Data Warehouse:** Google BigQuery (via SDK officiel `@google-cloud/bigquery`, connexion OAuth par projet)
-- **Frontend:** Next.js (basé sur le repo ui-ux-pro-max-skill)
-- **Paiement:** Stripe (Checkout + Customer Portal)
+Multi-tenant, en production sur https://attribmaster.com. V1 (moteur d'attribution),
+V2 (multi-tenant) et V3 (Stripe) de la roadmap initiale sont livrées. La 2FA
+(TOTP) envisagée à l'origine n'a pas été implémentée.
 
----
+## Stack
+- **Next.js 16** (App Router, Turbopack), TypeScript strict, Tailwind v4, shadcn/ui, Framer Motion
+- **DB :** Neon Postgres (`@neondatabase/serverless`), migrations SQL idempotentes dans `db/migrations/`
+- **Auth :** Auth.js/NextAuth v5 (Google OAuth + Credentials, sessions JWT), proxy d'auth dans `src/proxy.ts`
+- **BigQuery :** SDK officiel, connexion OAuth par projet (refresh token chiffré AES-256-GCM en base)
+- **Paiement :** Stripe Checkout + Customer Portal + webhooks signés
 
-## 🚀 ROADMAP ÉVOLUTIVE
+## Architecture (src/)
+- `app/api/` — routes API ; erreurs via `apiErrorResponse` (`lib/auth/errors.ts`) :
+  `UnauthenticatedError` → 401, `NotAuthorizedError` → 403, reste → 500 loggé
+- `lib/projects/repository.ts` — accès projets ; autorisation vérifiée dans le code
+  (jointures `workspace_members`/`project_members`), pas de RLS
+- `lib/attribution/models.ts` — 6 modèles (last click, linéaire, croissant, en U,
+  Markov par effet de suppression, Shapley : exact ≤12 canaux, Monte Carlo au-delà)
+- `lib/attribution/queue.ts` — file `nightly_jobs` (claim atomique SKIP LOCKED) :
+  cron nocturne avec fenêtre de rattrapage 3 jours (l'export GA4→BigQuery peut
+  prendre 72h), refresh manuel, backfill historique complet à la connexion BigQuery
+- `lib/attribution/mock-data.ts` — projet démo `MOCK_PROJECT_ID` (données
+  déterministes mais relatives à "maintenant"), court-circuite BigQuery et l'auth
+- `sql/nightly_attribution.sql` — script BigQuery idempotent (DELETE+INSERT par jour)
 
-### 🎯 V1 : Le Cœur du Produit (Le script & L'affichage de base)
-*Objectif : Avoir un outil fonctionnel où l'on peut connecter UN BigQuery et voir les graphiques d'attribution sans fioritures (pas encore de multi-compte ni de paiement).*
+## Environnements
+- **Prod :** branche `production` → attribmaster.com (+ attrib-master.vercel.app)
+- **Preprod :** branche `main` → previews Vercel (`attrib-master-git-main-*`)
+- **Deux bases Neon distinctes** : `.env` local pointe la PROD (scripts admin
+  uniquement) ; `.env.test` pointe la base preprod dédiée aux tests. Les tests
+  refusent de tourner si `DATABASE_URL` contient l'hôte de prod (guards dans
+  `tests/setup.ts` et `playwright.config.ts`).
 
-- [ ] **Data Model V1 :** Créer une table temporaire locale ou configurer directement la connexion à BigQuery avec un fichier JSON de clé GCP unique en local (`.env`).
-- [ ] **Le Moteur d'Attribution (Le Script de nuit) :**
-  - [ ] Écrire la requête SQL BigQuery incrémentale (partitionnée par date) pour extraire l'événement `purchase` de la veille.
-  - [ ] Coder la logique pour remonter le fil des sessions (`user_pseudo_id`) et reconstruire la chaîne textuelle des sources (ex: `Google / cpc > Direct`).
-  - [ ] Insérer ces données dans la table BigQuery `attributions_resumees`.
-- [ ] **L'API d'Attribution V1 :**
-  - [ ] Implémenter les 3 algorithmes de calcul (Linéaire, U-Shape, Time-Decay).
-  - [ ] Créer l'endpoint `/api/overview` (Totaux globaux, top sources en % et gestion du comparatif de dates N-1).
-  - [ ] Créer l'endpoint `/api/transactions` (Liste, recherche par ID, pagination et tri par valeur).
-- [ ] **L'Interface UI V1 :**
-  - [ ] Intégrer le dashboard du repo `ui-ux-pro-max-skill`.
-  - [ ] Connecter le graphique principal avec le code couleur par source + légende.
-  - [ ] Connecter le tableau de la liste détaillée des transactions.
+## Tests & mise en prod
+- `npm run test` — Vitest (unit + intégration : DB réelle preprod, Stripe test-mode réel)
+- `npm run test:e2e` — Playwright (régression visuelle ; baselines darwin + linux,
+  les baselines linux se régénèrent via Docker `mcr.microsoft.com/playwright`)
+- CI GitHub Actions (`.github/workflows/ci.yml`) sur PR→production et push main/production ;
+  secrets `TEST_*` dans le repo GitHub
+- **Mise en prod = push `main:production`** (fast-forward), uniquement si CI verte.
+  Toute modif de source nécessite `npm run build` avant `npx playwright test`
+  (le webServer sert le bundle pré-buildé)
 
----
-
-### 👥 V2 : Le SaaS Multi-Tenant & Sécurité (Comptes & 2FA)
-*Objectif : Transformer l'outil en plateforme où n'importe qui peut s'inscrire via Google, créer son espace et ajouter plusieurs projets (1 projet = 1 BigQuery séparé).*
-
-- [ ] **Data Model V2 (Postgres/Neon) :** Créer les tables `users`/`accounts`/`sessions` (Auth.js), `workspaces`, `workspace_members`, `projects`, `workspace_projects`.
-- [ ] **Authentification & Onboarding :**
-  - [ ] Configurer le bouton "Se connecter avec Google" (Google OAuth via Auth.js).
-  - [ ] Écrire le trigger Postgres pour créer automatiquement un workspace par défaut au premier login.
-  - [ ] Intégrer et forcer l'activation de la 2FA (TOTP maison, pas de solution native) pour sécuriser l'accès aux projets.
-- [ ] **Gestion des Projets :**
-  - [ ] Connexion BigQuery par OAuth Google (pas de clé JSON à saisir) ; refresh token chiffré (AES-256-GCM) en base.
-  - [ ] Pas de RLS (pas de couche PostgREST/JWT côté DB) : autorisation vérifiée explicitement dans le code applicatif (jointures `workspace_members` à chaque requête).
-  - [ ] Adapter l'API et le Script de nuit pour boucler sur chaque projet actif de la base.
-
----
-
-### 💳 V3 : Monétisation & Autonomie (Stripe)
-*Objectif : Rendre le projet rentable et automatisé. Verrouiller les accès selon le statut du paiement.*
-
-- [ ] **Intégration Stripe Checkout :** Créer le bouton d'abonnement qui ouvre la page de paiement Stripe liée à l'ID de l'`account`.
-- [ ] **Intégration Stripe Customer Portal :** Permettre au client de gérer ses factures et son abonnement en un clic.
-- [ ] **Gestion des Webhooks :** Coder le webhook Stripe pour mettre à jour instantanément le statut de l'abonnement en base.
-- [ ] **Middleware de Restriction :** Bloquer l'accès aux dashboards V1/V2 si le statut de l'abonnement du compte n'est pas `active` ou `trialing`.
-
----
-
-## Development Guidelines (Strict)
-1. **Focus V1 First :** Ne pas écrire une seule ligne de code concernant Stripe ou la gestion de compte tant que les cases de la V1 ne sont pas toutes cochées `[x]`.
-2. **BigQuery Optimization :** Interdiction stricte de requêter les tables brutes de GA4 depuis l'interface utilisateur. L'UI interroge uniquement la table résumée.
+## Règles
+1. Interdiction de requêter les tables brutes GA4 depuis l'UI : l'UI lit uniquement
+   la table résumée `attributions_resumees` (via `/api/overview` et `/api/transactions`).
+2. Jamais de clé de service GCP à saisir : OAuth uniquement, token chiffré en base.
+3. Plan Vercel Hobby : pas de cron configurable par projet, `maxDuration` ≤ 300s.
+4. Vouvoiement... non : le ton produit est au tutoiement (pages légales, erreurs).
