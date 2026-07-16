@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 
+import { clearLoginFailures, isLockedOut, recordFailedLogin } from "@/lib/auth/login-throttle";
 import { getDbPool } from "@/lib/db/client";
 
 export type CredentialsUser = { id: string; name: string | null; email: string };
@@ -13,6 +14,12 @@ export async function verifyCredentials(
     return null;
   }
 
+  // Verrouillé après trop d'échecs : on ne teste même pas le mot de passe,
+  // un brute-force ne peut plus rien apprendre pendant la fenêtre.
+  if (await isLockedOut(email)) {
+    return null;
+  }
+
   const pool = getDbPool();
   const { rows } = await pool.query<{ id: string; name: string | null; email: string; password_hash: string | null }>(
     `select id, name, email, password_hash from users where email = $1`,
@@ -20,13 +27,16 @@ export async function verifyCredentials(
   );
   const user = rows[0];
   if (!user?.password_hash) {
+    await recordFailedLogin(email);
     return null;
   }
 
   const valid = await bcrypt.compare(password, user.password_hash);
   if (!valid) {
+    await recordFailedLogin(email);
     return null;
   }
 
+  await clearLoginFailures(email);
   return { id: user.id, name: user.name, email: user.email };
 }

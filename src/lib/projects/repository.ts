@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { NotAuthorizedError, UnauthenticatedError } from "@/lib/auth/errors";
 import { decryptSecret, encryptSecret } from "@/lib/crypto/secrets";
 import { getDbPool } from "@/lib/db/client";
+import { cancelStripeSubscription } from "@/lib/stripe/cancel-subscription";
 import type { Account, Project, ProjectMember } from "./types";
 
 export async function requireUserId(): Promise<string> {
@@ -184,6 +185,20 @@ export async function deleteProject(projectId: string): Promise<void> {
   await requireProjectAccess(projectId, userId);
 
   const db = getDbPool();
+  // Annule l'abonnement AVANT de supprimer : sinon Stripe continue de
+  // facturer un projet disparu, sans plus aucun portail de facturation
+  // accessible côté client pour l'arrêter. Si Stripe est injoignable, on
+  // préfère faire échouer la suppression (l'utilisateur réessaiera) plutôt
+  // que de laisser une facturation orpheline.
+  const { rows } = await db.query<{ stripe_subscription_id: string | null }>(
+    `select stripe_subscription_id from projects where id = $1`,
+    [projectId]
+  );
+  const subscriptionId = rows[0]?.stripe_subscription_id;
+  if (subscriptionId) {
+    await cancelStripeSubscription(subscriptionId);
+  }
+
   await db.query(`delete from projects where id = $1`, [projectId]);
 }
 
