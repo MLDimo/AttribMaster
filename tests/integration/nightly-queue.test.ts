@@ -126,7 +126,12 @@ describe("nightly attribution job queue", () => {
       // Cette fonction touche TOUS les projets connectés+abonnés (dont le
       // fixture e2e persistant) : on nettoie explicitement tout ce qu'elle a
       // créé pour ne pas polluer processQueue() dans les tests suivants.
-      await pool.query(`delete from nightly_jobs where id = any($1)`, [jobs.map((j) => j.id)]);
+      // filter(Boolean) : si un run CI concurrent supprime une ligne entre
+      // l'insert et le select d'enqueueJob, l'entrée peut être undefined —
+      // le cleanup des autres jobs doit quand même aller au bout.
+      await pool.query(`delete from nightly_jobs where id = any($1)`, [
+        jobs.filter(Boolean).map((j) => j.id),
+      ]);
     }
   });
 
@@ -135,7 +140,9 @@ describe("nightly attribution job queue", () => {
     const pool = getDbPool();
     await pool.query(`update nightly_jobs set status = 'processing' where id = $1`, [job.id]);
 
-    const { processed } = await processQueue(Date.now() + 5000);
+    // Scopé à notre projet : un job pending d'un autre test (ou d'un run CI
+    // concurrent) ne doit pas fausser le comptage.
+    const { processed } = await processQueue(Date.now() + 5000, projectId);
     expect(processed).toBe(0);
 
     const { rows } = await pool.query(`select status from nightly_jobs where id = $1`, [job.id]);
