@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { runNightlyAttributionForProject } from "@/lib/attribution/nightly-run";
-import { enqueueYesterdayForAllProjects, processQueue } from "@/lib/attribution/queue";
+import { enqueueBackfillForAllProjects, processQueue } from "@/lib/attribution/queue";
 
 // Sans ça, la fonction serverless est tuée au timeout par défaut du plan
 // Vercel avant d'avoir traité tous les projets (constaté en prod : un projet
@@ -26,12 +26,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(result);
     }
 
-    // Tick quotidien normal : enfile un job "hier" par projet connecté +
-    // abonné (idempotent), puis vide la file dans le budget de temps
-    // restant. Rien n'est perdu si le budget est dépassé : les jobs non
-    // traités restent "pending" et seront repris au prochain appel
-    // (prochain tick de cron, ou un refresh manuel sur un projet donné).
-    const enqueued = await enqueueYesterdayForAllProjects();
+    // Tick quotidien normal : enfile un job par jour de la fenêtre de
+    // rattrapage (3 derniers jours) par projet connecté + abonné (idempotent),
+    // puis vide la file dans le budget de temps restant. L'export GA4 ->
+    // BigQuery pouvant mettre jusqu'à 72h à être complet, un jour déjà traité
+    // avec 0 résultat est retenté automatiquement les jours suivants. Rien
+    // n'est perdu si le budget est dépassé : les jobs non traités restent
+    // "pending" et seront repris au prochain appel (prochain tick de cron, ou
+    // un refresh manuel sur un projet donné).
+    const enqueued = await enqueueBackfillForAllProjects();
     const deadline = Date.now() + (maxDuration - 20) * 1000;
     const { processed } = await processQueue(deadline);
     return NextResponse.json({ enqueued: enqueued.length, processed });

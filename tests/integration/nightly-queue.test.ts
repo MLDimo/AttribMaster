@@ -1,11 +1,13 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import {
+  enqueueBackfillForAllProjects,
   enqueueJob,
   enqueueManualRefresh,
   getLatestJobForProject,
   processQueue,
 } from "@/lib/attribution/queue";
+import { encryptSecret } from "@/lib/crypto/secrets";
 import { getDbPool } from "@/lib/db/client";
 
 describe("nightly attribution job queue", () => {
@@ -90,6 +92,36 @@ describe("nightly attribution job queue", () => {
     expect(job?.status).toBe("failed");
     expect(job?.error).toBeTruthy();
     expect(job?.finished_at).toBeTruthy();
+  });
+
+  it("enqueueBackfillForAllProjects enqueues a 3-day retry window (GA4 export can lag up to 72h)", async () => {
+    const pool = getDbPool();
+    await pool.query(
+      `update projects
+       set gcp_project_id = 'ci-backfill-test-gcp-project',
+           ga4_dataset = 'analytics_ci_backfill_test',
+           oauth_refresh_token_encrypted = $2,
+           subscription_status = 'active'
+       where id = $1`,
+      [projectId, encryptSecret("1//ci-backfill-test-refresh-token")]
+    );
+
+    const jobs = await enqueueBackfillForAllProjects();
+    try {
+      const ownJobs = jobs.filter((j) => j.project_id === projectId);
+
+      expect(ownJobs).toHaveLength(3);
+      expect(new Set(ownJobs.map((j) => j.target_date)).size).toBe(3);
+      for (const job of ownJobs) {
+        expect(job.trigger_source).toBe("cron");
+        expect(job.status).toBe("pending");
+      }
+    } finally {
+      // Cette fonction touche TOUS les projets connectés+abonnés (dont le
+      // fixture e2e persistant) : on nettoie explicitement tout ce qu'elle a
+      // créé pour ne pas polluer processQueue() dans les tests suivants.
+      await pool.query(`delete from nightly_jobs where id = any($1)`, [jobs.map((j) => j.id)]);
+    }
   });
 
   it("processQueue ignores a job that is already processing (SKIP LOCKED semantics)", async () => {

@@ -18,8 +18,20 @@ export type NightlyJob = {
   finished_at: string | null;
 };
 
+/**
+ * L'export GA4 -> BigQuery peut mettre jusqu'à 72h à être complet : un jour
+ * déjà traité peut donc avoir manqué des achats arrivés en retard dans
+ * l'export. Cette fenêtre fait retenter automatiquement les 3 derniers jours
+ * à chaque tick de cron plutôt que de ne traiter "hier" qu'une seule fois.
+ */
+const BACKFILL_DAYS = 3;
+
+function daysAgo(n: number): string {
+  return toDateOnly(new Date(Date.now() - n * 24 * 60 * 60 * 1000));
+}
+
 function yesterday(): string {
-  return toDateOnly(new Date(Date.now() - 24 * 60 * 60 * 1000));
+  return daysAgo(1);
 }
 
 /**
@@ -50,13 +62,18 @@ export async function enqueueJob(
   return rows[0];
 }
 
-/** Un job "hier" par projet connecté + abonné, appelé chaque jour par le cron. */
-export async function enqueueYesterdayForAllProjects(): Promise<NightlyJob[]> {
-  const targetDate = yesterday();
+/**
+ * Un job par jour de la fenêtre de rattrapage (BACKFILL_DAYS), par projet
+ * connecté + abonné, appelé chaque jour par le cron.
+ */
+export async function enqueueBackfillForAllProjects(): Promise<NightlyJob[]> {
+  const targetDates = Array.from({ length: BACKFILL_DAYS }, (_, i) => daysAgo(i + 1));
   const projects = (await listAllProjectsAsService()).filter(
     (p) => isProjectConnected(p) && isProjectSubscribed(p)
   );
-  return Promise.all(projects.map((p) => enqueueJob(p.id, targetDate, "cron")));
+  return Promise.all(
+    projects.flatMap((p) => targetDates.map((targetDate) => enqueueJob(p.id, targetDate, "cron")))
+  );
 }
 
 /** Enfile un run "hier" à la demande pour un seul projet (bouton Actualiser). */
