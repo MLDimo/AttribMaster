@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import {
   enqueueBackfillForAllProjects,
+  enqueueHistoricalBackfill,
   enqueueJob,
   enqueueManualRefresh,
   getLatestJobForProject,
@@ -12,6 +13,7 @@ import { getDbPool } from "@/lib/db/client";
 
 describe("nightly attribution job queue", () => {
   let projectId: string;
+  let otherProjectId: string;
 
   beforeAll(async () => {
     const pool = getDbPool();
@@ -19,16 +21,20 @@ describe("nightly attribution job queue", () => {
       `insert into projects (name, bigquery_dataset) values ('CI Queue Test Project', 'attribution') returning id`
     );
     projectId = rows[0].id;
+    const { rows: otherRows } = await pool.query(
+      `insert into projects (name, bigquery_dataset) values ('CI Queue Test Project (other)', 'attribution') returning id`
+    );
+    otherProjectId = otherRows[0].id;
   });
 
   afterEach(async () => {
     const pool = getDbPool();
-    await pool.query(`delete from nightly_jobs where project_id = $1`, [projectId]);
+    await pool.query(`delete from nightly_jobs where project_id = any($1)`, [[projectId, otherProjectId]]);
   });
 
   afterAll(async () => {
     const pool = getDbPool();
-    await pool.query(`delete from projects where id = $1`, [projectId]);
+    await pool.query(`delete from projects where id = any($1)`, [[projectId, otherProjectId]]);
   });
 
   it("enqueues a new pending job", async () => {
@@ -134,5 +140,60 @@ describe("nightly attribution job queue", () => {
 
     const { rows } = await pool.query(`select status from nightly_jobs where id = $1`, [job.id]);
     expect(rows[0].status).toBe("processing"); // toujours en cours, pas re-réclamé
+  });
+
+  it("enqueueHistoricalBackfill enqueues one job per day in the range, in a single round trip", async () => {
+    const inserted = await enqueueHistoricalBackfill(projectId, "2026-01-01", "2026-01-05");
+    expect(inserted).toBe(5);
+
+    const pool = getDbPool();
+    const { rows } = await pool.query(
+      `select target_date::text, trigger_source, status from nightly_jobs
+       where project_id = $1 and target_date between '2026-01-01' and '2026-01-05'
+       order by target_date`,
+      [projectId]
+    );
+    expect(rows).toHaveLength(5);
+    expect(rows.map((r) => r.target_date)).toEqual([
+      "2026-01-01",
+      "2026-01-02",
+      "2026-01-03",
+      "2026-01-04",
+      "2026-01-05",
+    ]);
+    for (const row of rows) {
+      expect(row.trigger_source).toBe("backfill");
+      expect(row.status).toBe("pending");
+    }
+  });
+
+  it("enqueueHistoricalBackfill does not touch a day that already has a job (ON CONFLICT DO NOTHING)", async () => {
+    const existing = await enqueueJob(projectId, "2026-02-02", "manual");
+    const pool = getDbPool();
+    await pool.query(`update nightly_jobs set status = 'done', rows_inserted = 7 where id = $1`, [existing.id]);
+
+    const inserted = await enqueueHistoricalBackfill(projectId, "2026-02-01", "2026-02-03");
+    expect(inserted).toBe(2); // seulement le 01 et le 03, le 02 existait déjà
+
+    const { rows } = await pool.query(`select status, rows_inserted from nightly_jobs where id = $1`, [
+      existing.id,
+    ]);
+    expect(rows[0].status).toBe("done"); // pas remis à pending
+    expect(rows[0].rows_inserted).toBe(7);
+  });
+
+  it("processQueue(deadline, projectId) only drains jobs for that project, leaving others' pending jobs untouched", async () => {
+    await enqueueJob(projectId, "2026-04-01", "manual");
+    const otherJob = await enqueueJob(otherProjectId, "2026-04-01", "manual");
+
+    const { processed } = await processQueue(Date.now() + 15000, projectId);
+    expect(processed).toBe(1);
+
+    const ownJob = await getLatestJobForProject(projectId);
+    expect(ownJob?.status).toBe("failed"); // traité (échec attendu, pas de vraies creds BigQuery)
+
+    const pool = getDbPool();
+    const { rows } = await pool.query(`select status from nightly_jobs where id = $1`, [otherJob.id]);
+    expect(rows[0].status).toBe("pending"); // jamais réclamé, hors scope du projet ciblé
   });
 });

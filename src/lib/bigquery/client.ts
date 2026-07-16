@@ -39,6 +39,30 @@ export async function getBigQueryClientForProjectAsService(
   return buildClient(project);
 }
 
+/**
+ * Premier jour disponible dans l'export GA4 -> BigQuery (table journalière la
+ * plus ancienne), pour rattraper tout l'historique à la connexion d'un
+ * projet. `events_intraday_*` est exclu par le regex (jour en cours, pas
+ * encore finalisé). Retourne null si le dataset est vide (projet flambant
+ * neuf sans aucun export encore reçu).
+ */
+export async function discoverGa4HistoryStartDate(
+  client: BigQuery,
+  gcpProjectId: string,
+  ga4Dataset: string
+): Promise<string | null> {
+  const [rows] = await client.query({
+    query: `
+      SELECT MIN(PARSE_DATE('%Y%m%d', REGEXP_EXTRACT(table_name, r'^events_(\\d{8})$'))) AS min_date
+      FROM \`${gcpProjectId}.${ga4Dataset}.INFORMATION_SCHEMA.TABLES\`
+      WHERE REGEXP_CONTAINS(table_name, r'^events_\\d{8}$')
+    `,
+  });
+  const minDate = rows[0]?.min_date;
+  if (!minDate) return null;
+  return typeof minDate === "string" ? minDate : minDate.value;
+}
+
 async function buildClient(project: Project): Promise<ProjectBigQuery> {
   if (!project.gcp_project_id) {
     throw new Error(`Project not connected to BigQuery yet: ${project.id}`);

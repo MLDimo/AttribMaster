@@ -10,7 +10,7 @@ export type NightlyJob = {
   project_id: string;
   target_date: string;
   status: JobStatus;
-  trigger_source: "cron" | "manual";
+  trigger_source: "cron" | "manual" | "backfill";
   rows_inserted: number | null;
   error: string | null;
   created_at: string;
@@ -43,7 +43,7 @@ function yesterday(): string {
 export async function enqueueJob(
   projectId: string,
   targetDate: string,
-  triggerSource: "cron" | "manual"
+  triggerSource: "cron" | "manual" | "backfill"
 ): Promise<NightlyJob> {
   const db = getDbPool();
   await db.query(
@@ -76,6 +76,30 @@ export async function enqueueBackfillForAllProjects(): Promise<NightlyJob[]> {
   );
 }
 
+/**
+ * Enfile un job par jour entre startDate et endDate (inclus) pour un projet,
+ * en un seul aller-retour (generate_series côté SQL) : utilisé une fois à la
+ * connexion BigQuery pour rattraper tout l'historique GA4 disponible, ce qui
+ * peut représenter des centaines de jours (un enqueueJob par jour serait trop
+ * lent). ON CONFLICT DO NOTHING car un projet qui vient d'être connecté n'a
+ * par construction aucun job existant sur cette période.
+ */
+export async function enqueueHistoricalBackfill(
+  projectId: string,
+  startDate: string,
+  endDate: string
+): Promise<number> {
+  const db = getDbPool();
+  const { rowCount } = await db.query(
+    `insert into nightly_jobs (project_id, target_date, status, trigger_source)
+     select $1, d::date, 'pending', 'backfill'
+     from generate_series($2::date, $3::date, interval '1 day') as d
+     on conflict (project_id, target_date) do nothing`,
+    [projectId, startDate, endDate]
+  );
+  return rowCount ?? 0;
+}
+
 /** Enfile un run "hier" à la demande pour un seul projet (bouton Actualiser). */
 export async function enqueueManualRefresh(projectId: string): Promise<NightlyJob> {
   return enqueueJob(projectId, yesterday(), "manual");
@@ -86,19 +110,20 @@ export async function enqueueManualRefresh(projectId: string): Promise<NightlyJo
  * SKIP LOCKED dans la même requête que l'UPDATE) : sûr à invoquer plusieurs
  * fois en parallèle, chaque appel récupère un job différent.
  */
-async function claimNextJob(): Promise<NightlyJob | null> {
+async function claimNextJob(projectId?: string): Promise<NightlyJob | null> {
   const db = getDbPool();
   const { rows } = await db.query<NightlyJob>(
     `update nightly_jobs
      set status = 'processing', started_at = now()
      where id = (
        select id from nightly_jobs
-       where status = 'pending'
+       where status = 'pending' and ($1::uuid is null or project_id = $1)
        order by created_at
        for update skip locked
        limit 1
      )
-     returning *`
+     returning *`,
+    [projectId ?? null]
   );
   return rows[0] ?? null;
 }
@@ -125,12 +150,18 @@ async function completeJob(
  * Vide la file un job à la fois jusqu'à épuisement ou jusqu'à `deadline`
  * (timestamp ms) : appelée juste après l'enqueue (cron quotidien ou refresh
  * manuel) pour traiter tout de suite sans attendre un prochain tick, sans
- * jamais dépasser le budget de temps de la fonction serverless.
+ * jamais dépasser le budget de temps de la fonction serverless. `projectId`
+ * restreint le drain à un seul projet (rattrapage d'historique juste après
+ * la connexion BigQuery), pour ne pas gaspiller ce budget sur les jobs en
+ * attente d'autres projets.
  */
-export async function processQueue(deadline: number): Promise<{ processed: number }> {
+export async function processQueue(
+  deadline: number,
+  projectId?: string
+): Promise<{ processed: number }> {
   let processed = 0;
   while (Date.now() < deadline) {
-    const job = await claimNextJob();
+    const job = await claimNextJob(projectId);
     if (!job) break;
     try {
       // Le driver Postgres renvoie une colonne `date` comme un objet Date (pas
