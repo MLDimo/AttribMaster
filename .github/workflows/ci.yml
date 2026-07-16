@@ -10,6 +10,15 @@ on:
   push:
     branches: [main, production]
 
+# Les tests d'intégration partagent UNE base preprod : deux runs simultanés
+# (ex: push sur main + PR vers production pour le même commit) se marchent
+# dessus (jobs enfilés par l'un, supprimés par l'autre). On sérialise donc
+# tous les runs, sans jamais annuler un run en cours (une PR en attente
+# d'auto-merge a besoin que son check aille au bout).
+concurrency:
+  group: ci-shared-preprod-db
+  cancel-in-progress: false
+
 jobs:
   test:
     name: Typecheck, lint, build, test
