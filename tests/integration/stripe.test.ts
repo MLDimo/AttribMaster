@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { POST as webhookPost } from "@/app/api/webhooks/stripe/route";
 import { getDbPool } from "@/lib/db/client";
+import { cancelStripeSubscription } from "@/lib/stripe/cancel-subscription";
 import { buildSubscriptionLineItems } from "@/lib/stripe/checkout";
 import { getStripeClient } from "@/lib/stripe/client";
 import { priceIdFor, setupFeePriceId } from "@/lib/stripe/prices";
@@ -183,5 +184,41 @@ describe("POST /api/webhooks/stripe", () => {
       const { rows } = await pool.query(`select subscription_status from projects where id = $1`, [projectId]);
       expect(rows[0].subscription_status).toBe("past_due");
     });
+  });
+});
+
+describe("cancelStripeSubscription (used by deleteProject)", () => {
+  let customerId: string;
+  let subscriptionId: string;
+
+  beforeAll(async () => {
+    const customer = await stripe.customers.create({ email: "ci-cancel-test@attribmaster.com" });
+    customerId = customer.id;
+    const pm = await stripe.paymentMethods.attach("pm_card_visa", { customer: customerId });
+    await stripe.customers.update(customerId, { invoice_settings: { default_payment_method: pm.id } });
+    const subscription = await stripe.subscriptions.create({
+      customer: customerId,
+      items: [{ price: priceIdFor("standard", "monthly") }],
+    });
+    subscriptionId = subscription.id;
+  });
+
+  afterAll(async () => {
+    await stripe.subscriptions.cancel(subscriptionId).catch(() => {});
+    await stripe.customers.del(customerId).catch(() => {});
+  });
+
+  it("actually stops the billing (status becomes canceled)", async () => {
+    await cancelStripeSubscription(subscriptionId);
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    expect(subscription.status).toBe("canceled");
+  });
+
+  it("is idempotent: cancelling an already-canceled subscription does not throw", async () => {
+    await expect(cancelStripeSubscription(subscriptionId)).resolves.toBeUndefined();
+  });
+
+  it("swallows an unknown subscription id (project deletion must not be blocked)", async () => {
+    await expect(cancelStripeSubscription("sub_does_not_exist_ci")).resolves.toBeUndefined();
   });
 });
