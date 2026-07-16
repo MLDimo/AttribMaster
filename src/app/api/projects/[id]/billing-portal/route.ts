@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDbPool } from "@/lib/db/client";
 import { getProjectAsService, requireProjectAccess, requireUserId } from "@/lib/projects/repository";
 import { getStripeClient } from "@/lib/stripe/client";
+import { apiErrorResponse } from "@/lib/auth/errors";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = await params;
@@ -39,7 +40,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (error instanceof Error && error.message === "Not authorized on this project") {
       return NextResponse.json({ error: "Tu n'as pas les droits pour gérer ce projet." }, { status: 403 });
     }
-    console.error("[api/projects/[id]/billing-portal POST]", error);
-    return NextResponse.json({ error: "Failed to open billing portal" }, { status: 500 });
+    return apiErrorResponse(error, "[api/projects/[id]/billing-portal POST]", "Failed to open billing portal");
   }
 }

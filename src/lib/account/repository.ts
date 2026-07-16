@@ -1,10 +1,11 @@
 import { auth } from "@/auth";
+import { UnauthenticatedError } from "@/lib/auth/errors";
 import { getDbPool } from "@/lib/db/client";
 import type { MyAccountInfo } from "./types";
 
 export async function getMyAccountInfo(): Promise<MyAccountInfo> {
   const session = await auth();
-  if (!session?.user?.id) throw new Error("Not authenticated");
+  if (!session?.user?.id) throw new UnauthenticatedError();
 
   const db = getDbPool();
   const { rows } = await db.query<{ name: string | null; email: string | null; image: string | null }>(

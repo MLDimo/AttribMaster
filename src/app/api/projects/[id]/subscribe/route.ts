@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prepareSubscription } from "@/lib/billing/repository";
 import { getStripeClient } from "@/lib/stripe/client";
 import { buildSubscriptionLineItems } from "@/lib/stripe/checkout";
+import { apiErrorResponse } from "@/lib/auth/errors";
 
 const bodySchema = z
   .object({
@@ -63,7 +64,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (error instanceof Error && error.message === "Not authorized on this project") {
       return NextResponse.json({ error: "Tu n'as pas les droits pour gérer ce projet." }, { status: 403 });
     }
-    console.error("[api/projects/[id]/subscribe POST]", error);
-    return NextResponse.json({ error: "Failed to start checkout" }, { status: 500 });
+    return apiErrorResponse(error, "[api/projects/[id]/subscribe POST]", "Failed to start checkout");
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { deleteProject, getProject, renameProject } from "@/lib/projects/repository";
+import { apiErrorResponse } from "@/lib/auth/errors";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -12,8 +13,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     }
     return NextResponse.json({ project });
   } catch (error) {
-    console.error("[api/projects/[id] GET]", error);
-    return NextResponse.json({ error: "Failed to load project" }, { status: 500 });
+    return apiErrorResponse(error, "[api/projects/[id] GET]", "Failed to load project");
   }
 }
 
@@ -33,8 +33,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const project = await renameProject(id, parsed.data.name);
     return NextResponse.json({ project });
   } catch (error) {
-    console.error("[api/projects/[id] PATCH]", error);
-    return NextResponse.json({ error: "Failed to rename project" }, { status: 500 });
+    return apiErrorResponse(error, "[api/projects/[id] PATCH]", "Failed to rename project");
   }
 }
 
@@ -44,7 +43,6 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
     await deleteProject(id);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("[api/projects/[id] DELETE]", error);
-    return NextResponse.json({ error: "Failed to delete project" }, { status: 500 });
+    return apiErrorResponse(error, "[api/projects/[id] DELETE]", "Failed to delete project");
   }
 }

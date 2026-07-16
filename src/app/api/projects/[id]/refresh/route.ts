@@ -3,6 +3,7 @@ import { after, NextRequest, NextResponse } from "next/server";
 import { getProject } from "@/lib/projects/repository";
 import { isProjectConnected, isProjectSubscribed } from "@/lib/projects/types";
 import { enqueueManualRefresh, getLatestJobForProject, processQueue } from "@/lib/attribution/queue";
+import { apiErrorResponse } from "@/lib/auth/errors";
 
 // Marge pour laisser processQueue() finir le job qu'on vient d'enfiler,
 // déclenché après la réponse (voir after() plus bas).
@@ -18,8 +19,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     const job = await getLatestJobForProject(id);
     return NextResponse.json({ job });
   } catch (error) {
-    console.error("[api/projects/[id]/refresh GET]", error);
-    return NextResponse.json({ error: "Failed to load refresh status" }, { status: 500 });
+    return apiErrorResponse(error, "[api/projects/[id]/refresh GET]", "Failed to load refresh status");
   }
 }
 
@@ -49,7 +49,6 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
 
     return NextResponse.json({ job });
   } catch (error) {
-    console.error("[api/projects/[id]/refresh POST]", error);
-    return NextResponse.json({ error: "Failed to start refresh" }, { status: 500 });
+    return apiErrorResponse(error, "[api/projects/[id]/refresh POST]", "Failed to start refresh");
   }
 }

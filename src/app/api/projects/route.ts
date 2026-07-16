@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createProject, listAccessibleProjects } from "@/lib/projects/repository";
+import { apiErrorResponse } from "@/lib/auth/errors";
 
 export async function GET() {
   try {
     const projects = await listAccessibleProjects();
     return NextResponse.json({ projects });
   } catch (error) {
-    console.error("[api/projects GET]", error);
-    return NextResponse.json({ error: "Failed to load projects" }, { status: 500 });
+    return apiErrorResponse(error, "[api/projects GET]", "Failed to load projects");
   }
 }
 
@@ -29,7 +29,6 @@ export async function POST(request: NextRequest) {
     const project = await createProject(parsed.data);
     return NextResponse.json({ project }, { status: 201 });
   } catch (error) {
-    console.error("[api/projects POST]", error);
-    return NextResponse.json({ error: "Failed to create project" }, { status: 500 });
+    return apiErrorResponse(error, "[api/projects POST]", "Failed to create project");
   }
 }

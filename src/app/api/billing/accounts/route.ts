@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createBillingAccount, listMyBillingAccounts } from "@/lib/billing/repository";
+import { apiErrorResponse } from "@/lib/auth/errors";
 
 export async function GET() {
   try {
     const accounts = await listMyBillingAccounts();
     return NextResponse.json({ accounts });
   } catch (error) {
-    console.error("[api/billing/accounts GET]", error);
-    return NextResponse.json({ error: "Failed to load billing accounts" }, { status: 500 });
+    return apiErrorResponse(error, "[api/billing/accounts GET]", "Failed to load billing accounts");
   }
 }
 
@@ -32,7 +32,6 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error && error.message === "Not authorized on this workspace") {
       return NextResponse.json({ error: "Tu n'as pas les droits sur ce workspace." }, { status: 403 });
     }
-    console.error("[api/billing/accounts POST]", error);
-    return NextResponse.json({ error: "Failed to create billing account" }, { status: 500 });
+    return apiErrorResponse(error, "[api/billing/accounts POST]", "Failed to create billing account");
   }
 }

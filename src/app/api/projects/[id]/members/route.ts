@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { apiErrorResponse } from "@/lib/auth/errors";
 import {
   addProjectMember,
   listProjectMembers,
@@ -13,8 +14,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     const members = await listProjectMembers(id);
     return NextResponse.json({ members });
   } catch (error) {
-    console.error("[api/projects/[id]/members GET]", error);
-    return NextResponse.json({ error: "Failed to load members" }, { status: 500 });
+    return apiErrorResponse(error, "[api/projects/[id]/members GET]", "Failed to load members");
   }
 }
 
@@ -43,7 +43,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (error instanceof Error && error.message === "Not authorized on this project") {
       return NextResponse.json({ error: "Tu n'as pas les droits pour gérer ce projet." }, { status: 403 });
     }
-    console.error("[api/projects/[id]/members POST]", error);
-    return NextResponse.json({ error: "Failed to add member" }, { status: 500 });
+    return apiErrorResponse(error, "[api/projects/[id]/members POST]", "Failed to add member");
   }
 }

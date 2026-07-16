@@ -5,6 +5,7 @@ import { aggregateCreditsBySource } from "@/lib/attribution/models";
 import { getAttributionRows } from "@/lib/attribution/repository";
 import { comparisonRange, defaultRange } from "@/lib/attribution/date-range";
 import type { AttributionModel } from "@/lib/attribution/types";
+import { apiErrorResponse } from "@/lib/auth/errors";
 
 const querySchema = z.object({
   projectId: z.string().uuid(),
@@ -61,10 +62,6 @@ export async function GET(request: NextRequest) {
       topSources: aggregateCreditsBySource(rows, model),
     });
   } catch (error) {
-    console.error("[api/overview]", error);
-    return NextResponse.json(
-      { error: "Failed to load overview data" },
-      { status: 500 }
-    );
+    return apiErrorResponse(error, "[api/overview]", "Failed to load overview data");
   }
 }

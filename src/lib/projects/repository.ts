@@ -1,11 +1,12 @@
 import { auth } from "@/auth";
+import { UnauthenticatedError } from "@/lib/auth/errors";
 import { decryptSecret, encryptSecret } from "@/lib/crypto/secrets";
 import { getDbPool } from "@/lib/db/client";
 import type { Account, Project, ProjectMember } from "./types";
 
 export async function requireUserId(): Promise<string> {
   const session = await auth();
-  if (!session?.user?.id) throw new Error("Not authenticated");
+  if (!session?.user?.id) throw new UnauthenticatedError();
   return session.user.id;
 }
 

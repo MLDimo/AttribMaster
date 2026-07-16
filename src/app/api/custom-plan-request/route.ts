@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createCustomPlanRequest } from "@/lib/billing/repository";
+import { apiErrorResponse } from "@/lib/auth/errors";
 
 const bodySchema = z.object({
   projectId: z.string().uuid().nullable(),
@@ -22,7 +23,6 @@ export async function POST(request: NextRequest) {
     await createCustomPlanRequest(parsed.data);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("[api/custom-plan-request POST]", error);
-    return NextResponse.json({ error: "Failed to submit request" }, { status: 500 });
+    return apiErrorResponse(error, "[api/custom-plan-request POST]", "Failed to submit request");
   }
 }

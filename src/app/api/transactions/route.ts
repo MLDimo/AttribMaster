@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { getTransactions } from "@/lib/attribution/repository";
 import { defaultRange } from "@/lib/attribution/date-range";
+import { apiErrorResponse } from "@/lib/auth/errors";
 
 const querySchema = z.object({
   projectId: z.string().uuid(),
@@ -41,10 +42,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ rows, total, page, pageSize });
   } catch (error) {
-    console.error("[api/transactions]", error);
-    return NextResponse.json(
-      { error: "Failed to load transactions" },
-      { status: 500 }
-    );
+    return apiErrorResponse(error, "[api/transactions]", "Failed to load transactions");
   }
 }

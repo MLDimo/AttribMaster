@@ -10,6 +10,7 @@ import { discoverGa4HistoryStartDate } from "@/lib/bigquery/client";
 import { authorizedClientFromRefreshToken } from "@/lib/gcp-oauth/client";
 import { connectProjectBigQuery, getProject, getProjectOAuthToken } from "@/lib/projects/repository";
 import { BigQuery } from "@google-cloud/bigquery";
+import { apiErrorResponse } from "@/lib/auth/errors";
 
 // Sans ça, la fonction serverless est tuée avant d'avoir pu drainer une partie
 // du rattrapage d'historique juste après la connexion. Plafonné automatiquement
@@ -60,12 +61,16 @@ export async function POST(
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const project = await getProject(id);
+  let project, refreshToken;
+  try {
+    project = await getProject(id);
+    refreshToken = await getProjectOAuthToken(id);
+  } catch (error) {
+    return apiErrorResponse(error, "[api/projects/[id]/connect-bigquery]", "Failed to load project");
+  }
   if (!project) {
     return NextResponse.json({ error: "Project not found or not accessible" }, { status: 404 });
   }
-
-  const refreshToken = await getProjectOAuthToken(id);
   if (!refreshToken) {
     return NextResponse.json({ error: "BigQuery not connected yet" }, { status: 400 });
   }
@@ -89,8 +94,7 @@ export async function POST(
       bigqueryDataset,
     });
   } catch (error) {
-    console.error("[api/projects/[id]/connect-bigquery]", error);
-    return NextResponse.json({ error: "Failed to connect BigQuery" }, { status: 500 });
+    return apiErrorResponse(error, "[api/projects/[id]/connect-bigquery]", "Failed to connect BigQuery");
   }
 
   // Rattrapage de tout l'historique GA4 disponible (best effort, non bloquant
