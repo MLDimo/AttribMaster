@@ -2,7 +2,12 @@ import { after, NextRequest, NextResponse } from "next/server";
 
 import { getProject } from "@/lib/projects/repository";
 import { isProjectConnected, isProjectSubscribed } from "@/lib/projects/types";
-import { enqueueManualRefresh, getLatestJobForProject, processQueue } from "@/lib/attribution/queue";
+import {
+  enqueueManualRefresh,
+  getLatestJobForProject,
+  getProjectJobHealth,
+  processQueue,
+} from "@/lib/attribution/queue";
 import { apiErrorResponse } from "@/lib/auth/errors";
 
 // Marge pour laisser processQueue() finir le job qu'on vient d'enfiler,
@@ -16,8 +21,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     if (!project) {
       return NextResponse.json({ error: "Project not found or not accessible" }, { status: 404 });
     }
-    const job = await getLatestJobForProject(id);
-    return NextResponse.json({ job });
+    const { latestJob, lastSuccessAt } = await getProjectJobHealth(id);
+    return NextResponse.json({ job: latestJob, lastSuccessAt });
   } catch (error) {
     return apiErrorResponse(error, "[api/projects/[id]/refresh GET]", "Failed to load refresh status");
   }

@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AppShell } from "@/components/layout/app-shell";
 import { AttributionChart } from "@/components/dashboard/attribution-chart";
 import { AttributionModelsGuide } from "@/components/dashboard/attribution-models-guide";
+import { DataFreshnessBanner } from "@/components/dashboard/data-freshness-banner";
 import { DateRangePicker } from "@/components/dashboard/date-range-picker";
 import { OverviewCards } from "@/components/dashboard/overview-cards";
 import { TransactionsTable } from "@/components/dashboard/transactions-table";
@@ -254,6 +255,7 @@ export default function ProjectPage() {
         </FadeIn>
 
         <div className="flex flex-1 flex-col gap-5">
+          {usable && <DataFreshnessBanner projectId={projectId} />}
           <FadeIn delay={0.05}>
           <Card className="py-4">
             <CardContent className="flex flex-wrap items-end gap-4 px-4">

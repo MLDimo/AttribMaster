@@ -1,6 +1,38 @@
 import { getBigQueryClientForProject, ATTRIBUTIONS_TABLE } from "@/lib/bigquery/client";
+import { TtlCache } from "@/lib/cache/ttl-cache";
+import { getDbPool } from "@/lib/db/client";
 import { getMockRows, MOCK_PROJECT_ID } from "./mock-data";
 import type { AttributionRow, Touchpoint } from "./types";
+
+/**
+ * Les données d'attribution ne changent qu'au rythme des jobs (cron nocturne
+ * ou refresh manuel), mais chaque affichage du dashboard relançait les
+ * requêtes BigQuery (1-3s de latence + coût par octet scanné). On met donc
+ * les résultats en cache mémoire, avec dans la clé la date du dernier job
+ * réussi du projet : un refresh qui aboutit change cette date, donc la clé,
+ * donc invalide le cache sur toutes les instances sans coordination. La
+ * vérification d'accès (getBigQueryClientForProject) reste TOUJOURS exécutée
+ * avant toute lecture du cache.
+ */
+const queryCache = new TtlCache<unknown>(5 * 60 * 1000, 100);
+
+async function freshnessStamp(projectId: string): Promise<string> {
+  const db = getDbPool();
+  const { rows } = await db.query<{ stamp: string | null }>(
+    `select max(finished_at)::text as stamp from nightly_jobs
+     where project_id = $1 and status = 'done'`,
+    [projectId]
+  );
+  return rows[0]?.stamp ?? "never";
+}
+
+async function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
+  const hit = queryCache.get(key);
+  if (hit !== undefined) return hit as T;
+  const value = await fetcher();
+  queryCache.set(key, value);
+  return value;
+}
 
 type BigQueryTimestampLike = { value: string };
 type BigQueryDateLike = { value: string };
@@ -63,12 +95,15 @@ export async function getLastDataTimestamp(projectId: string): Promise<string | 
   const { client, project } = await getBigQueryClientForProject(projectId);
   const table = `\`${project.gcp_project_id}.${project.bigquery_dataset}.${ATTRIBUTIONS_TABLE}\``;
 
-  const [rows] = await client.query({
-    query: `SELECT MAX(event_timestamp) AS last_event_timestamp FROM ${table}`,
+  const stamp = await freshnessStamp(projectId);
+  return cached(`last-data:${projectId}:${stamp}`, async () => {
+    const [rows] = await client.query({
+      query: `SELECT MAX(event_timestamp) AS last_event_timestamp FROM ${table}`,
+    });
+    const value = (rows[0] as { last_event_timestamp: BigQueryTimestampLike | string | null })
+      .last_event_timestamp;
+    return value ? unwrap(value) : null;
   });
-  const value = (rows[0] as { last_event_timestamp: BigQueryTimestampLike | string | null })
-    .last_event_timestamp;
-  return value ? unwrap(value) : null;
 }
 
 export async function getAttributionRows(
@@ -82,18 +117,21 @@ export async function getAttributionRows(
   const { client, project } = await getBigQueryClientForProject(projectId);
   const table = `\`${project.gcp_project_id}.${project.bigquery_dataset}.${ATTRIBUTIONS_TABLE}\``;
 
-  const [rows] = await client.query({
-    query: `
-      SELECT transaction_id, user_pseudo_id, event_date, event_timestamp,
-             purchase_revenue, currency, source_path, touchpoints
-      FROM ${table}
-      WHERE event_date BETWEEN @from AND @to
-    `,
-    // client.date(...) est requis : une string brute + `types: "DATE"` est
-    // silencieusement liée à NULL par l'API BigQuery (voir nightly-run.ts).
-    params: { from: client.date(from), to: client.date(to) },
+  const stamp = await freshnessStamp(projectId);
+  return cached(`rows:${projectId}:${from}:${to}:${stamp}`, async () => {
+    const [rows] = await client.query({
+      query: `
+        SELECT transaction_id, user_pseudo_id, event_date, event_timestamp,
+               purchase_revenue, currency, source_path, touchpoints
+        FROM ${table}
+        WHERE event_date BETWEEN @from AND @to
+      `,
+      // client.date(...) est requis : une string brute + `types: "DATE"` est
+      // silencieusement liée à NULL par l'API BigQuery (voir nightly-run.ts).
+      params: { from: client.date(from), to: client.date(to) },
+    });
+    return (rows as RawAttributionRow[]).map(normalizeRow);
   });
-  return (rows as RawAttributionRow[]).map(normalizeRow);
 }
 
 export type TransactionsQuery = DateRange & {
@@ -138,6 +176,18 @@ export async function getTransactions(
   const { client, project } = await getBigQueryClientForProject(projectId);
   const table = `\`${project.gcp_project_id}.${project.bigquery_dataset}.${ATTRIBUTIONS_TABLE}\``;
 
+  const stamp = await freshnessStamp(projectId);
+  return cached(
+    `tx:${projectId}:${from}:${to}:${search ?? ""}:${page}:${pageSize}:${sortBy}:${sortDir}:${stamp}`,
+    () => fetchTransactionsPage(client, table, { from, to, search, page, pageSize, sortBy, sortDir })
+  );
+}
+
+async function fetchTransactionsPage(
+  client: Awaited<ReturnType<typeof getBigQueryClientForProject>>["client"],
+  table: string,
+  { from, to, search, page, pageSize, sortBy, sortDir }: Required<Omit<TransactionsQuery, "search">> & { search?: string }
+): Promise<TransactionsPage> {
   const searchFilter = search ? "AND transaction_id LIKE @search" : "";
   // client.date(...) est requis : une string brute + `types: "DATE"` est
   // silencieusement liée à NULL par l'API BigQuery (voir nightly-run.ts).

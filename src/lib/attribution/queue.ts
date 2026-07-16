@@ -186,3 +186,24 @@ export async function getLatestJobForProject(projectId: string): Promise<Nightly
   );
   return rows[0] ?? null;
 }
+
+export type ProjectJobHealth = {
+  /** Dernier job, quel que soit son statut (null si jamais aucun run). */
+  latestJob: NightlyJob | null;
+  /** Fin du dernier run réussi — la vraie fraîcheur des données affichées. */
+  lastSuccessAt: string | null;
+};
+
+/** Fraîcheur des données d'un projet, pour le bandeau dashboard et le cache. */
+export async function getProjectJobHealth(projectId: string): Promise<ProjectJobHealth> {
+  const db = getDbPool();
+  const [latestJob, successRows] = await Promise.all([
+    getLatestJobForProject(projectId),
+    db.query<{ last_success_at: string | null }>(
+      `select max(finished_at)::text as last_success_at from nightly_jobs
+       where project_id = $1 and status = 'done'`,
+      [projectId]
+    ),
+  ]);
+  return { latestJob, lastSuccessAt: successRows.rows[0]?.last_success_at ?? null };
+}

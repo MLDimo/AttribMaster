@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { sendFailureAlerts } from "@/lib/alerts/failure-alerts";
 import { runNightlyAttributionForProject } from "@/lib/attribution/nightly-run";
 import { enqueueBackfillForAllProjects, processQueue } from "@/lib/attribution/queue";
 
@@ -37,7 +38,10 @@ export async function GET(request: NextRequest) {
     const enqueued = await enqueueBackfillForAllProjects();
     const deadline = Date.now() + (maxDuration - 20) * 1000;
     const { processed } = await processQueue(deadline);
-    return NextResponse.json({ enqueued: enqueued.length, processed });
+    // Alerte les owners dont la mise à jour vient d'échouer (throttlé à un
+    // email / 3 jours par projet ; no-op si RESEND_API_KEY absent).
+    const alerts = await sendFailureAlerts();
+    return NextResponse.json({ enqueued: enqueued.length, processed, alerts });
   } catch (error) {
     console.error("[cron/nightly-attribution]", error);
     return NextResponse.json(
