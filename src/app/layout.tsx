@@ -16,10 +16,31 @@ const firaCode = Fira_Code({
   weight: ["400", "500", "600"],
 });
 
+const SITE_URL = "https://attribmaster.com";
+const DESCRIPTION =
+  "Devenez maître de votre attribution marketing avec des données réelles, fiables et sans approximation.";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "AttribMaster",
-  description:
-    "Devenez maître de votre attribution marketing avec des données réelles, fiables et sans approximation.",
+  description: DESCRIPTION,
+  openGraph: {
+    title: "AttribMaster",
+    description: DESCRIPTION,
+    url: SITE_URL,
+    siteName: "AttribMaster",
+    locale: "fr_FR",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AttribMaster",
+    description: DESCRIPTION,
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({

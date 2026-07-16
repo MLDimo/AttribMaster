@@ -6,6 +6,10 @@ export const PUBLIC_PATHS = [
   "/cgu",
   "/cgv",
   "/politique-de-confidentialite",
+  "/opengraph-image",
+  "/twitter-image",
+  "/robots.txt",
+  "/sitemap.xml",
 ];
 
 export function isPublicPath(pathname: string): boolean {

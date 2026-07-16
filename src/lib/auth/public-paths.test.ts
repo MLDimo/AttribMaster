@@ -4,7 +4,18 @@ import { isApiPath, isPublicPath, shouldRedirectToLogin } from "./public-paths";
 
 describe("isPublicPath", () => {
   it("treats the exact known public routes as public", () => {
-    for (const path of ["/", "/login", "/mentions-legales", "/cgu", "/cgv", "/politique-de-confidentialite"]) {
+    for (const path of [
+      "/",
+      "/login",
+      "/mentions-legales",
+      "/cgu",
+      "/cgv",
+      "/politique-de-confidentialite",
+      "/opengraph-image",
+      "/twitter-image",
+      "/robots.txt",
+      "/sitemap.xml",
+    ]) {
       expect(isPublicPath(path)).toBe(true);
     }
   });
