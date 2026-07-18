@@ -21,9 +21,9 @@ describe("verifyCredentials (real DB)", () => {
     const pool = getDbPool();
     const hash = await bcrypt.hash(TEST_PASSWORD, 10);
     await pool.query(
-      `insert into users (name, email, password_hash)
-       values ($1, $2, $3)
-       on conflict (email) do update set password_hash = excluded.password_hash`,
+      `insert into users (name, email, password_hash, "emailVerified")
+       values ($1, $2, $3, now())
+       on conflict (email) do update set password_hash = excluded.password_hash, "emailVerified" = now()`,
       ["CI Auth Test", TEST_EMAIL, hash]
     );
     // Des runs CI rapprochés accumulent des échecs pour le même email de test :
@@ -68,8 +68,8 @@ describe("verifyCredentials (real DB)", () => {
     const pool = getDbPool();
     const hash = await bcrypt.hash(TEST_PASSWORD, 10);
     await pool.query(
-      `insert into users (name, email, password_hash) values ($1, $2, $3)
-       on conflict (email) do update set password_hash = excluded.password_hash`,
+      `insert into users (name, email, password_hash, "emailVerified") values ($1, $2, $3, now())
+       on conflict (email) do update set password_hash = excluded.password_hash, "emailVerified" = now()`,
       ["CI Throttle Test", THROTTLE_EMAIL, hash]
     );
     try {

@@ -5,6 +5,7 @@ import { expect, test } from "@playwright/test";
 const STATIC_PAGES = [
   { name: "home", path: "/" },
   { name: "login", path: "/login" },
+  { name: "signup", path: "/signup" },
   { name: "cgu", path: "/cgu" },
   { name: "cgv", path: "/cgv" },
   { name: "mentions-legales", path: "/mentions-legales" },

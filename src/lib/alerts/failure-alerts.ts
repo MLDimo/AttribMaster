@@ -1,3 +1,4 @@
+import { hasEmailSending, sendEmail } from "@/lib/email/resend";
 import { getDbPool } from "@/lib/db/client";
 
 /**
@@ -56,22 +57,6 @@ async function markAlerted(projectId: string): Promise<void> {
   await db.query(`update projects set last_failure_alert_at = now() where id = $1`, [projectId]);
 }
 
-async function sendEmail(apiKey: string, to: string[], subject: string, html: string): Promise<void> {
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from: process.env.ALERT_FROM_EMAIL ?? "AttribMaster <alerts@attribmaster.com>",
-      to,
-      subject,
-      html,
-    }),
-  });
-  if (!res.ok) {
-    throw new Error(`Resend API error ${res.status}: ${await res.text()}`);
-  }
-}
-
 function buildAlertHtml(candidate: FailureAlertCandidate): string {
   const staleness = candidate.last_success_at
     ? `Les chiffres de ton dashboard datent du ${new Date(candidate.last_success_at).toLocaleDateString("fr-FR")}.`
@@ -93,8 +78,7 @@ export type FailureAlertsResult = {
 
 /** À appeler après le drain du cron nocturne. Ne lève jamais (best effort). */
 export async function sendFailureAlerts(): Promise<FailureAlertsResult> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
+  if (!hasEmailSending()) {
     return { skipped: true, alerted: 0 };
   }
 
@@ -105,7 +89,6 @@ export async function sendFailureAlerts(): Promise<FailureAlertsResult> {
       if (candidate.owner_emails.length === 0) continue;
       try {
         await sendEmail(
-          apiKey,
           candidate.owner_emails,
           `⚠️ Mise à jour en échec — ${candidate.project_name}`,
           buildAlertHtml(candidate)

@@ -34,6 +34,21 @@ export const { handlers, auth } = NextAuth({
     }),
   ],
   callbacks: {
+    async signIn({ user, account }) {
+      // Si quelqu'un se connecte via Google sur un compte email/mot de passe
+      // jamais vérifié, ce mot de passe a été posé par quelqu'un qui n'a
+      // jamais prouvé posséder l'adresse (pré-enregistrement malveillant
+      // possible) : on le purge au moment où le vrai propriétaire — vérifié
+      // par Google — prend la main sur le compte.
+      if (account?.provider === "google" && user.email) {
+        await getDbPool().query(
+          `update users set password_hash = null
+           where lower(email) = lower($1) and "emailVerified" is null and password_hash is not null`,
+          [user.email]
+        );
+      }
+      return true;
+    },
     jwt({ token, user }) {
       if (user) {
         token.id = user.id;
