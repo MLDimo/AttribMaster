@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { yesterdayDateOnly } from "@/lib/attribution/nightly-run";
@@ -99,10 +99,12 @@ export async function POST(
 
   // Rattrapage de tout l'historique GA4 disponible (best effort, non bloquant
   // pour la connexion elle-même) : enfile un job par jour depuis le premier
-  // export disponible jusqu'à hier, puis draine tout de suite ce que le
-  // budget de temps permet. Le reste continuera d'être traité par le cron
-  // nocturne (claimNextJob ne distingue pas la source des jobs en attente).
-  let backfill: { enqueuedDays: number; processedNow: number } | null = null;
+  // export disponible jusqu'à hier. Le drain tourne APRÈS la réponse (after) :
+  // traiter plusieurs jours d'historique prend facilement 30-40s de requêtes
+  // BigQuery, et le bouton "Connexion" resterait bloqué tout ce temps. Ce que
+  // le budget de la fonction ne finit pas sera repris par le cron nocturne
+  // (claimNextJob ne distingue pas la source des jobs en attente).
+  let backfill: { enqueuedDays: number } | null = null;
   try {
     const startDate = await discoverGa4HistoryStartDate(
       bigquery,
@@ -112,8 +114,8 @@ export async function POST(
     if (startDate) {
       const endDate = yesterdayDateOnly();
       const enqueuedDays = await enqueueHistoricalBackfill(id, startDate, endDate);
-      const { processed } = await processQueue(Date.now() + 40_000, id);
-      backfill = { enqueuedDays, processedNow: processed };
+      after(() => processQueue(Date.now() + 40_000, id));
+      backfill = { enqueuedDays };
     }
   } catch (error) {
     // Non bloquant : le rattrapage pourra être relancé plus tard (bouton
