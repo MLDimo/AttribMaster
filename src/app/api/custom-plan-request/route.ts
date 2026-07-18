@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { createCustomPlanRequest } from "@/lib/billing/repository";
 import { apiErrorResponse } from "@/lib/auth/errors";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
 const bodySchema = z.object({
   projectId: z.string().uuid().nullable(),
@@ -13,6 +14,11 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  // Formulaire public : sans limite, un bot peut remplir la table à volonté.
+  if (!(await checkRateLimit(`cpr:${clientIp(request)}`, 5, 60))) {
+    return NextResponse.json({ error: "Trop de demandes, réessaie plus tard." }, { status: 429 });
+  }
+
   const body = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {

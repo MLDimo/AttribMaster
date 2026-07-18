@@ -2,6 +2,7 @@
 const PUBLIC_PATHS = [
   "/",
   "/login",
+  "/signup",
   "/mentions-legales",
   "/cgu",
   "/cgv",

@@ -21,8 +21,14 @@ export async function verifyCredentials(
   }
 
   const pool = getDbPool();
-  const { rows } = await pool.query<{ id: string; name: string | null; email: string; password_hash: string | null }>(
-    `select id, name, email, password_hash from users where email = $1`,
+  const { rows } = await pool.query<{
+    id: string;
+    name: string | null;
+    email: string;
+    password_hash: string | null;
+    emailVerified: string | null;
+  }>(
+    `select id, name, email, password_hash, "emailVerified" from users where lower(email) = lower($1)`,
     [email]
   );
   const user = rows[0];
@@ -34,6 +40,13 @@ export async function verifyCredentials(
   const valid = await bcrypt.compare(password, user.password_hash);
   if (!valid) {
     await recordFailedLogin(email);
+    return null;
+  }
+
+  // Compte non vérifié : refusé même avec le bon mot de passe. Sans ça, une
+  // adresse pré-enregistrée par un tiers deviendrait un vol de compte via le
+  // lien automatique Google (allowDangerousEmailAccountLinking).
+  if (!user.emailVerified) {
     return null;
   }
 

@@ -7,6 +7,7 @@ describe("isPublicPath", () => {
     for (const path of [
       "/",
       "/login",
+      "/signup",
       "/mentions-legales",
       "/cgu",
       "/cgv",

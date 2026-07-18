@@ -16,9 +16,9 @@ export async function seedE2EFixtures(): Promise<void> {
 
   const passwordHash = await bcrypt.hash(E2E_USER_PASSWORD, 10);
   await pool.query(
-    `insert into users (name, email, password_hash)
-     values ('E2E Test User', $1, $2)
-     on conflict (email) do update set password_hash = excluded.password_hash`,
+    `insert into users (name, email, password_hash, "emailVerified")
+     values ('E2E Test User', $1, $2, now())
+     on conflict (email) do update set password_hash = excluded.password_hash, "emailVerified" = now()`,
     [E2E_USER_EMAIL, passwordHash]
   );
 
