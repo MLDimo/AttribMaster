@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Download, ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -126,14 +126,30 @@ export function TransactionsTable({
 
   return (
     <div className="flex flex-col gap-4" data-testid="transactions-table">
-      <div className="relative max-w-xs">
-        <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Rechercher par ID de transaction..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-8"
-        />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="relative w-full max-w-xs">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher par ID de transaction..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+        <Button variant="outline" size="sm" asChild>
+          <a
+            href={`/api/transactions/export?${new URLSearchParams({
+              projectId,
+              from,
+              to,
+              ...(search.trim() ? { search: search.trim() } : {}),
+            }).toString()}`}
+            download
+          >
+            <Download className="size-4" />
+            Exporter CSV
+          </a>
+        </Button>
       </div>
 
       {/* Mobile : liste de cartes (une table à 4 colonnes ne tient pas sur un petit écran
