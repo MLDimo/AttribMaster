@@ -10,6 +10,8 @@ export type OverviewResponse = {
     revenueChangePct: number | null;
   };
   topSources: SourceCredit[];
+  /** Devises distinctes présentes sur la période : > 1 => totaux non homogènes. */
+  currencies: string[];
 };
 
 export type TransactionsResponse = {

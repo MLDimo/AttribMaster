@@ -27,6 +27,12 @@ describe("GET /api/overview (dashboard numbers)", () => {
     expect(res.status).toBe(400);
   });
 
+  it("reports the distinct currencies present (single EUR for mock data)", async () => {
+    const res = await overviewGet(new NextRequest(overviewUrl({})));
+    const json = await res.json();
+    expect(json.currencies).toEqual(["EUR"]);
+  });
+
   it("returns totals and topSources that reconcile with each other", async () => {
     const res = await overviewGet(new NextRequest(overviewUrl({ model: "linear" })));
     expect(res.status).toBe(200);

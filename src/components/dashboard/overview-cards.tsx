@@ -1,4 +1,4 @@
-import { ArrowDownRight, ArrowUpRight, Receipt, TrendingUp, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, Receipt, TrendingUp, Wallet } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
@@ -7,11 +7,15 @@ import { StaggerContainer, StaggerItem } from "@/components/effects/motion";
 import { TiltCard } from "@/components/effects/tilt-card";
 import type { OverviewResponse } from "@/lib/attribution/api-types";
 
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("fr-FR", {
-    style: "currency",
-    currency: "EUR",
-  }).format(value);
+function makeCurrencyFormatter(currencies: string[]): (value: number) => string {
+  // Une seule devise : on l'affiche. Plusieurs : montant brut sans symbole,
+  // accompagné de l'avertissement (les totaux ne sont pas homogènes).
+  if (currencies.length === 1) {
+    const formatter = new Intl.NumberFormat("fr-FR", { style: "currency", currency: currencies[0] });
+    return (value) => formatter.format(value);
+  }
+  const formatter = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 });
+  return (value) => formatter.format(value);
 }
 
 function formatCount(value: number): string {
@@ -29,10 +33,13 @@ function KpiIcon({ className, children }: { className: string; children: React.R
 export function OverviewCards({
   totals,
   comparisonLabel,
+  currencies = ["EUR"],
 }: {
   totals: OverviewResponse["totals"];
   comparisonLabel: string;
+  currencies?: string[];
 }) {
+  const formatCurrency = makeCurrencyFormatter(currencies);
   const isPositive = (totals.revenueChangePct ?? 0) >= 0;
   const changeLabel =
     totals.revenueChangePct === null
@@ -41,6 +48,19 @@ export function OverviewCards({
 
   return (
     <StaggerContainer className="grid grid-cols-1 gap-4 sm:grid-cols-3" data-testid="overview-cards">
+      {currencies.length > 1 && (
+        <div
+          role="alert"
+          className="col-span-full flex items-start gap-2.5 rounded-lg border border-brand-accent/40 bg-brand-accent/10 px-4 py-2.5 text-sm text-muted-foreground"
+        >
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-brand-accent" />
+          <span>
+            Plusieurs devises détectées sur la période ({currencies.join(", ")}) : les totaux
+            additionnent des montants de devises différentes sans conversion et ne sont donc pas
+            directement interprétables.
+          </span>
+        </div>
+      )}
       <StaggerItem>
       <TiltCard>
         <Card className="gap-3 py-5">

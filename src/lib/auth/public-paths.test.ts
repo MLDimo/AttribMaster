@@ -8,6 +8,7 @@ describe("isPublicPath", () => {
       "/",
       "/login",
       "/signup",
+      "/reset-password",
       "/mentions-legales",
       "/cgu",
       "/cgv",

@@ -41,6 +41,10 @@ export async function GET(request: NextRequest) {
     ]);
 
     const revenue = rows.reduce((sum, row) => sum + row.purchase_revenue, 0);
+    // Garde-fou multi-devise : les totaux additionnent purchase_revenue sans
+    // conversion. Si l'export GA4 mélange plusieurs devises, le front doit
+    // prévenir que les montants agrégés ne sont pas homogènes.
+    const currencies = [...new Set(rows.map((row) => row.currency).filter((c): c is string => Boolean(c)))].sort();
     const previousRevenue = previousRows.reduce(
       (sum, row) => sum + row.purchase_revenue,
       0
@@ -60,6 +64,7 @@ export async function GET(request: NextRequest) {
         revenueChangePct,
       },
       topSources: aggregateCreditsBySource(rows, model),
+      currencies,
     });
   } catch (error) {
     return apiErrorResponse(error, "[api/overview]", "Failed to load overview data");

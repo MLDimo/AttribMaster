@@ -339,7 +339,7 @@ export default function ProjectPage() {
           )}
 
           {usable && overview && (
-            <OverviewCards totals={overview.totals} comparisonLabel={COMPARISON_LABELS[comparison]} />
+            <OverviewCards totals={overview.totals} comparisonLabel={COMPARISON_LABELS[comparison]} currencies={overview.currencies} />
           )}
 
           {usable && (
