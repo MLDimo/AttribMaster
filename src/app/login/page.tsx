@@ -112,6 +112,14 @@ function LoginPageInner() {
               <Button type="submit" className="w-full" disabled={loading}>
                 Se connecter
               </Button>
+              <p className="text-right text-xs">
+                <Link
+                  href="/reset-password"
+                  className="text-muted-foreground transition-colors hover:text-primary"
+                >
+                  Mot de passe oublié ?
+                </Link>
+              </p>
             </form>
 
             <div className="relative">

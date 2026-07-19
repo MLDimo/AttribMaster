@@ -96,6 +96,14 @@ export default function PrivacyPolicyPage() {
           <li>
             <strong>Stripe Payments Europe, Ltd.</strong> (traitement des paiements et de la facturation).
           </li>
+          <li>
+            <strong>Resend, Inc.</strong> (envoi des emails transactionnels : confirmation d&apos;adresse,
+            alertes liées à ton compte — infrastructure d&apos;envoi située dans l&apos;Union européenne).
+          </li>
+          <li>
+            <strong>Functional Software, Inc. (Sentry)</strong> (surveillance des erreurs techniques de
+            l&apos;application — données hébergées dans l&apos;Union européenne).
+          </li>
         </ul>
         <p>
           Ces prestataires sont susceptibles de traiter des données en dehors de l&apos;Union européenne
