@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { GET as overviewGet } from "@/app/api/overview/route";
 import { GET as transactionsGet } from "@/app/api/transactions/route";
+import { GET as exportGet } from "@/app/api/transactions/export/route";
 import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
 
 // Fenêtre volontairement très large : les données mock sont générées avec des
@@ -96,6 +97,35 @@ describe("GET /api/transactions", () => {
     const filteredJson = await filtered.json();
     expect(filteredJson.rows.length).toBeGreaterThan(0);
     expect(filteredJson.rows.every((r: { transaction_id: string }) => r.transaction_id.includes(knownId))).toBe(true);
+  });
+
+  it("exports the full range as CSV (BOM + semicolons, one line per transaction)", async () => {
+    const all = await transactionsGet(new NextRequest(transactionsUrl({ pageSize: "1" })));
+    const { total } = await all.json();
+
+    const search = new URLSearchParams({ projectId: MOCK_PROJECT_ID, from: WIDE_FROM, to: WIDE_TO });
+    const res = await exportGet(new NextRequest(`http://localhost/api/transactions/export?${search}`));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/csv");
+    expect(res.headers.get("content-disposition")).toContain("attachment");
+
+    // res.text() retire le BOM par spec Fetch : on vérifie les octets bruts
+    // (c'est bien ce que contient le fichier téléchargé).
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    expect([bytes[0], bytes[1], bytes[2]]).toEqual([0xef, 0xbb, 0xbf]); // BOM UTF-8 pour Excel
+    const body = new TextDecoder().decode(bytes.slice(3));
+    const lines = body.split("\r\n");
+    expect(lines[0]).toBe("transaction_id;date;horodatage;revenu;devise;parcours;nb_touchpoints");
+    expect(lines.length - 1).toBe(total); // une ligne par transaction, aucune pagination
+
+    // L'export respecte le filtre de recherche.
+    const knownId = lines[1].split(";")[0].replaceAll('"', "");
+    const filtered = await exportGet(
+      new NextRequest(`http://localhost/api/transactions/export?${search}&search=${knownId}`)
+    );
+    const filteredLines = (await filtered.text()).replace("\ufeff", "").split("\r\n");
+    expect(filteredLines.length - 1).toBeGreaterThanOrEqual(1);
+    expect(filteredLines.length - 1).toBeLessThan(total);
   });
 
   it("sorts by revenue descending on request", async () => {

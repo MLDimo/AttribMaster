@@ -178,6 +178,8 @@ export default function ProjectPage() {
   const [model, setModel] = useState<AttributionModel>("linear");
   const [comparison, setComparison] = useState<ComparisonMode>("previous_period");
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
+  const [compareModel, setCompareModel] = useState<AttributionModel | "none">("none");
+  const [compareOverview, setCompareOverview] = useState<OverviewResponse | null>(null);
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
 
   // Une source sélectionnée n'a plus de sens si la période/le modèle change
@@ -217,6 +219,30 @@ export default function ProjectPage() {
       cancelled = true;
     };
   }, [projectId, usable, from, to, model, comparison]);
+
+  // Purge du résultat comparé quand la comparaison est désactivée (ajustement
+  // pendant le rendu plutôt qu'un setState synchrone dans un effet).
+  const [prevCompareModel, setPrevCompareModel] = useState<AttributionModel | "none">(compareModel);
+  if (prevCompareModel !== compareModel) {
+    setPrevCompareModel(compareModel);
+    setCompareOverview(null);
+  }
+
+  useEffect(() => {
+    if (!projectId || !usable || compareModel === "none") {
+      return;
+    }
+    const params = new URLSearchParams({ projectId, from, to, model: compareModel, comparison });
+    let cancelled = false;
+    fetch(`/api/overview?${params.toString()}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json: OverviewResponse | null) => {
+        if (!cancelled && json) setCompareOverview(json);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, usable, from, to, compareModel, comparison]);
 
   if (notFound) {
     return (
@@ -277,6 +303,22 @@ export default function ProjectPage() {
                       {label}
                     </option>
                   ))}
+                </select>
+              </Field>
+              <Field label="Comparer les modèles" icon={<ChartPie className="size-3.5" />}>
+                <select
+                  className="h-9 cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
+                  value={compareModel}
+                  onChange={(e) => setCompareModel(e.target.value as AttributionModel | "none")}
+                >
+                  <option value="none">Aucun</option>
+                  {Object.entries(MODEL_LABELS)
+                    .filter(([value]) => value !== model)
+                    .map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
                 </select>
               </Field>
               <Field label="Comparer à" icon={<GitCompare className="size-3.5" />}>
@@ -351,9 +393,44 @@ export default function ProjectPage() {
                     <ChartPie className="size-4 text-muted-foreground" />
                     Répartition par source
                   </CardTitle>
+                  {compareModel !== "none" && (
+                    <CardDescription>
+                      {MODEL_LABELS[model]} vs {MODEL_LABELS[compareModel]} — même période, même
+                      revenu total : seule la répartition entre canaux change.
+                    </CardDescription>
+                  )}
                 </CardHeader>
                 <CardContent>
-                  {overview ? (
+                  {overview && compareModel !== "none" ? (
+                    <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
+                      <div className="flex flex-col gap-3">
+                        <p className="text-center text-sm font-medium text-muted-foreground">
+                          {MODEL_LABELS[model]}
+                        </p>
+                        <AttributionChart
+                          sources={overview.topSources}
+                          selectedSource={selectedSource}
+                          onSelectSource={setSelectedSource}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-3">
+                        <p className="text-center text-sm font-medium text-muted-foreground">
+                          {MODEL_LABELS[compareModel]}
+                        </p>
+                        {compareOverview ? (
+                          <AttributionChart
+                            sources={compareOverview.topSources}
+                            selectedSource={selectedSource}
+                            onSelectSource={setSelectedSource}
+                          />
+                        ) : (
+                          <div className="flex h-72 items-center justify-center">
+                            <Skeleton className="size-64 rounded-full" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : overview ? (
                     <AttributionChart
                       sources={overview.topSources}
                       selectedSource={selectedSource}

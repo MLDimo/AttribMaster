@@ -9,6 +9,7 @@ vi.mock("@/auth", () => ({ auth: vi.fn(async () => null) }));
 
 import { GET as overviewGet } from "@/app/api/overview/route";
 import { GET as transactionsGet } from "@/app/api/transactions/route";
+import { GET as exportGet } from "@/app/api/transactions/export/route";
 import { GET as projectsGet } from "@/app/api/projects/route";
 import { GET as accountGet } from "@/app/api/account/route";
 
@@ -29,6 +30,12 @@ describe("unauthenticated API access returns 401, not 500", () => {
   it("GET /api/transactions", async () => {
     const search = new URLSearchParams({ projectId: REAL_LOOKING_PROJECT_ID, ...RANGE });
     const res = await transactionsGet(new NextRequest(`http://localhost/api/transactions?${search}`));
+    expect(res.status).toBe(401);
+  });
+
+  it("GET /api/transactions/export", async () => {
+    const search = new URLSearchParams({ projectId: REAL_LOOKING_PROJECT_ID, ...RANGE });
+    const res = await exportGet(new NextRequest(`http://localhost/api/transactions/export?${search}`));
     expect(res.status).toBe(401);
   });
 
