@@ -96,13 +96,24 @@ describe("GET /api/overview (dashboard numbers)", () => {
     }
   });
 
-  it("sourceTrend respects the active channel filter (scoped the same way as totals/trend)", async () => {
+  it("trend and sourceTrend stay identical whether a channel filter is active or not (only totals/table re-scope)", async () => {
+    // Le graphe de tendance est un sélecteur au même titre que le camembert :
+    // sélectionner un canal le met en évidence (grisage) sans jamais
+    // rezoomer/rétrécir les autres courbes — voir le bug rapporté par
+    // l'utilisateur ("n'efface pas les autres courbes, juste grise").
+    const unfiltered = await overviewGet(new NextRequest(overviewUrl({ model: "linear" })));
+    const unfilteredJson = await unfiltered.json();
+
     const filtered = await overviewGet(
       new NextRequest(overviewUrl({ model: "linear", channelDimension: "medium", channelValue: "cpc" }))
     );
-    const json = await filtered.json();
-    const sum = json.sourceTrend.points.reduce((s: number, p: { total: number }) => s + p.total, 0);
-    expect(sum).toBeCloseTo(json.totals.revenue, 1);
+    const filteredJson = await filtered.json();
+
+    expect(filteredJson.trend).toEqual(unfilteredJson.trend);
+    expect(filteredJson.sourceTrend).toEqual(unfilteredJson.sourceTrend);
+    // Le total de la tendance (non filtrée) reconstitue le revenu NON filtré.
+    const trendRevenue = filteredJson.trend.reduce((sum: number, p: { revenue: number }) => sum + p.revenue, 0);
+    expect(trendRevenue).toBeCloseTo(unfilteredJson.totals.revenue, 1);
   });
 
   it("sourceTrend's plotted channel set stays identical whether a channel filter is active or not (only the values re-scope)", async () => {
@@ -157,7 +168,7 @@ describe("GET /api/overview (dashboard numbers)", () => {
     expect(labels).toContain("(sans campagne)");
   });
 
-  it("selecting a channel scopes totals + trend to transactions touched by it, without changing topSources' full breakdown", async () => {
+  it("selecting a channel scopes totals to transactions touched by it, without changing topSources' or trend's full breakdown", async () => {
     const unfiltered = await overviewGet(new NextRequest(overviewUrl({ model: "linear", dimension: "medium" })));
     const unfilteredJson = await unfiltered.json();
 
@@ -169,11 +180,10 @@ describe("GET /api/overview (dashboard numbers)", () => {
     expect(filteredJson.totals.transactions).toBeGreaterThan(0);
     expect(filteredJson.totals.transactions).toBeLessThan(unfilteredJson.totals.transactions);
     expect(filteredJson.totals.revenue).toBeLessThan(unfilteredJson.totals.revenue);
-    // Le camembert reste la vue complète (c'est lui le sélecteur), pas restreint au filtre.
+    // Le camembert ET le graphe de tendance restent la vue complète (ce sont
+    // des sélecteurs), pas restreints au filtre.
     expect(filteredJson.topSources).toEqual(unfilteredJson.topSources);
-    // La tendance filtrée doit reconstituer exactement le total filtré.
-    const trendRevenue = filteredJson.trend.reduce((sum: number, p: { revenue: number }) => sum + p.revenue, 0);
-    expect(trendRevenue).toBeCloseTo(filteredJson.totals.revenue, 1);
+    expect(filteredJson.trend).toEqual(unfilteredJson.trend);
   });
 
   it("rejects channelDimension without channelValue (and vice versa)", async () => {
