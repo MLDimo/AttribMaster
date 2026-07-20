@@ -77,6 +77,34 @@ describe("GET /api/overview (dashboard numbers)", () => {
     }
   });
 
+  it("sourceTrend: per-day channel breakdown reconciles with trend's daily revenue, for every model", async () => {
+    for (const model of ["last_click", "linear", "u_shape", "time_decay", "markov", "shapley"] as const) {
+      const res = await overviewGet(new NextRequest(overviewUrl({ model })));
+      const json = await res.json();
+
+      expect(json.sourceTrend.points).toHaveLength(json.trend.length);
+      expect(json.sourceTrend.channels.length).toBeGreaterThan(0);
+      expect(json.sourceTrend.channels.length).toBeLessThanOrEqual(7); // 6 canaux max + "Autres"
+
+      for (let i = 0; i < json.trend.length; i++) {
+        const point = json.sourceTrend.points[i];
+        expect(point.date).toBe(json.trend[i].date);
+        expect(point.total).toBeCloseTo(json.trend[i].revenue, 6);
+        const sum = json.sourceTrend.channels.reduce((s: number, c: string) => s + point[c], 0);
+        expect(sum, `model=${model} date=${point.date}`).toBeCloseTo(point.total, 6);
+      }
+    }
+  });
+
+  it("sourceTrend respects the active channel filter (scoped the same way as totals/trend)", async () => {
+    const filtered = await overviewGet(
+      new NextRequest(overviewUrl({ model: "linear", channelDimension: "medium", channelValue: "cpc" }))
+    );
+    const json = await filtered.json();
+    const sum = json.sourceTrend.points.reduce((s: number, p: { total: number }) => s + p.total, 0);
+    expect(sum).toBeCloseTo(json.totals.revenue, 1);
+  });
+
   it("returns the same total revenue regardless of attribution model", async () => {
     const models = ["last_click", "linear", "time_decay", "u_shape", "markov", "shapley"] as const;
     const revenues: number[] = [];
