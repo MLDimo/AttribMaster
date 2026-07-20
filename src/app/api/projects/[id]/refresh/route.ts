@@ -1,7 +1,7 @@
 import { after, NextRequest, NextResponse } from "next/server";
 
 import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
-import { getProject } from "@/lib/projects/repository";
+import { getProject, requireProjectAccess, requireUserId } from "@/lib/projects/repository";
 import { isProjectConnected, isProjectSubscribed } from "@/lib/projects/types";
 import {
   enqueueManualRefresh,
@@ -35,6 +35,11 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
     if (id === MOCK_PROJECT_ID) {
       return NextResponse.json({ error: "Ce projet de démonstration est en lecture seule." }, { status: 403 });
     }
+    // Déclencher un refresh manuel est une action de gestion : un collaborateur
+    // en lecture seule (project_members, sans rôle owner/admin de workspace)
+    // ne doit pas pouvoir la lancer — voir hasProjectManageAccess.
+    const userId = await requireUserId();
+    await requireProjectAccess(id, userId);
     const project = await getProject(id);
     if (!project) {
       return NextResponse.json({ error: "Project not found or not accessible" }, { status: 404 });

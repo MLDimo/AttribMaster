@@ -1,9 +1,10 @@
 "use client";
 
-import { ChevronRight, Loader2, UserPlus, X } from "lucide-react";
+import { ChevronRight, Eye, Loader2, UserPlus, X } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -141,7 +142,9 @@ export function ProjectMembers({ projectId }: { projectId: string }) {
         <DialogHeader>
           <DialogTitle>Collaborateurs</DialogTitle>
           <DialogDescription>
-            Les personnes ajoutées ici peuvent voir ce projet et son dashboard.
+            Accès en lecture seule : les personnes ajoutées ici peuvent consulter ce projet et son
+            dashboard, mais ne peuvent rien modifier (connexion, abonnement, autres collaborateurs)
+            — idéal pour un client final ou un stagiaire.
           </DialogDescription>
         </DialogHeader>
 
@@ -181,6 +184,10 @@ export function ProjectMembers({ projectId }: { projectId: string }) {
                         <p className="truncate text-xs text-muted-foreground">{member.email}</p>
                       )}
                     </div>
+                    <Badge variant="outline" className="shrink-0 gap-1 text-muted-foreground">
+                      <Eye className="size-3" />
+                      Lecture seule
+                    </Badge>
                     <button
                       type="button"
                       aria-label={`Retirer ${member.email}`}
