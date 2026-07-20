@@ -7,8 +7,14 @@ import {
 } from "./models";
 import type { AttributionRow, Touchpoint } from "./types";
 
-function tp(source: string, medium: string, timestamp: string, position: number): Touchpoint {
-  return { source, medium, campaign: null, timestamp, position };
+function tp(
+  source: string,
+  medium: string,
+  timestamp: string,
+  position: number,
+  campaign: string | null = null
+): Touchpoint {
+  return { source, medium, campaign, timestamp, position };
 }
 
 function row(overrides: Partial<AttributionRow> & { touchpoints: Touchpoint[] }): AttributionRow {
@@ -141,6 +147,79 @@ describe("aggregateCreditsBySource — Shapley", () => {
     const klaviyo = credits.find((c) => c.source === "Klaviyo / email");
     expect(direct?.share).toBeCloseTo(0.745, 2);
     expect(klaviyo?.share).toBeCloseTo(0.255, 2);
+  });
+});
+
+describe("aggregateCreditsBySource — grouping dimension", () => {
+  it("dimension \"medium\" merges different sources sharing the same support (payant vs organique)", () => {
+    const rows: AttributionRow[] = [
+      row({
+        purchase_revenue: 100,
+        touchpoints: [tp("google", "cpc", "t1", 0), tp("direct", "none", "t2", 1)],
+      }),
+      row({
+        purchase_revenue: 100,
+        touchpoints: [tp("bing", "cpc", "t1", 0)],
+      }),
+    ];
+    const credits = aggregateCreditsBySource(rows, "linear", "medium");
+    // google/cpc + bing/cpc doivent fusionner sous "cpc", plus jamais visibles
+    // séparément par source une fois regroupés par support.
+    expect(credits.find((c) => c.source === "google")).toBeUndefined();
+    expect(credits.find((c) => c.source === "bing")).toBeUndefined();
+    const cpc = credits.find((c) => c.source === "cpc");
+    expect(cpc?.revenue).toBeCloseTo(150); // 50 (moitié du 1er) + 100 (entier du 2nd)
+  });
+
+  it("dimension \"campaign\" groups by campaign and buckets missing campaigns under the sentinel label", () => {
+    const rows: AttributionRow[] = [
+      row({
+        purchase_revenue: 100,
+        touchpoints: [
+          tp("google", "cpc", "t1", 0, "brand-search"),
+          tp("bing", "cpc", "t2", 1, "brand-search"),
+        ],
+      }),
+      row({
+        purchase_revenue: 100,
+        touchpoints: [tp("direct", "none", "t1", 0, null)],
+      }),
+    ];
+    const credits = aggregateCreditsBySource(rows, "linear", "campaign");
+    const brandSearch = credits.find((c) => c.source === "brand-search");
+    expect(brandSearch?.revenue).toBeCloseTo(100); // les deux touchpoints de la même campagne, même transaction
+    const noCampaign = credits.find((c) => c.source === "(sans campagne)");
+    expect(noCampaign?.revenue).toBeCloseTo(100);
+  });
+
+  it("defaults to the historical source+medium grouping when no dimension is passed", () => {
+    const rows: AttributionRow[] = [
+      row({ purchase_revenue: 100, touchpoints: [tp("google", "cpc", "t1", 0)] }),
+    ];
+    const credits = aggregateCreditsBySource(rows, "linear");
+    expect(credits[0].source).toBe("google / cpc");
+  });
+
+  it("markov also respects the grouping dimension (collapses consecutive same-medium touchpoints as one state)", () => {
+    const rows: AttributionRow[] = [
+      row({
+        purchase_revenue: 100,
+        touchpoints: [
+          tp("google", "cpc", "2026-07-10T00:00:00Z", 0),
+          tp("bing", "cpc", "2026-07-10T01:00:00Z", 1),
+          tp("direct", "none", "2026-07-10T02:00:00Z", 2),
+        ],
+      }),
+      row({
+        purchase_revenue: 100,
+        touchpoints: [tp("direct", "none", "2026-07-11T00:00:00Z", 0)],
+      }),
+    ];
+    const credits = aggregateCreditsBySource(rows, "markov", "medium");
+    const total = credits.reduce((s, c) => s + c.revenue, 0);
+    expect(total).toBeCloseTo(200, 1);
+    expect(credits.some((c) => c.source === "cpc")).toBe(true);
+    expect(credits.some((c) => c.source === "none")).toBe(true);
   });
 });
 

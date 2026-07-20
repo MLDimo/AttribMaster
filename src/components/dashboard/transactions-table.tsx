@@ -1,9 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Download, ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Download, ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,6 +19,7 @@ import {
 import { AttributionChain } from "@/components/dashboard/attribution-chain";
 import { fadeUpVariants } from "@/components/effects/motion";
 import type { TransactionsResponse } from "@/lib/attribution/api-types";
+import type { AttributionDimension } from "@/lib/attribution/dimension";
 import type { AttributionModel, SourceCredit } from "@/lib/attribution/types";
 
 function formatCurrency(value: number, currency: string): string {
@@ -44,14 +46,18 @@ export function TransactionsTable({
   to,
   model,
   topSources,
-  selectedSource,
+  dimension = "source",
+  selectedChannel,
+  onClearChannel,
 }: {
   projectId: string;
   from: string;
   to: string;
   model: AttributionModel;
   topSources: SourceCredit[];
-  selectedSource?: string | null;
+  dimension?: AttributionDimension;
+  selectedChannel?: string | null;
+  onClearChannel?: () => void;
 }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -60,20 +66,22 @@ export function TransactionsTable({
 
   // Revenir à la page 1 dès que le filtre change (ajustement pendant le rendu,
   // recommandé par React plutôt qu'un setState synchrone dans un effet).
-  const [prevFilters, setPrevFilters] = useState({ search, from, to, projectId });
+  const [prevFilters, setPrevFilters] = useState({ search, from, to, projectId, dimension, selectedChannel });
   if (
     prevFilters.search !== search ||
     prevFilters.from !== from ||
     prevFilters.to !== to ||
-    prevFilters.projectId !== projectId
+    prevFilters.projectId !== projectId ||
+    prevFilters.dimension !== dimension ||
+    prevFilters.selectedChannel !== selectedChannel
   ) {
-    setPrevFilters({ search, from, to, projectId });
+    setPrevFilters({ search, from, to, projectId, dimension, selectedChannel });
     setPage(1);
   }
 
   const query = useMemo(
-    () => ({ projectId, from, to, search, page, sortBy, sortDir }),
-    [projectId, from, to, search, page, sortBy, sortDir]
+    () => ({ projectId, from, to, search, page, sortBy, sortDir, dimension, selectedChannel }),
+    [projectId, from, to, search, page, sortBy, sortDir, dimension, selectedChannel]
   );
 
   // `query` initialisé à `null` (jamais égal à la vraie query calculée au premier
@@ -97,6 +105,10 @@ export function TransactionsTable({
       sortDir: query.sortDir,
     });
     if (query.search) params.set("search", query.search);
+    if (query.selectedChannel) {
+      params.set("channelDimension", query.dimension);
+      params.set("channelValue", query.selectedChannel);
+    }
 
     let cancelled = false;
     fetch(`/api/transactions?${params.toString()}`)
@@ -127,14 +139,29 @@ export function TransactionsTable({
   return (
     <div className="flex flex-col gap-4" data-testid="transactions-table">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Rechercher par ID de transaction..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-8"
-          />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full max-w-xs">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher par ID de transaction..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          {selectedChannel && (
+            <Badge variant="secondary" className="gap-1.5 py-1.5 pr-1.5 pl-2.5">
+              Filtré : {selectedChannel}
+              <button
+                type="button"
+                onClick={onClearChannel}
+                aria-label="Retirer le filtre"
+                className="rounded-full p-0.5 transition-colors hover:bg-foreground/10"
+              >
+                <X className="size-3" />
+              </button>
+            </Badge>
+          )}
         </div>
         <Button variant="outline" size="sm" asChild>
           <a
@@ -143,6 +170,7 @@ export function TransactionsTable({
               from,
               to,
               ...(search.trim() ? { search: search.trim() } : {}),
+              ...(selectedChannel ? { channelDimension: dimension, channelValue: selectedChannel } : {}),
             }).toString()}`}
             download
           >
@@ -177,7 +205,8 @@ export function TransactionsTable({
               touchpoints={row.touchpoints}
               model={model}
               topSources={topSources}
-              selectedSource={selectedSource}
+              dimension={dimension}
+              selectedChannel={selectedChannel}
             />
           </motion.div>
         ))}
@@ -226,11 +255,12 @@ export function TransactionsTable({
               <TableCell>{formatDate(row.event_timestamp)}</TableCell>
               <TableCell className="max-w-md whitespace-normal">
                 <AttributionChain
-              touchpoints={row.touchpoints}
-              model={model}
-              topSources={topSources}
-              selectedSource={selectedSource}
-            />
+                  touchpoints={row.touchpoints}
+                  model={model}
+                  topSources={topSources}
+                  dimension={dimension}
+                  selectedChannel={selectedChannel}
+                />
               </TableCell>
               <TableCell className="text-right font-mono tabular-nums">
                 {formatCurrency(row.purchase_revenue, row.currency)}

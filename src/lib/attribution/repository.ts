@@ -1,8 +1,11 @@
 import { getBigQueryClientForProject, ATTRIBUTIONS_TABLE } from "@/lib/bigquery/client";
 import { TtlCache } from "@/lib/cache/ttl-cache";
 import { getDbPool } from "@/lib/db/client";
+import { channelLabel, NO_CAMPAIGN_LABEL, type AttributionDimension } from "./dimension";
 import { getMockRows, MOCK_PROJECT_ID } from "./mock-data";
 import type { AttributionRow, Touchpoint } from "./types";
+
+export type ChannelFilter = { dimension: AttributionDimension; value: string };
 
 /**
  * Les données d'attribution ne changent qu'au rythme des jobs (cron nocturne
@@ -140,12 +143,18 @@ export type TransactionsQuery = DateRange & {
   pageSize: number;
   sortBy?: "purchase_revenue" | "event_timestamp";
   sortDir?: "asc" | "desc";
+  /** Ne garde que les transactions ayant au moins un touchpoint matchant. */
+  channel?: ChannelFilter;
 };
 
 export type TransactionsPage = {
   rows: AttributionRow[];
   total: number;
 };
+
+function matchesChannel(row: AttributionRow, channel: ChannelFilter): boolean {
+  return row.touchpoints.some((tp) => channelLabel(tp, channel.dimension) === channel.value);
+}
 
 export async function getTransactions(
   projectId: string,
@@ -157,6 +166,7 @@ export async function getTransactions(
     pageSize,
     sortBy = "event_timestamp",
     sortDir = "desc",
+    channel,
   }: TransactionsQuery
 ): Promise<TransactionsPage> {
   if (projectId === MOCK_PROJECT_ID) {
@@ -164,6 +174,9 @@ export async function getTransactions(
     if (search) {
       const needle = search.toLowerCase();
       rows = rows.filter((row) => row.transaction_id.toLowerCase().includes(needle));
+    }
+    if (channel) {
+      rows = rows.filter((row) => matchesChannel(row, channel));
     }
     const orderColumn = sortBy === "purchase_revenue" ? "purchase_revenue" : "event_timestamp";
     const direction = sortDir === "asc" ? 1 : -1;
@@ -177,22 +190,78 @@ export async function getTransactions(
   const table = `\`${project.gcp_project_id}.${project.bigquery_dataset}.${ATTRIBUTIONS_TABLE}\``;
 
   const stamp = await freshnessStamp(projectId);
+  const channelKey = channel ? `${channel.dimension}:${channel.value}` : "";
   return cached(
-    `tx:${projectId}:${from}:${to}:${search ?? ""}:${page}:${pageSize}:${sortBy}:${sortDir}:${stamp}`,
-    () => fetchTransactionsPage(client, table, { from, to, search, page, pageSize, sortBy, sortDir })
+    `tx:${projectId}:${from}:${to}:${search ?? ""}:${channelKey}:${page}:${pageSize}:${sortBy}:${sortDir}:${stamp}`,
+    () => fetchTransactionsPage(client, table, { from, to, search, page, pageSize, sortBy, sortDir, channel })
   );
+}
+
+/**
+ * `EXISTS (... UNNEST(touchpoints) ...)` : ne garde que les transactions
+ * ayant au moins un touchpoint matchant la dimension choisie. "source" est
+ * comparé via CONCAT (comme `channelLabel`/`source_path`) plutôt que de
+ * découper `@channelValue` en JS, pour rester robuste si source/medium
+ * contenaient eux-mêmes " / ".
+ */
+function buildChannelFilterClause(channel?: ChannelFilter): {
+  clause: string;
+  params: Record<string, unknown>;
+  types: Record<string, string>;
+} {
+  if (!channel) return { clause: "", params: {}, types: {} };
+  if (channel.dimension === "medium") {
+    return {
+      clause: "AND EXISTS (SELECT 1 FROM UNNEST(touchpoints) t WHERE t.medium = @channelValue)",
+      params: { channelValue: channel.value },
+      types: { channelValue: "STRING" },
+    };
+  }
+  if (channel.dimension === "campaign") {
+    if (channel.value === NO_CAMPAIGN_LABEL) {
+      return {
+        clause: "AND EXISTS (SELECT 1 FROM UNNEST(touchpoints) t WHERE t.campaign IS NULL)",
+        params: {},
+        types: {},
+      };
+    }
+    return {
+      clause: "AND EXISTS (SELECT 1 FROM UNNEST(touchpoints) t WHERE t.campaign = @channelValue)",
+      params: { channelValue: channel.value },
+      types: { channelValue: "STRING" },
+    };
+  }
+  return {
+    clause: "AND EXISTS (SELECT 1 FROM UNNEST(touchpoints) t WHERE CONCAT(t.source, ' / ', t.medium) = @channelValue)",
+    params: { channelValue: channel.value },
+    types: { channelValue: "STRING" },
+  };
 }
 
 async function fetchTransactionsPage(
   client: Awaited<ReturnType<typeof getBigQueryClientForProject>>["client"],
   table: string,
-  { from, to, search, page, pageSize, sortBy, sortDir }: Required<Omit<TransactionsQuery, "search">> & { search?: string }
+  {
+    from,
+    to,
+    search,
+    page,
+    pageSize,
+    sortBy,
+    sortDir,
+    channel,
+  }: Required<Omit<TransactionsQuery, "search" | "channel">> & Pick<TransactionsQuery, "search" | "channel">
 ): Promise<TransactionsPage> {
   const searchFilter = search ? "AND transaction_id LIKE @search" : "";
+  const channelFilter = buildChannelFilterClause(channel);
   // client.date(...) est requis : une string brute + `types: "DATE"` est
   // silencieusement liée à NULL par l'API BigQuery (voir nightly-run.ts).
-  const params: Record<string, unknown> = { from: client.date(from), to: client.date(to) };
-  const types: Record<string, string> = {};
+  const params: Record<string, unknown> = {
+    from: client.date(from),
+    to: client.date(to),
+    ...channelFilter.params,
+  };
+  const types: Record<string, string> = { ...channelFilter.types };
   if (search) {
     params.search = `%${search}%`;
     types.search = "STRING";
@@ -202,7 +271,7 @@ async function fetchTransactionsPage(
     query: `
       SELECT COUNT(*) AS total
       FROM ${table}
-      WHERE event_date BETWEEN @from AND @to ${searchFilter}
+      WHERE event_date BETWEEN @from AND @to ${searchFilter} ${channelFilter.clause}
     `,
     params,
     types,
@@ -217,7 +286,7 @@ async function fetchTransactionsPage(
       SELECT transaction_id, user_pseudo_id, event_date, event_timestamp,
              purchase_revenue, currency, source_path, touchpoints
       FROM ${table}
-      WHERE event_date BETWEEN @from AND @to ${searchFilter}
+      WHERE event_date BETWEEN @from AND @to ${searchFilter} ${channelFilter.clause}
       ORDER BY ${orderColumn} ${orderDirection}
       LIMIT @limit OFFSET @offset
     `,

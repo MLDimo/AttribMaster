@@ -35,7 +35,7 @@ const EXAMPLE_AMOUNT = 340;
 
 export function AttributionDemo() {
   const [model, setModel] = useState<"last_click" | "shapley">("last_click");
-  const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const sources = model === "last_click" ? LAST_CLICK : SHAPLEY;
 
   return (
@@ -70,12 +70,12 @@ export function AttributionDemo() {
           touchpoints={EXAMPLE_TOUCHPOINTS}
           model={model}
           topSources={sources}
-          selectedSource={selectedSource}
+          selectedChannel={selectedChannel}
         />
         <p className="text-xs text-muted-foreground">Survole chaque source pour voir sa part de la conversion.</p>
       </div>
 
-      <AttributionChart sources={sources} selectedSource={selectedSource} onSelectSource={setSelectedSource} />
+      <AttributionChart sources={sources} selectedChannel={selectedChannel} onSelectChannel={setSelectedChannel} />
 
       <p className="text-center text-sm text-muted-foreground">
         {model === "last_click"

@@ -55,12 +55,12 @@ function formatCurrency(value: number): string {
 
 export function AttributionChart({
   sources,
-  selectedSource,
-  onSelectSource,
+  selectedChannel,
+  onSelectChannel,
 }: {
   sources: SourceCredit[];
-  selectedSource?: string | null;
-  onSelectSource?: (source: string | null) => void;
+  selectedChannel?: string | null;
+  onSelectChannel?: (source: string | null) => void;
 }) {
   const [hoveredName, setHoveredName] = useState<string | null>(null);
 
@@ -76,8 +76,8 @@ export function AttributionChart({
   const total = data.reduce((sum, d) => sum + d.value, 0);
   const hovered = data.find((d) => d.name === hoveredName) ?? null;
 
-  function toggleSource(name: string) {
-    onSelectSource?.(selectedSource === name ? null : name);
+  function toggleChannel(name: string) {
+    onSelectChannel?.(selectedChannel === name ? null : name);
   }
 
   return (
@@ -106,10 +106,10 @@ export function AttributionChart({
                 <Cell
                   key={entry.name}
                   fill={colorForSource(entry.name)}
-                  fillOpacity={!selectedSource || selectedSource === entry.name ? 1 : 0.2}
+                  fillOpacity={!selectedChannel || selectedChannel === entry.name ? 1 : 0.2}
                   cursor="pointer"
                   style={{ outline: "none" }}
-                  onClick={() => toggleSource(entry.name)}
+                  onClick={() => toggleChannel(entry.name)}
                   onMouseEnter={() => setHoveredName(entry.name)}
                   onMouseLeave={() => setHoveredName(null)}
                 />
@@ -153,12 +153,12 @@ export function AttributionChart({
 
       <StaggerContainer className="flex w-full flex-col gap-2">
         {data.map((entry) => {
-          const dimmed = Boolean(selectedSource) && selectedSource !== entry.name;
+          const dimmed = Boolean(selectedChannel) && selectedChannel !== entry.name;
           return (
             <StaggerItem key={entry.name}>
               <button
                 type="button"
-                onClick={() => toggleSource(entry.name)}
+                onClick={() => toggleChannel(entry.name)}
                 onMouseEnter={() => setHoveredName(entry.name)}
                 onMouseLeave={() => setHoveredName(null)}
                 className={`flex w-full items-center gap-3 rounded-md px-1.5 py-1 text-left text-sm transition-opacity hover:opacity-100 ${
