@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ParallaxBlob } from "@/components/effects/parallax-blob";
 import { TiltCard } from "@/components/effects/tilt-card";
+import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
 import type { BigQueryDatasetOption, GcpProjectOption } from "@/lib/gcp-oauth/discovery";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -34,6 +35,10 @@ export default function ConnectBigQueryPage() {
   const [error, setError] = useState<string | null>(
     searchParams.get("error") ? (ERROR_MESSAGES[searchParams.get("error")!] ?? "Une erreur est survenue.") : null
   );
+
+  useEffect(() => {
+    if (projectId === MOCK_PROJECT_ID) router.replace(`/projects/${projectId}`);
+  }, [projectId, router]);
 
   useEffect(() => {
     fetch(`/api/projects/${projectId}/gcp-projects`)

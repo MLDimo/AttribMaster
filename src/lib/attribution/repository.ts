@@ -1,6 +1,7 @@
 import { getBigQueryClientForProject, ATTRIBUTIONS_TABLE } from "@/lib/bigquery/client";
 import { TtlCache } from "@/lib/cache/ttl-cache";
 import { getDbPool } from "@/lib/db/client";
+import { requireUserId } from "@/lib/projects/repository";
 import { channelLabel, NO_CAMPAIGN_LABEL, type AttributionDimension } from "./dimension";
 import { getMockRows, MOCK_PROJECT_ID } from "./mock-data";
 import type { AttributionRow, Touchpoint } from "./types";
@@ -91,6 +92,8 @@ export type DateRange = { from: string; to: string };
 /** Horodatage de la transaction la plus récente, pour juger de la fraîcheur des données. */
 export async function getLastDataTimestamp(projectId: string): Promise<string | null> {
   if (projectId === MOCK_PROJECT_ID) {
+    // Mode démo : lecture seule, mais toujours réservée aux utilisateurs connectés.
+    await requireUserId();
     const rows = getMockRows();
     return rows.length > 0 ? rows[rows.length - 1].event_timestamp : null;
   }
@@ -114,6 +117,7 @@ export async function getAttributionRows(
   { from, to }: DateRange
 ): Promise<AttributionRow[]> {
   if (projectId === MOCK_PROJECT_ID) {
+    await requireUserId();
     return getMockRows().filter((row) => row.event_date >= from && row.event_date <= to);
   }
 
@@ -170,6 +174,7 @@ export async function getTransactions(
   }: TransactionsQuery
 ): Promise<TransactionsPage> {
   if (projectId === MOCK_PROJECT_ID) {
+    await requireUserId();
     let rows = getMockRows().filter((row) => row.event_date >= from && row.event_date <= to);
     if (search) {
       const needle = search.toLowerCase();

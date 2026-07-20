@@ -1,5 +1,11 @@
 import { NextRequest } from "next/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// Le mode démo (MOCK_PROJECT_ID) reste réservé aux utilisateurs connectés
+// (voir requireUserId() dans les branches mock de attribution/repository.ts
+// et projects/repository.ts) : sans ce mock, auth() lève une erreur framework
+// hors du runtime Next ("headers outside a request scope"), pas un 401 propre.
+vi.mock("@/auth", () => ({ auth: vi.fn(async () => ({ user: { id: "00000000-0000-4000-8000-000000000001" } })) }));
 
 import { GET as overviewGet } from "@/app/api/overview/route";
 import { GET as transactionsGet } from "@/app/api/transactions/route";

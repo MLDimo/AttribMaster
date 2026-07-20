@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, ChartPie, Check, GitCompare, Layers, Pencil, Receipt, Settings2, SlidersHorizontal, TrendingUp, UsersRound } from "lucide-react";
+import { Calendar, ChartPie, Check, GitCompare, Layers, Pencil, Receipt, Settings2, SlidersHorizontal, Sparkles, TrendingUp, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -22,6 +22,7 @@ import type { OverviewResponse } from "@/lib/attribution/api-types";
 import { defaultRange } from "@/lib/attribution/date-range";
 import type { ComparisonMode } from "@/lib/attribution/date-range";
 import type { AttributionDimension } from "@/lib/attribution/dimension";
+import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
 import { isProjectConnected, isProjectSubscribed } from "@/lib/projects/types";
 import type { Project } from "@/lib/projects/types";
 import type { AttributionModel } from "@/lib/attribution/types";
@@ -78,9 +79,11 @@ function Field({
 function ProjectSettingsSidebar({
   project,
   onRenamed,
+  isDemo,
 }: {
   project: Project;
   onRenamed: (project: Project) => void;
+  isDemo: boolean;
 }) {
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(project.name);
@@ -121,7 +124,9 @@ function ProjectSettingsSidebar({
       <CardContent className="flex flex-col gap-4 text-sm">
         <div className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-muted-foreground">Nom</span>
-          {editingName ? (
+          {isDemo ? (
+            <span className="font-medium">{project.name}</span>
+          ) : editingName ? (
             <div className="flex items-center gap-1.5">
               <Input
                 autoFocus
@@ -163,21 +168,25 @@ function ProjectSettingsSidebar({
           ) : (
             <span className="text-xs text-muted-foreground">Non connecté</span>
           )}
-          <Button variant="outline" size="sm" className="mt-2 w-fit" asChild>
-            <Link href={`/projects/${project.id}/connect`}>
-              {connected ? "Changer la connexion" : "Connecter BigQuery"}
-            </Link>
-          </Button>
+          {!isDemo && (
+            <Button variant="outline" size="sm" className="mt-2 w-fit" asChild>
+              <Link href={`/projects/${project.id}/connect`}>
+                {connected ? "Changer la connexion" : "Connecter BigQuery"}
+              </Link>
+            </Button>
+          )}
         </div>
 
-        <div className="border-t pt-4">
-          <Button variant="outline" size="sm" className="w-fit" asChild>
-            <Link href={`/projects/${project.id}/manage`}>
-              <UsersRound className="size-4" />
-              Gérer le projet
-            </Link>
-          </Button>
-        </div>
+        {!isDemo && (
+          <div className="border-t pt-4">
+            <Button variant="outline" size="sm" className="w-fit" asChild>
+              <Link href={`/projects/${project.id}/manage`}>
+                <UsersRound className="size-4" />
+                Gérer le projet
+              </Link>
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -186,6 +195,7 @@ function ProjectSettingsSidebar({
 export default function ProjectPage() {
   const params = useParams<{ id: string }>();
   const projectId = params.id;
+  const isDemo = projectId === MOCK_PROJECT_ID;
 
   const [project, setProject] = useState<Project | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -298,16 +308,30 @@ export default function ProjectPage() {
         <span aria-hidden>/</span>
         <span className="font-medium text-foreground">{project.name}</span>
       </nav>
+      {isDemo && (
+        <FadeIn>
+          <div className="mb-5 flex flex-wrap items-center gap-3 rounded-lg border border-brand-accent/40 bg-brand-accent/10 px-4 py-3 text-sm">
+            <Sparkles className="size-4 shrink-0 text-brand-accent" />
+            <span className="text-muted-foreground">
+              Mode démonstration — ces données sont fictives, générées pour explorer les modèles
+              d&apos;attribution avant de connecter ton propre BigQuery.
+            </span>
+            <Button size="sm" className="ml-auto shrink-0" asChild>
+              <Link href="/projects">Créer mon projet</Link>
+            </Button>
+          </div>
+        </FadeIn>
+      )}
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <FadeIn>
           <div className="flex w-full shrink-0 flex-col gap-5 lg:w-72">
-            <ProjectSettingsSidebar project={project} onRenamed={setProject} />
+            <ProjectSettingsSidebar project={project} onRenamed={setProject} isDemo={isDemo} />
             <AttributionModelsGuide />
           </div>
         </FadeIn>
 
         <div className="flex flex-1 flex-col gap-5">
-          {usable && <DataFreshnessBanner projectId={projectId} />}
+          {usable && !isDemo && <DataFreshnessBanner projectId={projectId} />}
           <FadeIn delay={0.05}>
           <Card className="py-4">
             <CardContent className="grid grid-cols-1 gap-4 px-4 sm:grid-cols-2 lg:grid-cols-3">
