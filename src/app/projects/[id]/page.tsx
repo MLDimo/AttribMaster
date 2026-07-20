@@ -402,19 +402,17 @@ export default function ProjectPage() {
                 </CardHeader>
                 <CardContent>
                   {overview && compareModel !== "none" ? (
-                    <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
+                    <div className="flex flex-col gap-6">
                       <div className="flex flex-col gap-3">
-                        <p className="text-center text-sm font-medium text-muted-foreground">
-                          {MODEL_LABELS[model]}
-                        </p>
+                        <p className="text-sm font-medium text-muted-foreground">{MODEL_LABELS[model]}</p>
                         <AttributionChart
                           sources={overview.topSources}
                           selectedSource={selectedSource}
                           onSelectSource={setSelectedSource}
                         />
                       </div>
-                      <div className="flex flex-col gap-3">
-                        <p className="text-center text-sm font-medium text-muted-foreground">
+                      <div className="flex flex-col gap-3 border-t pt-6">
+                        <p className="text-sm font-medium text-muted-foreground">
                           {MODEL_LABELS[compareModel]}
                         </p>
                         {compareOverview ? (
