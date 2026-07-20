@@ -12,6 +12,7 @@ const querySchema = z
     from: z.string().date().optional(),
     to: z.string().date().optional(),
     search: z.string().trim().min(1).optional(),
+    dimension: z.enum(["source", "medium", "campaign"]).default("source"),
     channelDimension: z.enum(["source", "medium", "campaign"]).optional(),
     channelValue: z.string().trim().min(1).optional(),
   })
@@ -31,7 +32,15 @@ export async function GET(request: NextRequest) {
   }
 
   const fallback = defaultRange();
-  const { projectId, from = fallback.from, to = fallback.to, search, channelDimension, channelValue } = parsed.data;
+  const {
+    projectId,
+    from = fallback.from,
+    to = fallback.to,
+    search,
+    dimension,
+    channelDimension,
+    channelValue,
+  } = parsed.data;
 
   try {
     let rows = await getAttributionRows(projectId, { from, to });
@@ -56,7 +65,11 @@ export async function GET(request: NextRequest) {
           csvField(row.event_timestamp),
           csvField(row.purchase_revenue),
           csvField(row.currency),
-          csvField(row.source_path),
+          // Reconstruit depuis les touchpoints selon la dimension active
+          // (Source/Support/Campagne) — row.source_path est toujours au
+          // format source/medium, donc inutilisable ici dès qu'on regroupe
+          // autrement (même logique que AttributionChain sur le dashboard).
+          csvField(row.touchpoints.map((tp) => channelLabel(tp, dimension)).join(" > ")),
           csvField(row.touchpoints.length),
         ].join(";")
       ),

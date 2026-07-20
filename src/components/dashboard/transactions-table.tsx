@@ -169,6 +169,7 @@ export function TransactionsTable({
               projectId,
               from,
               to,
+              dimension,
               ...(search.trim() ? { search: search.trim() } : {}),
               ...(selectedChannel ? { channelDimension: dimension, channelValue: selectedChannel } : {}),
             }).toString()}`}
