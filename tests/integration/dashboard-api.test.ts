@@ -52,6 +52,31 @@ describe("GET /api/overview (dashboard numbers)", () => {
     expect(shareSum).toBeCloseTo(1, 2);
   });
 
+  it("trend has one point per day and reconciles with the totals (revenue + transaction count)", async () => {
+    const res = await overviewGet(new NextRequest(overviewUrl({})));
+    const json = await res.json();
+
+    const expectedDays = Math.round(
+      (new Date(`${WIDE_TO}T00:00:00Z`).getTime() - new Date(`${WIDE_FROM}T00:00:00Z`).getTime()) /
+        (24 * 60 * 60 * 1000)
+    ) + 1;
+    expect(json.trend).toHaveLength(expectedDays);
+    expect(json.trend[0].date).toBe(WIDE_FROM);
+    expect(json.trend[json.trend.length - 1].date).toBe(WIDE_TO);
+
+    const trendRevenue = json.trend.reduce((sum: number, p: { revenue: number }) => sum + p.revenue, 0);
+    const trendTransactions = json.trend.reduce((sum: number, p: { transactions: number }) => sum + p.transactions, 0);
+    expect(trendRevenue).toBeCloseTo(json.totals.revenue, 1);
+    expect(trendTransactions).toBe(json.totals.transactions);
+
+    // Chronologiquement croissant, sans trou (chaque jour suit le précédent).
+    for (let i = 1; i < json.trend.length; i++) {
+      const prev = new Date(`${json.trend[i - 1].date}T00:00:00Z`);
+      const cur = new Date(`${json.trend[i].date}T00:00:00Z`);
+      expect(cur.getTime() - prev.getTime()).toBe(24 * 60 * 60 * 1000);
+    }
+  });
+
   it("returns the same total revenue regardless of attribution model", async () => {
     const models = ["last_click", "linear", "time_decay", "u_shape", "markov", "shapley"] as const;
     const revenues: number[] = [];

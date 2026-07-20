@@ -1,3 +1,4 @@
+import type { DailyTrendPoint } from "./trend";
 import type { AttributionRow, SourceCredit } from "./types";
 
 export type OverviewResponse = {
@@ -12,6 +13,8 @@ export type OverviewResponse = {
   topSources: SourceCredit[];
   /** Devises distinctes présentes sur la période : > 1 => totaux non homogènes. */
   currencies: string[];
+  /** Un point par jour sur `range`, jours sans vente inclus (à 0). */
+  trend: DailyTrendPoint[];
 };
 
 export type TransactionsResponse = {

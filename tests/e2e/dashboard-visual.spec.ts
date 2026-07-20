@@ -29,6 +29,7 @@ test("visual regression: project dashboard layout (dynamic data masked)", async 
     animations: "disabled",
     mask: [
       page.getByTestId("overview-cards"),
+      page.getByTestId("revenue-trend-chart"),
       page.getByTestId("attribution-chart"),
       page.getByTestId("transactions-table"),
     ],
