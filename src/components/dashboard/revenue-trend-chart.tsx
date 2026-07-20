@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { colorForSource } from "@/lib/attribution/colors";
@@ -85,6 +86,69 @@ function CustomTooltip({
   );
 }
 
+/**
+ * Point d'une courbe SVG le plus proche d'une abscisse donnée, par recherche
+ * binaire sur la longueur d'arc (la courbe est monotone en x, donc l'abscisse
+ * croît avec la longueur — la recherche binaire converge correctement).
+ */
+function nearestPointOnPath(path: SVGPathElement, targetX: number): { x: number; y: number } {
+  let lo = 0;
+  let hi = path.getTotalLength();
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2;
+    if (path.getPointAtLength(mid).x < targetX) lo = mid;
+    else hi = mid;
+  }
+  return path.getPointAtLength((lo + hi) / 2);
+}
+
+/** Distance maximale (px, en coordonnées SVG) au-delà de laquelle un clic est
+ * considéré comme n'ayant touché aucune courbe (clic dans une zone vide, ou
+ * sur l'aire totale, qui n'est volontairement pas sélectionnable). */
+const CLICK_HIT_TOLERANCE_PX = 14;
+
+/**
+ * Détermine, pour un clic dans la zone du graphe, quelle courbe de canal est
+ * réellement la plus proche — par distance géométrique réelle, pas par
+ * z-order SVG. Nécessaire car plusieurs canaux peuvent avoir des valeurs très
+ * proches (donc des tracés à quelques pixels l'un de l'autre) : un simple
+ * tracé invisible élargi par canal (`pointerEvents: "stroke"`) laisse le
+ * navigateur choisir arbitrairement le tracé au-dessus dans le DOM dès que
+ * deux corridors se recouvrent, ce qui sélectionnait parfois un canal sans
+ * rapport avec celui visé — voir le bug rapporté par l'utilisateur.
+ */
+function findNearestChannel(
+  svg: SVGSVGElement,
+  channels: string[],
+  clientX: number,
+  clientY: number
+): string | null {
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return null;
+  const point = svg.createSVGPoint();
+  point.x = clientX;
+  point.y = clientY;
+  const { x: svgX, y: svgY } = point.matrixTransform(ctm.inverse());
+
+  const paths = Array.from(svg.querySelectorAll<SVGPathElement>("path.recharts-line-curve")).filter(
+    (p) => p.getAttribute("stroke") !== "transparent"
+  );
+  if (paths.length !== channels.length) return null; // défensif : ordre attendu = celui de `channels`
+
+  let closestChannel: string | null = null;
+  let closestDistance = Infinity;
+  channels.forEach((channel, i) => {
+    const { y } = nearestPointOnPath(paths[i], svgX);
+    const distance = Math.abs(y - svgY);
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestChannel = channel;
+    }
+  });
+
+  return closestDistance <= CLICK_HIT_TOLERANCE_PX ? closestChannel : null;
+}
+
 /** Point terminal marqué (le reste de la série n'est pas labellisé un par un). */
 function EndDot({
   cx,
@@ -152,6 +216,15 @@ export function RevenueTrendChart({
   const formatCurrency = makeCurrencyFormatter(currencies);
   const channels = sourceTrend.channels;
   const lastIndex = trend.length - 1;
+  const chartWrapperRef = useRef<HTMLDivElement>(null);
+
+  function handleChartClick(event: React.MouseEvent<HTMLDivElement>) {
+    if (!onSelectChannel || channels.length === 0) return;
+    const svg = chartWrapperRef.current?.querySelector("svg");
+    if (!svg) return;
+    const nearest = findNearestChannel(svg, channels, event.clientX, event.clientY);
+    if (nearest) onSelectChannel(selectedChannel === nearest ? null : nearest);
+  }
 
   // `total`/`transactions` viennent de `trend` (qui porte aussi le nombre de
   // transactions, absent de sourceTrend) ; les valeurs par canal viennent de
@@ -166,7 +239,7 @@ export function RevenueTrendChart({
 
   return (
     <div className="flex flex-col gap-3" data-testid="revenue-trend-chart">
-      <div className="h-64 w-full">
+      <div ref={chartWrapperRef} className="h-64 w-full" onClick={handleChartClick}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="0" />
@@ -241,25 +314,6 @@ export function RevenueTrendChart({
                 />
               );
             })}
-            {/* Zone de clic élargie et invisible par-dessus chaque ligne (2px de
-                trait = cible trop fine pour cliquer confortablement — voir la
-                skill dataviz sur les cibles de clic). */}
-            {onSelectChannel &&
-              channels.map((channel) => (
-                <Line
-                  key={`${channel}-hit`}
-                  type="monotone"
-                  dataKey={channel}
-                  stroke="transparent"
-                  strokeWidth={16}
-                  dot={false}
-                  activeDot={false}
-                  legendType="none"
-                  isAnimationActive={false}
-                  style={{ cursor: "pointer", pointerEvents: "stroke" }}
-                  onClick={() => onSelectChannel(selectedChannel === channel ? null : channel)}
-                />
-              ))}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
