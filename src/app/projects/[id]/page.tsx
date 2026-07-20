@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, ChartPie, Check, GitCompare, Pencil, Receipt, Settings2, SlidersHorizontal, UsersRound } from "lucide-react";
+import { Calendar, ChartPie, Check, GitCompare, Pencil, Receipt, Settings2, SlidersHorizontal, TrendingUp, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -15,6 +15,7 @@ import { AttributionModelsGuide } from "@/components/dashboard/attribution-model
 import { DataFreshnessBanner } from "@/components/dashboard/data-freshness-banner";
 import { DateRangePicker } from "@/components/dashboard/date-range-picker";
 import { OverviewCards } from "@/components/dashboard/overview-cards";
+import { RevenueTrendChart } from "@/components/dashboard/revenue-trend-chart";
 import { TransactionsTable } from "@/components/dashboard/transactions-table";
 import { FadeIn } from "@/components/effects/motion";
 import type { OverviewResponse } from "@/lib/attribution/api-types";
@@ -382,6 +383,26 @@ export default function ProjectPage() {
 
           {usable && overview && (
             <OverviewCards totals={overview.totals} comparisonLabel={COMPARISON_LABELS[comparison]} currencies={overview.currencies} />
+          )}
+
+          {usable && (
+            <FadeIn delay={0.13}>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="size-4 text-muted-foreground" />
+                  Revenu par jour
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {overview ? (
+                  <RevenueTrendChart data={overview.trend} currencies={overview.currencies} />
+                ) : (
+                  <Skeleton className="h-64 w-full" />
+                )}
+              </CardContent>
+            </Card>
+            </FadeIn>
           )}
 
           {usable && (
