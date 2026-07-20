@@ -50,12 +50,15 @@ export async function GET(request: NextRequest) {
       getAttributionRows(projectId, previous),
     ]);
 
-    // Le camembert garde toujours la vue complète (c'est le sélecteur), mais
-    // KPI/tendance se recentrent sur les transactions touchées par le canal
-    // choisi — même filtre "au moins un touchpoint matche" que la liste de
-    // transactions, pour que les deux racontent la même histoire. Fetch non
-    // refiltré côté BigQuery : le filtrage post-fetch réutilise le cache déjà
-    // partagé par la vue non filtrée, sans requête BigQuery supplémentaire.
+    // Le camembert ET le graphe de tendance gardent toujours la vue complète
+    // (ce sont des sélecteurs, pas des vues filtrées) : sélectionner un canal
+    // ne fait que le mettre en évidence (grisant les autres), sans jamais
+    // rezoomer/rétrécir les autres courbes. Seuls KPI/tableau/export se
+    // recentrent sur les transactions touchées par le canal choisi — même
+    // filtre "au moins un touchpoint matche" que la liste de transactions,
+    // pour que les deux racontent la même histoire. Fetch non refiltré côté
+    // BigQuery : le filtrage post-fetch réutilise le cache déjà partagé par
+    // la vue non filtrée, sans requête BigQuery supplémentaire.
     const matchesChannel = (row: (typeof rows)[number]) =>
       !channelDimension || !channelValue || row.touchpoints.some((tp) => channelLabel(tp, channelDimension) === channelValue);
     const scopedRows = rows.filter(matchesChannel);
@@ -93,8 +96,8 @@ export async function GET(request: NextRequest) {
       },
       topSources: globalCredits,
       currencies,
-      trend: buildDailyTrend(scopedRows, from, to),
-      sourceTrend: buildDailySourceTrend(scopedRows, from, to, model, dimension, plottedChannels),
+      trend: buildDailyTrend(rows, from, to),
+      sourceTrend: buildDailySourceTrend(rows, from, to, model, dimension, plottedChannels),
     });
   } catch (error) {
     return apiErrorResponse(error, "[api/overview]", "Failed to load overview data");
