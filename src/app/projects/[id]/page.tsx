@@ -310,7 +310,7 @@ export default function ProjectPage() {
           {usable && <DataFreshnessBanner projectId={projectId} />}
           <FadeIn delay={0.05}>
           <Card className="py-4">
-            <CardContent className="grid grid-cols-1 gap-4 px-4 sm:grid-cols-2 lg:grid-cols-4">
+            <CardContent className="grid grid-cols-1 gap-4 px-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="flex flex-col gap-4">
                 <Field label="Période" icon={<Calendar className="size-3.5" />}>
                   <DateRangePicker
