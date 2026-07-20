@@ -15,14 +15,22 @@ V2 (multi-tenant) et V3 (Stripe) de la roadmap initiale sont livrées. La 2FA
 - `app/api/` — routes API ; erreurs via `apiErrorResponse` (`lib/auth/errors.ts`) :
   `UnauthenticatedError` → 401, `NotAuthorizedError` → 403, reste → 500 loggé
 - `lib/projects/repository.ts` — accès projets ; autorisation vérifiée dans le code
-  (jointures `workspace_members`/`project_members`), pas de RLS
+  (jointures `workspace_members`/`project_members`), pas de RLS. Deux niveaux :
+  `hasProjectManageAccess`/`requireProjectAccess` (owner/admin du workspace — seul
+  niveau habilité à modifier quoi que ce soit) et simple accès en lecture (owner/admin
+  OU ligne directe dans `project_members`, sans rôle de gestion — c'est le rôle
+  "collaborateur lecture seule" pour partager avec un client/stagiaire sans risque).
+  `getProjectWithAccess` combine les deux pour l'UI (`canManage`).
 - `lib/attribution/models.ts` — 6 modèles (last click, linéaire, croissant, en U,
   Markov par effet de suppression, Shapley : exact ≤12 canaux, Monte Carlo au-delà)
 - `lib/attribution/queue.ts` — file `nightly_jobs` (claim atomique SKIP LOCKED) :
   cron nocturne avec fenêtre de rattrapage 3 jours (l'export GA4→BigQuery peut
   prendre 72h), refresh manuel, backfill historique complet à la connexion BigQuery
-- `lib/attribution/mock-data.ts` — projet démo `MOCK_PROJECT_ID` (données
-  déterministes mais relatives à "maintenant"), court-circuite BigQuery et l'auth
+- `lib/attribution/mock-data.ts` — projet démo public `MOCK_PROJECT_ID` (données
+  déterministes mais relatives à "maintenant"), court-circuite BigQuery mais PAS
+  l'auth : accessible en lecture seule à tout utilisateur connecté (bouton "Explorer
+  une démo" sur `/projects`), jamais aux visiteurs anonymes. `getProject` le
+  reconnaît par égalité d'ID et renvoie des métadonnées virtuelles sans lecture DB.
 - `sql/nightly_attribution.sql` — script BigQuery idempotent (DELETE+INSERT par jour)
 
 ## Environnements
