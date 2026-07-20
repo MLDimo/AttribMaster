@@ -4,7 +4,7 @@ export const metadata = { title: "Politique de confidentialité — AttribMaster
 
 export default function PrivacyPolicyPage() {
   return (
-    <LegalPageLayout title="Politique de confidentialité" updatedAt="13 juillet 2026">
+    <LegalPageLayout title="Politique de confidentialité" updatedAt="20 juillet 2026">
       <section>
         <h2>1. Qui sommes-nous</h2>
         <p>
@@ -75,6 +75,15 @@ export default function PrivacyPolicyPage() {
             formulaire ou d&apos;un email.
           </li>
         </ul>
+        <p>
+          <strong>Utilisation limitée des données Google.</strong> Conformément à la Google API Services
+          User Data Policy, y compris ses exigences de « Limited Use », les données que nous recevons via
+          les API Google (authentification OAuth, accès BigQuery/GA4) ne sont utilisées que pour fournir et
+          améliorer les fonctionnalités du Service décrites ci-dessus — jamais à des fins de publicité
+          ciblée, de profilage commercial, de score de crédit (« lending ») ou de revente. Ces données ne
+          sont transférées à aucun tiers en dehors des sous-traitants strictement nécessaires au
+          fonctionnement du Service, listés à la section 4.
+        </p>
       </section>
 
       <section>
