@@ -310,70 +310,75 @@ export default function ProjectPage() {
           {usable && <DataFreshnessBanner projectId={projectId} />}
           <FadeIn delay={0.05}>
           <Card className="py-4">
-            <CardContent className="flex flex-wrap items-end gap-4 px-4">
-              <Field label="Période" icon={<Calendar className="size-3.5" />}>
-                <DateRangePicker
-                  from={from}
-                  to={to}
-                  onChange={(nextFrom, nextTo) => setRange({ from: nextFrom, to: nextTo })}
-                />
-              </Field>
-              <Field label="Comparer à" icon={<GitCompare className="size-3.5" />}>
-                <select
-                  className="h-9 cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
-                  value={comparison}
-                  onChange={(e) => setComparison(e.target.value as ComparisonMode)}
-                >
-                  {Object.entries(COMPARISON_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Regrouper par" icon={<Layers className="size-3.5" />}>
-                <select
-                  className="h-9 cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
-                  value={dimension}
-                  onChange={(e) => setDimension(e.target.value as AttributionDimension)}
-                >
-                  {Object.entries(DIMENSION_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Modèle d'attribution" icon={<SlidersHorizontal className="size-3.5" />}>
-                <select
-                  className="h-9 cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value as AttributionModel)}
-                >
-                  {Object.entries(MODEL_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Moodèle de comparaison" icon={<ChartPie className="size-3.5" />}>
-                <select
-                  className="h-9 cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
-                  value={compareModel}
-                  onChange={(e) => setCompareModel(e.target.value as AttributionModel | "none")}
-                >
-                  <option value="none">Aucun</option>
-                  {Object.entries(MODEL_LABELS)
-                    .filter(([value]) => value !== model)
-                    .map(([value, label]) => (
+            <CardContent className="grid grid-cols-1 gap-4 px-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="flex flex-col gap-4">
+                <Field label="Période" icon={<Calendar className="size-3.5" />}>
+                  <DateRangePicker
+                    from={from}
+                    to={to}
+                    onChange={(nextFrom, nextTo) => setRange({ from: nextFrom, to: nextTo })}
+                  />
+                </Field>
+                <Field label="Comparer à" icon={<GitCompare className="size-3.5" />}>
+                  <select
+                    className="h-9 w-full cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
+                    value={comparison}
+                    onChange={(e) => setComparison(e.target.value as ComparisonMode)}
+                  >
+                    {Object.entries(COMPARISON_LABELS).map(([value, label]) => (
                       <option key={value} value={value}>
                         {label}
                       </option>
                     ))}
-                </select>
-              </Field>
-             
+                  </select>
+                </Field>
+              </div>
+              <div className="flex flex-col gap-4">
+                <Field label="Modèle d'attribution" icon={<SlidersHorizontal className="size-3.5" />}>
+                  <select
+                    className="h-9 w-full cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
+                    value={model}
+                    onChange={(e) => setModel(e.target.value as AttributionModel)}
+                  >
+                    {Object.entries(MODEL_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Moodèle de comparaison" icon={<ChartPie className="size-3.5" />}>
+                  <select
+                    className="h-9 w-full cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
+                    value={compareModel}
+                    onChange={(e) => setCompareModel(e.target.value as AttributionModel | "none")}
+                  >
+                    <option value="none">Aucun</option>
+                    {Object.entries(MODEL_LABELS)
+                      .filter(([value]) => value !== model)
+                      .map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                  </select>
+                </Field>
+              </div>
+              <div className="flex flex-col gap-4">
+                <Field label="Regrouper par" icon={<Layers className="size-3.5" />}>
+                  <select
+                    className="h-9 w-full cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
+                    value={dimension}
+                    onChange={(e) => setDimension(e.target.value as AttributionDimension)}
+                  >
+                    {Object.entries(DIMENSION_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
             </CardContent>
           </Card>
           </FadeIn>
