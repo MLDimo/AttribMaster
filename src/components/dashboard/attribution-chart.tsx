@@ -132,13 +132,17 @@ export function AttributionChart({
             </span>
           </div>
           {hovered && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
-              <span className="flex max-w-full items-center gap-1.5 truncate text-xs font-medium">
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+              {/* Largeur fixe (~ le diamètre du trou du donut, innerRadius=72px) plutôt
+                  qu'un padding relatif au conteneur : sans ça, un nom de canal long
+                  déborde sur l'anneau au lieu d'être tronqué (le conteneur est bien
+                  plus large que le trou). */}
+              <span className="flex max-w-[8.5rem] items-center gap-1.5 text-xs font-medium">
                 <span
                   className="size-2 shrink-0 rounded-full"
                   style={{ backgroundColor: colorForSource(hovered.name) }}
                 />
-                <span className="truncate">{hovered.name}</span>
+                <span className="min-w-0 truncate">{hovered.name}</span>
               </span>
               <span className="font-mono text-lg font-semibold tabular-nums">
                 {formatCurrency(hovered.value)}
