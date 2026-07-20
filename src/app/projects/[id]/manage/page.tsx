@@ -12,7 +12,6 @@ import { ProjectMembers } from "@/components/dashboard/project-members";
 import { RefreshDataButton } from "@/components/dashboard/refresh-data-button";
 import { SubscriptionStatus } from "@/components/dashboard/subscription-status";
 import { FadeIn } from "@/components/effects/motion";
-import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
 import { isProjectConnected, isProjectSubscribed } from "@/lib/projects/types";
 import type { Project } from "@/lib/projects/types";
 
@@ -25,20 +24,23 @@ export default function ManageProjectPage() {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    if (projectId === MOCK_PROJECT_ID) router.replace(`/projects/${projectId}`);
-  }, [projectId, router]);
-
-  useEffect(() => {
     fetch(`/api/projects/${projectId}`)
       .then(async (res) => {
         if (!res.ok) {
           setNotFound(true);
           return;
         }
-        const json: { project: Project } = await res.json();
+        const json: { project: Project; canManage: boolean } = await res.json();
+        // Page réservée à la gestion (renommer, données, collaborateurs,
+        // abonnement) : un accès en lecture seule (démo ou collaborateur
+        // project_members) n'a rien à y faire — retour au dashboard.
+        if (!json.canManage) {
+          router.replace(`/projects/${projectId}`);
+          return;
+        }
         setProject(json.project);
       });
-  }, [projectId]);
+  }, [projectId, router]);
 
   if (notFound) {
     return (

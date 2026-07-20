@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { deleteProject, getProject, renameProject } from "@/lib/projects/repository";
+import { deleteProject, getProjectWithAccess, renameProject } from "@/lib/projects/repository";
 import { apiErrorResponse } from "@/lib/auth/errors";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {
-    const project = await getProject(id);
-    if (!project) {
+    const result = await getProjectWithAccess(id);
+    if (!result) {
       return NextResponse.json({ error: "Project not found or not accessible" }, { status: 404 });
     }
-    return NextResponse.json({ project });
+    return NextResponse.json(result);
   } catch (error) {
     return apiErrorResponse(error, "[api/projects/[id] GET]", "Failed to load project");
   }

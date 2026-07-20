@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, ChartPie, Check, GitCompare, Layers, Pencil, Receipt, Settings2, SlidersHorizontal, Sparkles, TrendingUp, UsersRound } from "lucide-react";
+import { Calendar, ChartPie, Check, Eye, GitCompare, Layers, Pencil, Receipt, Settings2, SlidersHorizontal, Sparkles, TrendingUp, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -79,11 +79,11 @@ function Field({
 function ProjectSettingsSidebar({
   project,
   onRenamed,
-  isDemo,
+  readOnly,
 }: {
   project: Project;
   onRenamed: (project: Project) => void;
-  isDemo: boolean;
+  readOnly: boolean;
 }) {
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(project.name);
@@ -124,7 +124,7 @@ function ProjectSettingsSidebar({
       <CardContent className="flex flex-col gap-4 text-sm">
         <div className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-muted-foreground">Nom</span>
-          {isDemo ? (
+          {readOnly ? (
             <span className="font-medium">{project.name}</span>
           ) : editingName ? (
             <div className="flex items-center gap-1.5">
@@ -168,7 +168,7 @@ function ProjectSettingsSidebar({
           ) : (
             <span className="text-xs text-muted-foreground">Non connecté</span>
           )}
-          {!isDemo && (
+          {!readOnly && (
             <Button variant="outline" size="sm" className="mt-2 w-fit" asChild>
               <Link href={`/projects/${project.id}/connect`}>
                 {connected ? "Changer la connexion" : "Connecter BigQuery"}
@@ -177,7 +177,7 @@ function ProjectSettingsSidebar({
           )}
         </div>
 
-        {!isDemo && (
+        {!readOnly && (
           <div className="border-t pt-4">
             <Button variant="outline" size="sm" className="w-fit" asChild>
               <Link href={`/projects/${project.id}/manage`}>
@@ -198,6 +198,7 @@ export default function ProjectPage() {
   const isDemo = projectId === MOCK_PROJECT_ID;
 
   const [project, setProject] = useState<Project | null>(null);
+  const [canManage, setCanManage] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [{ from, to }, setRange] = useState(defaultRange());
   const [model, setModel] = useState<AttributionModel>("linear");
@@ -229,8 +230,9 @@ export default function ProjectPage() {
           setNotFound(true);
           return;
         }
-        const json: { project: Project } = await res.json();
+        const json: { project: Project; canManage: boolean } = await res.json();
         setProject(json.project);
+        setCanManage(json.canManage);
       });
   }, [projectId]);
 
@@ -299,6 +301,8 @@ export default function ProjectPage() {
     return <AppShell>{null}</AppShell>;
   }
 
+  const readOnly = isDemo || !canManage;
+
   return (
     <AppShell>
       <nav aria-label="Fil d'ariane" className="mb-4 flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -322,10 +326,21 @@ export default function ProjectPage() {
           </div>
         </FadeIn>
       )}
+      {!isDemo && !canManage && (
+        <FadeIn>
+          <div className="mb-5 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm">
+            <Eye className="size-4 shrink-0 text-muted-foreground" />
+            <span className="text-muted-foreground">
+              Accès en lecture seule — tu peux consulter le dashboard, mais pas modifier la
+              connexion, gérer les collaborateurs ou l&apos;abonnement.
+            </span>
+          </div>
+        </FadeIn>
+      )}
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <FadeIn>
           <div className="flex w-full shrink-0 flex-col gap-5 lg:w-72">
-            <ProjectSettingsSidebar project={project} onRenamed={setProject} isDemo={isDemo} />
+            <ProjectSettingsSidebar project={project} onRenamed={setProject} readOnly={readOnly} />
             <AttributionModelsGuide />
           </div>
         </FadeIn>
@@ -412,9 +427,11 @@ export default function ProjectPage() {
             <Card>
               <CardContent className="flex flex-col items-center gap-3 py-8 text-center text-sm text-muted-foreground">
                 <p>Ce projet n&apos;est pas encore connecté à BigQuery.</p>
-                <Button asChild size="sm">
-                  <Link href={`/projects/${projectId}/connect`}>Terminer la connexion</Link>
-                </Button>
+                {!readOnly && (
+                  <Button asChild size="sm">
+                    <Link href={`/projects/${projectId}/connect`}>Terminer la connexion</Link>
+                  </Button>
+                )}
               </CardContent>
             </Card>
             </FadeIn>
@@ -425,9 +442,11 @@ export default function ProjectPage() {
             <Card>
               <CardContent className="flex flex-col items-center gap-3 py-8 text-center text-sm text-muted-foreground">
                 <p>Ce projet n&apos;a pas d&apos;abonnement actif.</p>
-                <Button asChild size="sm">
-                  <Link href={`/projects/${projectId}/manage`}>Gérer l&apos;abonnement</Link>
-                </Button>
+                {!readOnly && (
+                  <Button asChild size="sm">
+                    <Link href={`/projects/${projectId}/manage`}>Gérer l&apos;abonnement</Link>
+                  </Button>
+                )}
               </CardContent>
             </Card>
             </FadeIn>

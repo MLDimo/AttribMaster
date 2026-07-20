@@ -124,7 +124,8 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
   return project;
 }
 
-export async function requireProjectAccess(projectId: string, userId: string): Promise<void> {
+/** Owner/admin du workspace propriétaire du projet — le seul niveau habilité à modifier quoi que ce soit. */
+export async function hasProjectManageAccess(projectId: string, userId: string): Promise<boolean> {
   const db = getDbPool();
   const { rows } = await db.query(
     `select 1 from workspace_projects wp
@@ -132,7 +133,34 @@ export async function requireProjectAccess(projectId: string, userId: string): P
      where wp.project_id = $1 and wm.user_id = $2 and wm.role in ('owner', 'admin')`,
     [projectId, userId]
   );
-  if (rows.length === 0) throw new NotAuthorizedError("project");
+  return rows.length > 0;
+}
+
+/**
+ * Un collaborateur ajouté directement (project_members) n'a QUE cet accès en
+ * lecture : jamais admin/owner du workspace, donc `hasProjectManageAccess`
+ * est toujours faux pour lui — c'est ce qui en fait un rôle "lecture seule"
+ * sûr pour partager avec un client final ou un stagiaire.
+ */
+export type ProjectWithAccess = { project: Project; canManage: boolean };
+
+/** Combine lecture + niveau d'accès de l'utilisateur courant, pour l'affichage (masquer les actions de gestion). */
+export async function getProjectWithAccess(projectId: string): Promise<ProjectWithAccess | null> {
+  const userId = await requireUserId();
+  if (projectId === MOCK_PROJECT_ID) return { project: MOCK_PROJECT, canManage: false };
+  const db = getDbPool();
+  const { rows } = await db.query<Project>(
+    `select distinct p.* from projects p
+     where p.id = $2 and (${ACCESSIBLE_PROJECTS_WHERE})`,
+    [userId, projectId]
+  );
+  const project = rows[0];
+  if (!project) return null;
+  return { project, canManage: await hasProjectManageAccess(projectId, userId) };
+}
+
+export async function requireProjectAccess(projectId: string, userId: string): Promise<void> {
+  if (!(await hasProjectManageAccess(projectId, userId))) throw new NotAuthorizedError("project");
 }
 
 /** Étape 2 : stocke le refresh token OAuth obtenu depuis Google (chiffré, jamais en clair en base). */
