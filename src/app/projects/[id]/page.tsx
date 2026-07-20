@@ -41,6 +41,13 @@ const DIMENSION_LABELS: Record<AttributionDimension, string> = {
   campaign: "Campagne",
 };
 
+/** Idem que DIMENSION_LABELS mais en position "complément" ("Répartition par X"). */
+const DIMENSION_LABELS_LOWER: Record<AttributionDimension, string> = {
+  source: "source",
+  medium: "support",
+  campaign: "campagne",
+};
+
 export const COMPARISON_LABELS: Record<ComparisonMode, string> = {
   previous_period: "Période précédente",
   last_week: "Semaine dernière",
@@ -474,7 +481,7 @@ export default function ProjectPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <ChartPie className="size-4 text-muted-foreground" />
-                    Répartition par source
+                    Répartition par {DIMENSION_LABELS_LOWER[dimension]}
                   </CardTitle>
                   {compareModel !== "none" && (
                     <CardDescription>

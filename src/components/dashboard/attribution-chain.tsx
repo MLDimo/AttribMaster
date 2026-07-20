@@ -33,13 +33,13 @@ export function AttributionChain({
   return (
     <div className="flex flex-wrap items-center gap-1">
       {touchpoints.map((tp, i) => {
-        // Le badge affiche toujours "source / support" en détail, mais le
-        // surlignage compare selon la dimension active (ex: en groupement
-        // "Campagne", un clic sur "brand-search" doit surligner tous les
-        // touchpoints de cette campagne, même sur des sources différentes).
-        const label = sourceLabel(tp.source, tp.medium);
+        // Le badge affiche et surligne selon la dimension active (Source,
+        // Support ou Campagne) : cohérent avec le camembert/la courbe/le
+        // filtre au clic, qui utilisent déjà tous cette même dimension.
+        const label = channelLabel(tp, dimension);
         const color = colorForSource(label);
-        const dimmed = Boolean(selectedChannel) && selectedChannel !== channelLabel(tp, dimension);
+        const dimmed = Boolean(selectedChannel) && selectedChannel !== label;
+        const detail = sourceLabel(tp.source, tp.medium);
         return (
           <span key={i} className="flex items-center gap-1">
             <Tooltip>
@@ -50,7 +50,7 @@ export function AttributionChain({
                   }`}
                   style={{ backgroundColor: color }}
                 >
-                  {tp.source} / {tp.medium}
+                  {label}
                 </span>
               </TooltipTrigger>
               <TooltipContent
@@ -59,6 +59,8 @@ export function AttributionChain({
               >
                 <span className="font-semibold tabular-nums">{formatPercent(shares[i])}</span>
                 {isGlobalShare && <span className="text-[10px] opacity-80">part globale du canal</span>}
+                {/* Le détail source/support reste visible même quand le badge affiche autre chose. */}
+                {dimension !== "source" && <span className="text-[10px] opacity-80">{detail}</span>}
               </TooltipContent>
             </Tooltip>
             {i < touchpoints.length - 1 && <span className="text-muted-foreground">→</span>}
