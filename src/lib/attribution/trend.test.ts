@@ -168,4 +168,26 @@ describe("buildDailySourceTrend", () => {
     expect(channels).toEqual([]);
     expect(points.every((p) => p.total === 0)).toBe(true);
   });
+
+  it("keeps the plotted channel set fixed to an explicit `plottedChannels` list even when it doesn't match `rows`' own ranking", () => {
+    // Simule le cas d'usage réel : `rows` est déjà scopé par un filtre de
+    // canal (donc son propre classement interne serait différent), mais le
+    // menu de canaux tracés doit rester celui de la vue non filtrée (voir
+    // `rankPlottedChannels` + `/api/overview`) pour que "griser les autres"
+    // ne redessine jamais le menu.
+    const rows = [
+      row({
+        transaction_id: "t1",
+        event_date: "2026-07-10",
+        purchase_revenue: 100,
+        touchpoints: [tp("only-source", "cpc", "2026-07-10T00:00:00Z", 0)],
+      }),
+    ];
+    const fixedMenu = ["only-source / cpc", "some-other-channel-not-in-rows", OTHER_CHANNEL_LABEL];
+    const { channels, points } = buildDailySourceTrend(rows, "2026-07-10", "2026-07-10", "linear", "source", fixedMenu);
+
+    expect(channels).toEqual(fixedMenu);
+    expect(points[0]["only-source / cpc"]).toBeCloseTo(100, 6);
+    expect(points[0]["some-other-channel-not-in-rows"]).toBe(0);
+  });
 });
