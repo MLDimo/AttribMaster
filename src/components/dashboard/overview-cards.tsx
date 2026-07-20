@@ -61,9 +61,9 @@ export function OverviewCards({
           </span>
         </div>
       )}
-      <StaggerItem>
-      <TiltCard>
-        <Card className="gap-3 py-5">
+      <StaggerItem className="h-full">
+      <TiltCard className="h-full">
+        <Card className="h-full gap-3 py-5">
           <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardDescription>Revenu attribué</CardDescription>
             <KpiIcon className="bg-brand-accent/15 text-brand-accent">
@@ -89,9 +89,9 @@ export function OverviewCards({
       </TiltCard>
       </StaggerItem>
 
-      <StaggerItem>
-      <TiltCard>
-        <Card className="gap-3 py-5">
+      <StaggerItem className="h-full">
+      <TiltCard className="h-full">
+        <Card className="h-full gap-3 py-5">
           <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardDescription>Transactions</CardDescription>
             <KpiIcon className="bg-primary/10 text-primary">
@@ -107,9 +107,9 @@ export function OverviewCards({
       </TiltCard>
       </StaggerItem>
 
-      <StaggerItem>
-      <TiltCard>
-        <Card className="gap-3 py-5">
+      <StaggerItem className="h-full">
+      <TiltCard className="h-full">
+        <Card className="h-full gap-3 py-5">
           <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardDescription>Revenu · {comparisonLabel}</CardDescription>
             <KpiIcon className="bg-muted text-muted-foreground">
