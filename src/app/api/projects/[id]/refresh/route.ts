@@ -1,5 +1,6 @@
 import { after, NextRequest, NextResponse } from "next/server";
 
+import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
 import { getProject } from "@/lib/projects/repository";
 import { isProjectConnected, isProjectSubscribed } from "@/lib/projects/types";
 import {
@@ -31,6 +32,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {
+    if (id === MOCK_PROJECT_ID) {
+      return NextResponse.json({ error: "Ce projet de démonstration est en lecture seule." }, { status: 403 });
+    }
     const project = await getProject(id);
     if (!project) {
       return NextResponse.json({ error: "Project not found or not accessible" }, { status: 404 });

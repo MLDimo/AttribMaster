@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Search, Trash2 } from "lucide-react";
+import { ArrowRight, Search, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -21,6 +21,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
 import { PlanBadge } from "@/components/projects/plan-badge";
 import { FadeIn, fadeUpVariants } from "@/components/effects/motion";
+import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
 import { isProjectConnected } from "@/lib/projects/types";
 import type { Account, Project } from "@/lib/projects/types";
 
@@ -122,7 +123,15 @@ export default function ProjectsPage() {
               className="pl-9"
             />
           </div>
-          <CreateProjectDialog accounts={accounts} />
+          <div className="flex items-center gap-2">
+            <Button variant="outline" asChild>
+              <Link href={`/projects/${MOCK_PROJECT_ID}`}>
+                <Sparkles className="size-4" />
+                Explorer une démo
+              </Link>
+            </Button>
+            <CreateProjectDialog accounts={accounts} />
+          </div>
         </FadeIn>
 
         {loaded && projects.length === 0 && (

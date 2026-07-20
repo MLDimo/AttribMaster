@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { MOCK_PROJECT, MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
 import { NotAuthorizedError, UnauthenticatedError } from "@/lib/auth/errors";
 import { decryptSecret, encryptSecret } from "@/lib/crypto/secrets";
 import { getDbPool } from "@/lib/db/client";
@@ -60,6 +61,9 @@ export async function listAccessibleProjects(): Promise<Project[]> {
 /** Retourne le projet seulement si l'utilisateur courant y a accès (via un workspace ou un ajout direct). */
 export async function getProject(projectId: string): Promise<Project | null> {
   const userId = await requireUserId();
+  // Mode démo : accessible à tout utilisateur connecté (pas d'accès via
+  // workspace nécessaire), en lecture seule — voir MOCK_PROJECT.
+  if (projectId === MOCK_PROJECT_ID) return MOCK_PROJECT;
   const db = getDbPool();
   const { rows } = await db.query<Project>(
     `select distinct p.* from projects p

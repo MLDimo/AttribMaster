@@ -1,11 +1,37 @@
+import type { Project } from "@/lib/projects/types";
 import type { AttributionRow, Touchpoint } from "./types";
 
 /**
  * Projet "test mockdata" : jamais connecté à un vrai BigQuery, sert de bac à
- * sable permanent pour tester les modèles d'attribution sans données réelles.
- * Les fonctions du repository court-circuitent BigQuery pour cet ID précis.
+ * sable permanent pour tester les modèles d'attribution sans données réelles,
+ * et de mode démo public (accessible à tout utilisateur connecté, voir
+ * `getProject` dans `lib/projects/repository.ts`). Les fonctions du
+ * repository court-circuitent BigQuery pour cet ID précis.
  */
 export const MOCK_PROJECT_ID = "5cbb9f60-d11d-4461-8879-24e20f871439";
+
+/**
+ * Métadonnées du projet démo, retournées par `getProject` sans lecture en
+ * base (aucune ligne réelle n'est nécessaire en production). Les champs
+ * affichés à l'écran (nom, gcp_project_id, ga4_dataset, bigquery_dataset)
+ * doivent rester identiques à la ligne insérée par `tests/e2e/fixtures.ts`
+ * pour ne pas faire diverger les captures de régression visuelle.
+ */
+export const MOCK_PROJECT: Project = {
+  id: MOCK_PROJECT_ID,
+  name: "Project mockdata",
+  gcp_project_id: "mock-gcp-project",
+  ga4_dataset: "analytics_mock",
+  bigquery_dataset: "attribution",
+  oauth_refresh_token_encrypted: "not-a-real-token",
+  created_by: null,
+  created_at: "2026-01-01T00:00:00.000Z",
+  billing_account_id: null,
+  plan: "standard",
+  billing_interval: null,
+  stripe_subscription_id: null,
+  subscription_status: "active",
+};
 
 const MOCK_CHANNELS: Array<{ source: string; medium: string; campaign: string | null }> = [
   { source: "google", medium: "cpc", campaign: "brand-search" },

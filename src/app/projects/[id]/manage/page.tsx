@@ -2,7 +2,7 @@
 
 import { CreditCard, RefreshCw, Users } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,15 +12,21 @@ import { ProjectMembers } from "@/components/dashboard/project-members";
 import { RefreshDataButton } from "@/components/dashboard/refresh-data-button";
 import { SubscriptionStatus } from "@/components/dashboard/subscription-status";
 import { FadeIn } from "@/components/effects/motion";
+import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
 import { isProjectConnected, isProjectSubscribed } from "@/lib/projects/types";
 import type { Project } from "@/lib/projects/types";
 
 export default function ManageProjectPage() {
   const params = useParams<{ id: string }>();
   const projectId = params.id;
+  const router = useRouter();
 
   const [project, setProject] = useState<Project | null>(null);
   const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    if (projectId === MOCK_PROJECT_ID) router.replace(`/projects/${projectId}`);
+  }, [projectId, router]);
 
   useEffect(() => {
     fetch(`/api/projects/${projectId}`)

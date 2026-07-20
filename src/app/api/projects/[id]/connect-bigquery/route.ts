@@ -5,6 +5,7 @@ import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { yesterdayDateOnly } from "@/lib/attribution/nightly-run";
+import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
 import { enqueueHistoricalBackfill, processQueue } from "@/lib/attribution/queue";
 import { discoverGa4HistoryStartDate } from "@/lib/bigquery/client";
 import { authorizedClientFromRefreshToken } from "@/lib/gcp-oauth/client";
@@ -55,6 +56,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  if (id === MOCK_PROJECT_ID) {
+    return NextResponse.json({ error: "Ce projet de démonstration est en lecture seule." }, { status: 403 });
+  }
   const body = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {

@@ -12,11 +12,13 @@ import { GET as transactionsGet } from "@/app/api/transactions/route";
 import { GET as exportGet } from "@/app/api/transactions/export/route";
 import { GET as projectsGet } from "@/app/api/projects/route";
 import { GET as accountGet } from "@/app/api/account/route";
+import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
 
-// Un vrai projet (pas le mock, qui court-circuite l'auth) demandé sans
-// session doit produire un 401 propre — pas un 500 générique qui pollue les
-// logs d'erreur à chaque passage de bot (régression corrigée après un check
-// complet de la prod).
+// Un projet demandé sans session doit produire un 401 propre — pas un 500
+// générique qui pollue les logs d'erreur à chaque passage de bot (régression
+// corrigée après un check complet de la prod). Le projet démo (MOCK_PROJECT_ID)
+// est en lecture publique pour tout utilisateur CONNECTÉ, mais reste bloqué
+// pour un visiteur anonyme au même titre qu'un vrai projet.
 const REAL_LOOKING_PROJECT_ID = "00000000-0000-4000-8000-000000000000";
 const RANGE = { from: "2000-01-01", to: "2100-01-01" };
 
@@ -46,6 +48,12 @@ describe("unauthenticated API access returns 401, not 500", () => {
 
   it("GET /api/account", async () => {
     const res = await accountGet();
+    expect(res.status).toBe(401);
+  });
+
+  it("GET /api/overview for the demo project (MOCK_PROJECT_ID)", async () => {
+    const search = new URLSearchParams({ projectId: MOCK_PROJECT_ID, ...RANGE });
+    const res = await overviewGet(new NextRequest(`http://localhost/api/overview?${search}`));
     expect(res.status).toBe(401);
   });
 });
