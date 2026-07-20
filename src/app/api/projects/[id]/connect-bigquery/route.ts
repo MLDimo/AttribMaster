@@ -24,10 +24,19 @@ import { apiErrorResponse } from "@/lib/auth/errors";
 // à la limite du plan si celui-ci autorise moins que 60s.
 export const maxDuration = 60;
 
+// Ces identifiants sont interpolés tels quels dans des requêtes BigQuery
+// (`` `${gcpProjectId}.${dataset}...` ``, voir provisionAttributionsTable et
+// lib/bigquery/client.ts) : on applique le format réel imposé par Google
+// (project ID : lettres minuscules/chiffres/tirets ; dataset : lettres/
+// chiffres/underscores) pour ne jamais y laisser passer un caractère qui
+// casserait la référence de table (backtick, point, espace...).
+const GCP_PROJECT_ID_RE = /^[a-z][a-z0-9-]{4,28}[a-z0-9]$/;
+const BQ_DATASET_ID_RE = /^[A-Za-z0-9_]{1,1024}$/;
+
 const bodySchema = z.object({
-  gcpProjectId: z.string().trim().min(1),
-  ga4Dataset: z.string().trim().min(1),
-  bigqueryDataset: z.string().trim().min(1).optional(),
+  gcpProjectId: z.string().trim().regex(GCP_PROJECT_ID_RE, "Identifiant de projet GCP invalide"),
+  ga4Dataset: z.string().trim().regex(BQ_DATASET_ID_RE, "Nom de dataset GA4 invalide"),
+  bigqueryDataset: z.string().trim().regex(BQ_DATASET_ID_RE, "Nom de dataset invalide").optional(),
 });
 
 /** Best effort : crée le dataset + la table d'attribution s'ils n'existent pas. */
