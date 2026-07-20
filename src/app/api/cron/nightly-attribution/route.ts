@@ -12,8 +12,16 @@ import { enqueueBackfillForAllProjects, processQueue } from "@/lib/attribution/q
 export const maxDuration = 300;
 
 export async function GET(request: NextRequest) {
+  // Échoue fermé si le secret n'est pas configuré : sans ce garde, un
+  // CRON_SECRET absent ferait comparer l'en-tête à "Bearer undefined", une
+  // valeur devinable — voir le même garde sur le webhook Stripe.
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    console.error("[cron/nightly-attribution] CRON_SECRET is not set");
+    return NextResponse.json({ error: "Cron not configured" }, { status: 500 });
+  }
   const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
