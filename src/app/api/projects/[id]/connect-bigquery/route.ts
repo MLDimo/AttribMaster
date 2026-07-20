@@ -9,7 +9,13 @@ import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
 import { enqueueHistoricalBackfill, processQueue } from "@/lib/attribution/queue";
 import { discoverGa4HistoryStartDate } from "@/lib/bigquery/client";
 import { authorizedClientFromRefreshToken } from "@/lib/gcp-oauth/client";
-import { connectProjectBigQuery, getProject, getProjectOAuthToken } from "@/lib/projects/repository";
+import {
+  connectProjectBigQuery,
+  getProject,
+  getProjectOAuthToken,
+  requireProjectAccess,
+  requireUserId,
+} from "@/lib/projects/repository";
 import { BigQuery } from "@google-cloud/bigquery";
 import { apiErrorResponse } from "@/lib/auth/errors";
 
@@ -63,6 +69,20 @@ export async function POST(
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  // Vérifié AVANT toute lecture/usage du token OAuth réel : ce endpoint
+  // déchiffre le refresh token puis fait de VRAIS appels BigQuery avec des
+  // paramètres (gcpProjectId, dataset) fournis par l'appelant. Un simple
+  // collaborateur en lecture seule ne doit jamais pouvoir déclencher ça,
+  // même si connectProjectBigQuery() vérifie déjà l'accès plus loin — sans
+  // ce garde-fou en amont, les appels BigQuery auraient déjà eu lieu avant
+  // ce contrôle tardif.
+  try {
+    const userId = await requireUserId();
+    await requireProjectAccess(id, userId);
+  } catch (error) {
+    return apiErrorResponse(error, "[api/projects/[id]/connect-bigquery]", "Not authorized");
   }
 
   let project, refreshToken;

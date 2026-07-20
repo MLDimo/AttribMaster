@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { listAccessibleGcpProjects } from "@/lib/gcp-oauth/discovery";
-import { getProject, getProjectOAuthToken } from "@/lib/projects/repository";
+import { getProject, getProjectOAuthToken, requireProjectAccess, requireUserId } from "@/lib/projects/repository";
 import { apiErrorResponse } from "@/lib/auth/errors";
 
 export async function GET(
@@ -11,6 +11,13 @@ export async function GET(
   const { id } = await params;
 
   try {
+    // Fait partie du flux de connexion (gestion) : utilise le VRAI token
+    // OAuth du projet pour interroger Google. Un collaborateur en lecture
+    // seule n'a rien à faire ici, même si la réponse ne contient "que" une
+    // liste — elle révèle la structure GCP réelle du compte connecté.
+    const userId = await requireUserId();
+    await requireProjectAccess(id, userId);
+
     const project = await getProject(id);
     if (!project) {
       return NextResponse.json({ error: "Project not found or not accessible" }, { status: 404 });
