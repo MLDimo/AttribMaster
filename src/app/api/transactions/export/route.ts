@@ -3,14 +3,21 @@ import { z } from "zod";
 
 import { getAttributionRows } from "@/lib/attribution/repository";
 import { defaultRange } from "@/lib/attribution/date-range";
+import { channelLabel } from "@/lib/attribution/dimension";
 import { apiErrorResponse } from "@/lib/auth/errors";
 
-const querySchema = z.object({
-  projectId: z.string().uuid(),
-  from: z.string().date().optional(),
-  to: z.string().date().optional(),
-  search: z.string().trim().min(1).optional(),
-});
+const querySchema = z
+  .object({
+    projectId: z.string().uuid(),
+    from: z.string().date().optional(),
+    to: z.string().date().optional(),
+    search: z.string().trim().min(1).optional(),
+    channelDimension: z.enum(["source", "medium", "campaign"]).optional(),
+    channelValue: z.string().trim().min(1).optional(),
+  })
+  .refine((data) => Boolean(data.channelDimension) === Boolean(data.channelValue), {
+    message: "channelDimension and channelValue must be provided together",
+  });
 
 /** Échappement CSV : guillemets doublés, champ systématiquement quoté. */
 function csvField(value: string | number | null): string {
@@ -24,13 +31,16 @@ export async function GET(request: NextRequest) {
   }
 
   const fallback = defaultRange();
-  const { projectId, from = fallback.from, to = fallback.to, search } = parsed.data;
+  const { projectId, from = fallback.from, to = fallback.to, search, channelDimension, channelValue } = parsed.data;
 
   try {
     let rows = await getAttributionRows(projectId, { from, to });
     if (search) {
       const needle = search.toLowerCase();
       rows = rows.filter((row) => row.transaction_id.toLowerCase().includes(needle));
+    }
+    if (channelDimension && channelValue) {
+      rows = rows.filter((row) => row.touchpoints.some((tp) => channelLabel(tp, channelDimension) === channelValue));
     }
     rows = [...rows].sort((a, b) => (a.event_timestamp < b.event_timestamp ? 1 : -1));
 

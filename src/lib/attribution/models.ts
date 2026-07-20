@@ -1,3 +1,4 @@
+import { channelLabel, type AttributionDimension } from "./dimension";
 import type {
   AttributionModel,
   AttributionRow,
@@ -50,13 +51,10 @@ export function computeWeights(
   }
 }
 
-function sourceLabel(touchpoint: Touchpoint): string {
-  return `${touchpoint.source} / ${touchpoint.medium}`;
-}
-
 function aggregateWithWeights(
   rows: AttributionRow[],
-  model: WeightedModel
+  model: WeightedModel,
+  dimension: AttributionDimension
 ): SourceCredit[] {
   const revenueBySource = new Map<string, number>();
   let totalRevenue = 0;
@@ -65,7 +63,7 @@ function aggregateWithWeights(
     const weights = computeWeights(row.touchpoints, model);
     row.touchpoints.forEach((tp, i) => {
       const credit = row.purchase_revenue * weights[i];
-      const label = sourceLabel(tp);
+      const label = channelLabel(tp, dimension);
       revenueBySource.set(label, (revenueBySource.get(label) ?? 0) + credit);
     });
     totalRevenue += row.purchase_revenue;
@@ -90,9 +88,9 @@ const MARKOV_ITERATIONS = 200;
 type MarkovGraph = Map<string, Map<string, number>>;
 
 /** Chemins uniques (dédupliqués consécutivement) des labels de source par transaction. */
-function buildChannelPaths(rows: AttributionRow[]): string[][] {
+function buildChannelPaths(rows: AttributionRow[], dimension: AttributionDimension): string[][] {
   return rows.map((row) => {
-    const labels = row.touchpoints.map(sourceLabel);
+    const labels = row.touchpoints.map((tp) => channelLabel(tp, dimension));
     const collapsed: string[] = [];
     for (const label of labels) {
       if (collapsed[collapsed.length - 1] !== label) collapsed.push(label);
@@ -164,8 +162,8 @@ function conversionProbabilities(
 }
 
 /** Poids d'importance relative de chaque canal, dérivés du removal effect (somme = 1). */
-function markovImportance(rows: AttributionRow[]): Map<string, number> {
-  const paths = buildChannelPaths(rows);
+function markovImportance(rows: AttributionRow[], dimension: AttributionDimension): Map<string, number> {
+  const paths = buildChannelPaths(rows, dimension);
   const channels = Array.from(new Set(paths.flat()));
   const importance = new Map<string, number>();
   if (channels.length === 0) return importance;
@@ -191,9 +189,9 @@ function markovImportance(rows: AttributionRow[]): Map<string, number> {
   return importance;
 }
 
-function aggregateWithMarkov(rows: AttributionRow[]): SourceCredit[] {
+function aggregateWithMarkov(rows: AttributionRow[], dimension: AttributionDimension): SourceCredit[] {
   const totalRevenue = rows.reduce((sum, r) => sum + r.purchase_revenue, 0);
-  const importance = markovImportance(rows);
+  const importance = markovImportance(rows, dimension);
 
   return Array.from(importance.entries())
     .map(([source, share]) => ({ source, revenue: totalRevenue * share, share }))
@@ -295,13 +293,13 @@ function shapleyMonteCarlo(
   return shapley;
 }
 
-function aggregateWithShapley(rows: AttributionRow[]): SourceCredit[] {
+function aggregateWithShapley(rows: AttributionRow[], dimension: AttributionDimension): SourceCredit[] {
   const totalRevenue = rows.reduce((sum, r) => sum + r.purchase_revenue, 0);
   const coalitionRevenue = new Map<string, number>();
   const channelsSet = new Set<string>();
 
   for (const row of rows) {
-    const uniqueChannels = Array.from(new Set(row.touchpoints.map(sourceLabel)));
+    const uniqueChannels = Array.from(new Set(row.touchpoints.map((tp) => channelLabel(tp, dimension))));
     uniqueChannels.forEach((c) => channelsSet.add(c));
     const key = [...uniqueChannels].sort().join("|");
     coalitionRevenue.set(key, (coalitionRevenue.get(key) ?? 0) + row.purchase_revenue);
@@ -333,12 +331,13 @@ function aggregateWithShapley(rows: AttributionRow[]): SourceCredit[] {
 /** Agrège le revenu par source pour un modèle d'attribution donné. */
 export function aggregateCreditsBySource(
   rows: AttributionRow[],
-  model: AttributionModel
+  model: AttributionModel,
+  dimension: AttributionDimension = "source"
 ): SourceCredit[] {
   if (rows.length === 0) return [];
-  if (model === "markov") return aggregateWithMarkov(rows);
-  if (model === "shapley") return aggregateWithShapley(rows);
-  return aggregateWithWeights(rows, model);
+  if (model === "markov") return aggregateWithMarkov(rows, dimension);
+  if (model === "shapley") return aggregateWithShapley(rows, dimension);
+  return aggregateWithWeights(rows, model, dimension);
 }
 
 /**
@@ -359,7 +358,8 @@ export function aggregateCreditsBySource(
 export function computeRowSharePercents(
   touchpoints: Touchpoint[],
   model: AttributionModel,
-  topSources: SourceCredit[] = []
+  topSources: SourceCredit[] = [],
+  dimension: AttributionDimension = "source"
 ): number[] {
   const n = touchpoints.length;
   if (n === 0) return [];
@@ -369,5 +369,5 @@ export function computeRowSharePercents(
   }
 
   const shareByLabel = new Map(topSources.map((s) => [s.source, s.share]));
-  return touchpoints.map((tp) => (shareByLabel.get(sourceLabel(tp)) ?? 0) * 100);
+  return touchpoints.map((tp) => (shareByLabel.get(channelLabel(tp, dimension)) ?? 0) * 100);
 }

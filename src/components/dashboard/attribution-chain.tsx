@@ -2,6 +2,8 @@
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { colorForSource, sourceLabel } from "@/lib/attribution/colors";
+import type { AttributionDimension } from "@/lib/attribution/dimension";
+import { channelLabel } from "@/lib/attribution/dimension";
 import { computeRowSharePercents } from "@/lib/attribution/models";
 import type { AttributionModel, SourceCredit, Touchpoint } from "@/lib/attribution/types";
 
@@ -14,14 +16,16 @@ export function AttributionChain({
   touchpoints,
   model,
   topSources,
-  selectedSource,
+  dimension = "source",
+  selectedChannel,
 }: {
   touchpoints: Touchpoint[];
   model: AttributionModel;
   topSources: SourceCredit[];
-  selectedSource?: string | null;
+  dimension?: AttributionDimension;
+  selectedChannel?: string | null;
 }) {
-  const shares = computeRowSharePercents(touchpoints, model, topSources);
+  const shares = computeRowSharePercents(touchpoints, model, topSources, dimension);
   // Markov/Shapley : part globale du canal (portefeuille), pas une décomposition
   // propre à cette transaction — voir le commentaire de computeRowSharePercents.
   const isGlobalShare = model === "markov" || model === "shapley";
@@ -29,9 +33,13 @@ export function AttributionChain({
   return (
     <div className="flex flex-wrap items-center gap-1">
       {touchpoints.map((tp, i) => {
+        // Le badge affiche toujours "source / support" en détail, mais le
+        // surlignage compare selon la dimension active (ex: en groupement
+        // "Campagne", un clic sur "brand-search" doit surligner tous les
+        // touchpoints de cette campagne, même sur des sources différentes).
         const label = sourceLabel(tp.source, tp.medium);
         const color = colorForSource(label);
-        const dimmed = Boolean(selectedSource) && selectedSource !== label;
+        const dimmed = Boolean(selectedChannel) && selectedChannel !== channelLabel(tp, dimension);
         return (
           <span key={i} className="flex items-center gap-1">
             <Tooltip>

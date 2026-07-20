@@ -90,6 +90,51 @@ describe("GET /api/overview (dashboard numbers)", () => {
     const distinctRevenues = new Set(revenues.map((r) => Math.round(r * 100)));
     expect(distinctRevenues.size).toBe(1);
   });
+
+  it("dimension=medium groups google/cpc and bing/cpc together under \"cpc\", never separately", async () => {
+    const res = await overviewGet(new NextRequest(overviewUrl({ model: "linear", dimension: "medium" })));
+    const json = await res.json();
+    expect(json.topSources.find((s: { source: string }) => s.source === "google / cpc")).toBeUndefined();
+    expect(json.topSources.find((s: { source: string }) => s.source === "bing / cpc")).toBeUndefined();
+    const cpc = json.topSources.find((s: { source: string }) => s.source === "cpc");
+    expect(cpc).toBeDefined();
+    expect(cpc.revenue).toBeGreaterThan(0);
+    // Regrouper ne retire ni n'ajoute de revenu total, seule la répartition change.
+    const total = json.topSources.reduce((sum: number, s: { revenue: number }) => sum + s.revenue, 0);
+    expect(total).toBeCloseTo(json.totals.revenue, 1);
+  });
+
+  it("dimension=campaign surfaces campaign names, with a sentinel bucket for touchpoints without one", async () => {
+    const res = await overviewGet(new NextRequest(overviewUrl({ model: "linear", dimension: "campaign" })));
+    const json = await res.json();
+    const labels = json.topSources.map((s: { source: string }) => s.source);
+    expect(labels).toContain("brand-search"); // google/cpc + bing/cpc dans mock-data.ts
+    expect(labels).toContain("(sans campagne)");
+  });
+
+  it("selecting a channel scopes totals + trend to transactions touched by it, without changing topSources' full breakdown", async () => {
+    const unfiltered = await overviewGet(new NextRequest(overviewUrl({ model: "linear", dimension: "medium" })));
+    const unfilteredJson = await unfiltered.json();
+
+    const filtered = await overviewGet(
+      new NextRequest(overviewUrl({ model: "linear", dimension: "medium", channelDimension: "medium", channelValue: "cpc" }))
+    );
+    const filteredJson = await filtered.json();
+
+    expect(filteredJson.totals.transactions).toBeGreaterThan(0);
+    expect(filteredJson.totals.transactions).toBeLessThan(unfilteredJson.totals.transactions);
+    expect(filteredJson.totals.revenue).toBeLessThan(unfilteredJson.totals.revenue);
+    // Le camembert reste la vue complète (c'est lui le sélecteur), pas restreint au filtre.
+    expect(filteredJson.topSources).toEqual(unfilteredJson.topSources);
+    // La tendance filtrée doit reconstituer exactement le total filtré.
+    const trendRevenue = filteredJson.trend.reduce((sum: number, p: { revenue: number }) => sum + p.revenue, 0);
+    expect(trendRevenue).toBeCloseTo(filteredJson.totals.revenue, 1);
+  });
+
+  it("rejects channelDimension without channelValue (and vice versa)", async () => {
+    const res = await overviewGet(new NextRequest(overviewUrl({ channelDimension: "medium" })));
+    expect(res.status).toBe(400);
+  });
 });
 
 describe("GET /api/transactions", () => {
@@ -161,5 +206,71 @@ describe("GET /api/transactions", () => {
     const revenues = json.rows.map((r: { purchase_revenue: number }) => r.purchase_revenue);
     const sorted = [...revenues].sort((a, b) => b - a);
     expect(revenues).toEqual(sorted);
+  });
+
+  it("channelDimension=medium&channelValue=cpc narrows the list to transactions touched by cpc (google or bing)", async () => {
+    const all = await transactionsGet(new NextRequest(transactionsUrl({ pageSize: "1" })));
+    const { total: totalUnfiltered } = await all.json();
+
+    const res = await transactionsGet(
+      new NextRequest(transactionsUrl({ channelDimension: "medium", channelValue: "cpc", pageSize: "50" }))
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.total).toBeGreaterThan(0);
+    expect(json.total).toBeLessThan(totalUnfiltered);
+    for (const row of json.rows) {
+      expect(row.touchpoints.some((tp: { medium: string }) => tp.medium === "cpc")).toBe(true);
+    }
+  });
+
+  it("channelDimension=campaign&channelValue=brand-search narrows to that campaign's transactions", async () => {
+    const res = await transactionsGet(
+      new NextRequest(transactionsUrl({ channelDimension: "campaign", channelValue: "brand-search", pageSize: "50" }))
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.total).toBeGreaterThan(0);
+    for (const row of json.rows) {
+      expect(row.touchpoints.some((tp: { campaign: string | null }) => tp.campaign === "brand-search")).toBe(true);
+    }
+  });
+
+  it("channelDimension=source&channelValue matches the exact combined source/medium label", async () => {
+    const res = await transactionsGet(
+      new NextRequest(transactionsUrl({ channelDimension: "source", channelValue: "google / cpc", pageSize: "50" }))
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.total).toBeGreaterThan(0);
+    for (const row of json.rows) {
+      expect(
+        row.touchpoints.some((tp: { source: string; medium: string }) => tp.source === "google" && tp.medium === "cpc")
+      ).toBe(true);
+    }
+  });
+
+  it("rejects channelDimension without channelValue (and vice versa)", async () => {
+    const res = await transactionsGet(new NextRequest(transactionsUrl({ channelDimension: "medium" })));
+    expect(res.status).toBe(400);
+  });
+
+  it("CSV export respects the same channel filter as the transactions list", async () => {
+    const listRes = await transactionsGet(
+      new NextRequest(transactionsUrl({ channelDimension: "medium", channelValue: "cpc", pageSize: "1" }))
+    );
+    const { total } = await listRes.json();
+
+    const search = new URLSearchParams({
+      projectId: MOCK_PROJECT_ID,
+      from: WIDE_FROM,
+      to: WIDE_TO,
+      channelDimension: "medium",
+      channelValue: "cpc",
+    });
+    const exportRes = await exportGet(new NextRequest(`http://localhost/api/transactions/export?${search}`));
+    expect(exportRes.status).toBe(200);
+    const lines = (await exportRes.text()).replace("\ufeff", "").split("\r\n");
+    expect(lines.length - 1).toBe(total);
   });
 });

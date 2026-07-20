@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, ChartPie, Check, GitCompare, Pencil, Receipt, Settings2, SlidersHorizontal, TrendingUp, UsersRound } from "lucide-react";
+import { Calendar, ChartPie, Check, GitCompare, Layers, Pencil, Receipt, Settings2, SlidersHorizontal, TrendingUp, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -21,6 +21,7 @@ import { FadeIn } from "@/components/effects/motion";
 import type { OverviewResponse } from "@/lib/attribution/api-types";
 import { defaultRange } from "@/lib/attribution/date-range";
 import type { ComparisonMode } from "@/lib/attribution/date-range";
+import type { AttributionDimension } from "@/lib/attribution/dimension";
 import { isProjectConnected, isProjectSubscribed } from "@/lib/projects/types";
 import type { Project } from "@/lib/projects/types";
 import type { AttributionModel } from "@/lib/attribution/types";
@@ -32,6 +33,12 @@ const MODEL_LABELS: Record<AttributionModel, string> = {
   u_shape: "En U",
   markov: "Chaînes de Markov",
   shapley: "Valeur de Shapley",
+};
+
+const DIMENSION_LABELS: Record<AttributionDimension, string> = {
+  source: "Source",
+  medium: "Support",
+  campaign: "Campagne",
 };
 
 export const COMPARISON_LABELS: Record<ComparisonMode, string> = {
@@ -181,14 +188,21 @@ export default function ProjectPage() {
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
   const [compareModel, setCompareModel] = useState<AttributionModel | "none">("none");
   const [compareOverview, setCompareOverview] = useState<OverviewResponse | null>(null);
-  const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const [dimension, setDimension] = useState<AttributionDimension>("source");
+  const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
 
-  // Une source sélectionnée n'a plus de sens si la période/le modèle change
-  // (ajustement pendant le rendu plutôt qu'un setState synchrone dans un effet).
-  const [prevSourceFilters, setPrevSourceFilters] = useState({ from, to, model });
-  if (prevSourceFilters.from !== from || prevSourceFilters.to !== to || prevSourceFilters.model !== model) {
-    setPrevSourceFilters({ from, to, model });
-    setSelectedSource(null);
+  // Un canal sélectionné n'a plus de sens si la période/le modèle/la dimension
+  // de regroupement change (ajustement pendant le rendu plutôt qu'un setState
+  // synchrone dans un effet).
+  const [prevChannelFilters, setPrevChannelFilters] = useState({ from, to, model, dimension });
+  if (
+    prevChannelFilters.from !== from ||
+    prevChannelFilters.to !== to ||
+    prevChannelFilters.model !== model ||
+    prevChannelFilters.dimension !== dimension
+  ) {
+    setPrevChannelFilters({ from, to, model, dimension });
+    setSelectedChannel(null);
   }
 
   useEffect(() => {
@@ -209,7 +223,11 @@ export default function ProjectPage() {
 
   useEffect(() => {
     if (!projectId || !usable) return;
-    const params = new URLSearchParams({ projectId, from, to, model, comparison });
+    const params = new URLSearchParams({ projectId, from, to, model, comparison, dimension });
+    if (selectedChannel) {
+      params.set("channelDimension", dimension);
+      params.set("channelValue", selectedChannel);
+    }
     let cancelled = false;
     fetch(`/api/overview?${params.toString()}`)
       .then((res) => (res.ok ? res.json() : null))
@@ -219,7 +237,7 @@ export default function ProjectPage() {
     return () => {
       cancelled = true;
     };
-  }, [projectId, usable, from, to, model, comparison]);
+  }, [projectId, usable, from, to, model, comparison, dimension, selectedChannel]);
 
   // Purge du résultat comparé quand la comparaison est désactivée (ajustement
   // pendant le rendu plutôt qu'un setState synchrone dans un effet).
@@ -233,7 +251,7 @@ export default function ProjectPage() {
     if (!projectId || !usable || compareModel === "none") {
       return;
     }
-    const params = new URLSearchParams({ projectId, from, to, model: compareModel, comparison });
+    const params = new URLSearchParams({ projectId, from, to, model: compareModel, comparison, dimension });
     let cancelled = false;
     fetch(`/api/overview?${params.toString()}`)
       .then((res) => (res.ok ? res.json() : null))
@@ -243,7 +261,7 @@ export default function ProjectPage() {
     return () => {
       cancelled = true;
     };
-  }, [projectId, usable, from, to, compareModel, comparison]);
+  }, [projectId, usable, from, to, compareModel, comparison, dimension]);
 
   if (notFound) {
     return (
@@ -300,6 +318,19 @@ export default function ProjectPage() {
                   onChange={(e) => setModel(e.target.value as AttributionModel)}
                 >
                   {Object.entries(MODEL_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Regrouper par" icon={<Layers className="size-3.5" />}>
+                <select
+                  className="h-9 cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
+                  value={dimension}
+                  onChange={(e) => setDimension(e.target.value as AttributionDimension)}
+                >
+                  {Object.entries(DIMENSION_LABELS).map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
                     </option>
@@ -428,8 +459,8 @@ export default function ProjectPage() {
                         <p className="text-sm font-medium text-muted-foreground">{MODEL_LABELS[model]}</p>
                         <AttributionChart
                           sources={overview.topSources}
-                          selectedSource={selectedSource}
-                          onSelectSource={setSelectedSource}
+                          selectedChannel={selectedChannel}
+                          onSelectChannel={setSelectedChannel}
                         />
                       </div>
                       <div className="flex flex-col gap-3 border-t pt-6">
@@ -439,8 +470,8 @@ export default function ProjectPage() {
                         {compareOverview ? (
                           <AttributionChart
                             sources={compareOverview.topSources}
-                            selectedSource={selectedSource}
-                            onSelectSource={setSelectedSource}
+                            selectedChannel={selectedChannel}
+                            onSelectChannel={setSelectedChannel}
                           />
                         ) : (
                           <div className="flex h-72 items-center justify-center">
@@ -452,8 +483,8 @@ export default function ProjectPage() {
                   ) : overview ? (
                     <AttributionChart
                       sources={overview.topSources}
-                      selectedSource={selectedSource}
-                      onSelectSource={setSelectedSource}
+                      selectedChannel={selectedChannel}
+                      onSelectChannel={setSelectedChannel}
                     />
                   ) : (
                     <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
@@ -492,7 +523,9 @@ export default function ProjectPage() {
                     to={to}
                     model={model}
                     topSources={overview?.topSources ?? []}
-                    selectedSource={selectedSource}
+                    dimension={dimension}
+                    selectedChannel={selectedChannel}
+                    onClearChannel={() => setSelectedChannel(null)}
                   />
                 </CardContent>
               </Card>
