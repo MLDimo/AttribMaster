@@ -5,7 +5,7 @@ import { comparisonRange, defaultRange } from "@/lib/attribution/date-range";
 import { channelLabel } from "@/lib/attribution/dimension";
 import { aggregateCreditsBySource } from "@/lib/attribution/models";
 import { getAttributionRows } from "@/lib/attribution/repository";
-import { buildDailyTrend } from "@/lib/attribution/trend";
+import { buildDailySourceTrend, buildDailyTrend } from "@/lib/attribution/trend";
 import type { AttributionModel } from "@/lib/attribution/types";
 import { apiErrorResponse } from "@/lib/auth/errors";
 
@@ -87,6 +87,7 @@ export async function GET(request: NextRequest) {
       topSources: aggregateCreditsBySource(rows, model, dimension),
       currencies,
       trend: buildDailyTrend(scopedRows, from, to),
+      sourceTrend: buildDailySourceTrend(scopedRows, from, to, model, dimension),
     });
   } catch (error) {
     return apiErrorResponse(error, "[api/overview]", "Failed to load overview data");

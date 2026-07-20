@@ -311,13 +311,13 @@ export default function ProjectPage() {
                   onChange={(nextFrom, nextTo) => setRange({ from: nextFrom, to: nextTo })}
                 />
               </Field>
-              <Field label="Modèle d'attribution" icon={<SlidersHorizontal className="size-3.5" />}>
+              <Field label="Comparer à" icon={<GitCompare className="size-3.5" />}>
                 <select
                   className="h-9 cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value as AttributionModel)}
+                  value={comparison}
+                  onChange={(e) => setComparison(e.target.value as ComparisonMode)}
                 >
-                  {Object.entries(MODEL_LABELS).map(([value, label]) => (
+                  {Object.entries(COMPARISON_LABELS).map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
                     </option>
@@ -337,7 +337,20 @@ export default function ProjectPage() {
                   ))}
                 </select>
               </Field>
-              <Field label="Comparer les modèles" icon={<ChartPie className="size-3.5" />}>
+              <Field label="Modèle d'attribution" icon={<SlidersHorizontal className="size-3.5" />}>
+                <select
+                  className="h-9 cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value as AttributionModel)}
+                >
+                  {Object.entries(MODEL_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Moodèle de comparaison" icon={<ChartPie className="size-3.5" />}>
                 <select
                   className="h-9 cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
                   value={compareModel}
@@ -353,19 +366,7 @@ export default function ProjectPage() {
                     ))}
                 </select>
               </Field>
-              <Field label="Comparer à" icon={<GitCompare className="size-3.5" />}>
-                <select
-                  className="h-9 cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
-                  value={comparison}
-                  onChange={(e) => setComparison(e.target.value as ComparisonMode)}
-                >
-                  {Object.entries(COMPARISON_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+             
             </CardContent>
           </Card>
           </FadeIn>
@@ -424,12 +425,42 @@ export default function ProjectPage() {
                   <TrendingUp className="size-4 text-muted-foreground" />
                   Revenu par jour
                 </CardTitle>
+                {compareModel !== "none" && (
+                  <CardDescription>
+                    {MODEL_LABELS[model]} vs {MODEL_LABELS[compareModel]} — la courbe totale est
+                    identique, seule la répartition par canal change.
+                  </CardDescription>
+                )}
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex flex-col gap-6">
                 {overview ? (
-                  <RevenueTrendChart data={overview.trend} currencies={overview.currencies} />
+                  <div className="flex flex-col gap-3">
+                    {compareModel !== "none" && (
+                      <p className="text-sm font-medium text-muted-foreground">{MODEL_LABELS[model]}</p>
+                    )}
+                    <RevenueTrendChart
+                      trend={overview.trend}
+                      sourceTrend={overview.sourceTrend}
+                      currencies={overview.currencies}
+                    />
+                  </div>
                 ) : (
                   <Skeleton className="h-64 w-full" />
+                )}
+
+                {compareModel !== "none" && (
+                  <div className="flex flex-col gap-3 border-t pt-6">
+                    <p className="text-sm font-medium text-muted-foreground">{MODEL_LABELS[compareModel]}</p>
+                    {compareOverview ? (
+                      <RevenueTrendChart
+                        trend={compareOverview.trend}
+                        sourceTrend={compareOverview.sourceTrend}
+                        currencies={compareOverview.currencies}
+                      />
+                    ) : (
+                      <Skeleton className="h-64 w-full" />
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>
