@@ -259,6 +259,38 @@ describe("GET /api/transactions", () => {
     expect(filteredLines.length - 1).toBeLessThan(total);
   });
 
+  it("CSV export's 'parcours' column follows the active 'Regrouper par' dimension, not always source", async () => {
+    const search = new URLSearchParams({ projectId: MOCK_PROJECT_ID, from: WIDE_FROM, to: WIDE_TO });
+
+    const bySource = await exportGet(
+      new NextRequest(`http://localhost/api/transactions/export?${search}&dimension=source`)
+    );
+    const sourceLines = (await bySource.text()).replace("\ufeff", "").split("\r\n");
+    const sourceParcours = sourceLines[1].split(";")[5];
+    expect(sourceParcours).toContain("/"); // "source / medium"
+
+    const byMedium = await exportGet(
+      new NextRequest(`http://localhost/api/transactions/export?${search}&dimension=medium`)
+    );
+    const mediumLines = (await byMedium.text()).replace("\ufeff", "").split("\r\n");
+    const mediumParcours = mediumLines[1].split(";")[5];
+    // Le regroupement "medium" n'affiche que le medium (ex. "cpc"), jamais "source / medium".
+    expect(mediumParcours).not.toContain("/");
+    expect(mediumParcours).not.toEqual(sourceParcours);
+
+    const byCampaign = await exportGet(
+      new NextRequest(`http://localhost/api/transactions/export?${search}&dimension=campaign`)
+    );
+    const campaignLines = (await byCampaign.text()).replace("\ufeff", "").split("\r\n");
+    const campaignParcours = campaignLines[1].split(";")[5];
+    expect(campaignParcours).not.toEqual(sourceParcours);
+
+    // Sans dimension explicite : comportement historique inchang\u00e9 (source).
+    const noDimension = await exportGet(new NextRequest(`http://localhost/api/transactions/export?${search}`));
+    const noDimensionLines = (await noDimension.text()).replace("\ufeff", "").split("\r\n");
+    expect(noDimensionLines[1].split(";")[5]).toEqual(sourceParcours);
+  });
+
   it("sorts by revenue descending on request", async () => {
     const res = await transactionsGet(
       new NextRequest(transactionsUrl({ sortBy: "purchase_revenue", sortDir: "desc", pageSize: "50" }))
