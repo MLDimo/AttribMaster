@@ -48,6 +48,13 @@ export type DailySourceTrend = {
   points: Array<{ date: string; total: number } & Record<string, number>>;
 };
 
+/** Sélectionne les canaux tracés à partir d'un classement déjà trié par revenu desc (voir `aggregateCreditsBySource`). */
+export function rankPlottedChannels(credits: { source: string }[]): string[] {
+  const topChannels = credits.slice(0, MAX_PLOTTED_CHANNELS).map((c) => c.source);
+  const hasOverflow = credits.length > MAX_PLOTTED_CHANNELS;
+  return hasOverflow ? [...topChannels, OTHER_CHANNEL_LABEL] : topChannels;
+}
+
 /**
  * Revenu par jour ET par canal, selon le modèle d'attribution et la dimension
  * de regroupement actifs : pour les modèles pondérés (tout sauf Markov/
@@ -57,22 +64,30 @@ export type DailySourceTrend = {
  * pas par transaction — voir `computeRowSharePercents`) : on applique donc la
  * part globale de chaque canal au total de CHAQUE jour, cohérent avec le
  * traitement déjà appliqué ailleurs dans l'app pour ces deux modèles.
+ *
+ * `plottedChannels` fixe la liste des canaux tracés (typiquement calculée sur
+ * les lignes NON filtrées, comme le camembert) : quand `rows` est un
+ * sous-ensemble scopé par un filtre de canal, le menu de canaux cliquables ne
+ * doit pas se redessiner avec une composition différente — seules les valeurs
+ * doivent refléter le scope. Si omis, le classement est recalculé depuis `rows`
+ * (comportement historique, utilisé quand l'appelant n'a pas de vue non scopée).
  */
 export function buildDailySourceTrend(
   rows: AttributionRow[],
   from: string,
   to: string,
   model: AttributionModel,
-  dimension: AttributionDimension = "source"
+  dimension: AttributionDimension = "source",
+  plottedChannels?: string[]
 ): DailySourceTrend {
   const dailyTotals = buildDailyTrend(rows, from, to);
   const globalCredits = aggregateCreditsBySource(rows, model, dimension); // déjà trié desc par revenu
 
-  const topChannels = globalCredits.slice(0, MAX_PLOTTED_CHANNELS).map((c) => c.source);
-  const topChannelSet = new Set(topChannels);
-  const hasOverflow = globalCredits.length > MAX_PLOTTED_CHANNELS;
-  const channels = hasOverflow ? [...topChannels, OTHER_CHANNEL_LABEL] : topChannels;
-  const bucketFor = (label: string) => (topChannelSet.has(label) ? label : OTHER_CHANNEL_LABEL);
+  const channels = plottedChannels ?? rankPlottedChannels(globalCredits);
+  const topChannelSet = new Set(channels.filter((c) => c !== OTHER_CHANNEL_LABEL));
+  const hasOtherBucket = channels.includes(OTHER_CHANNEL_LABEL);
+  const bucketFor = (label: string) =>
+    topChannelSet.has(label) ? label : hasOtherBucket ? OTHER_CHANNEL_LABEL : label;
 
   const byDate = new Map(
     dailyTotals.map((d) => {

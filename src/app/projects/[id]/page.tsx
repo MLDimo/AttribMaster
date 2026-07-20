@@ -449,6 +449,8 @@ export default function ProjectPage() {
                       trend={overview.trend}
                       sourceTrend={overview.sourceTrend}
                       currencies={overview.currencies}
+                      selectedChannel={selectedChannel}
+                      onSelectChannel={setSelectedChannel}
                     />
                   </div>
                 ) : (
@@ -463,6 +465,8 @@ export default function ProjectPage() {
                         trend={compareOverview.trend}
                         sourceTrend={compareOverview.sourceTrend}
                         currencies={compareOverview.currencies}
+                        selectedChannel={selectedChannel}
+                        onSelectChannel={setSelectedChannel}
                       />
                     ) : (
                       <Skeleton className="h-64 w-full" />

@@ -103,17 +103,35 @@ function EndDot({
   return <circle cx={cx} cy={cy} r={4} fill={color} stroke="var(--card)" strokeWidth={2} />;
 }
 
-/** Légende horizontale : requise dès que ≥2 séries sont tracées (voir la skill dataviz). */
-function Legend({ channels }: { channels: string[] }) {
+/** Légende horizontale, cliquable : requise dès que ≥2 séries sont tracées (voir la skill dataviz). */
+function Legend({
+  channels,
+  selectedChannel,
+  onSelectChannel,
+}: {
+  channels: string[];
+  selectedChannel?: string | null;
+  onSelectChannel?: (channel: string | null) => void;
+}) {
   if (channels.length === 0) return null;
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1 text-xs text-muted-foreground">
-      {channels.map((channel) => (
-        <span key={channel} className="flex items-center gap-1.5">
-          <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: channelColor(channel) }} />
-          <span className="max-w-40 truncate">{channel}</span>
-        </span>
-      ))}
+    <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-1 text-xs text-muted-foreground">
+      {channels.map((channel) => {
+        const dimmed = Boolean(selectedChannel) && selectedChannel !== channel;
+        return (
+          <button
+            key={channel}
+            type="button"
+            onClick={() => onSelectChannel?.(selectedChannel === channel ? null : channel)}
+            className={`flex items-center gap-1.5 rounded-md px-1.5 py-1 transition-opacity hover:opacity-100 ${
+              dimmed ? "opacity-40" : "opacity-100"
+            } ${onSelectChannel ? "cursor-pointer" : "cursor-default"}`}
+          >
+            <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: channelColor(channel) }} />
+            <span className="max-w-40 truncate">{channel}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -122,10 +140,14 @@ export function RevenueTrendChart({
   trend,
   sourceTrend,
   currencies = ["EUR"],
+  selectedChannel,
+  onSelectChannel,
 }: {
   trend: DailyTrendPoint[];
   sourceTrend: DailySourceTrend;
   currencies?: string[];
+  selectedChannel?: string | null;
+  onSelectChannel?: (channel: string | null) => void;
 }) {
   const formatCurrency = makeCurrencyFormatter(currencies);
   const channels = sourceTrend.channels;
@@ -191,33 +213,57 @@ export function RevenueTrendChart({
               )}
               activeDot={{ r: 4, fill: "var(--brand-accent)", stroke: "var(--card)", strokeWidth: 2 }}
             />
-            {channels.map((channel) => (
-              <Line
-                key={channel}
-                type="monotone"
-                dataKey={channel}
-                stroke={channelColor(channel)}
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                dot={(props: { cx?: number; cy?: number; index?: number; key?: React.Key | null }) => (
-                  <EndDot
-                    key={props.key ?? props.index}
-                    cx={props.cx}
-                    cy={props.cy}
-                    index={props.index}
-                    lastIndex={lastIndex}
-                    color={channelColor(channel)}
-                  />
-                )}
-                activeDot={{ r: 3, fill: channelColor(channel), stroke: "var(--card)", strokeWidth: 2 }}
-                isAnimationActive={false}
-              />
-            ))}
+            {channels.map((channel) => {
+              const dimmed = Boolean(selectedChannel) && selectedChannel !== channel;
+              const color = channelColor(channel);
+              return (
+                <Line
+                  key={channel}
+                  type="monotone"
+                  dataKey={channel}
+                  stroke={color}
+                  strokeOpacity={dimmed ? 0.25 : 1}
+                  strokeWidth={selectedChannel === channel ? 3 : 2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  dot={(props: { cx?: number; cy?: number; index?: number; key?: React.Key | null }) => (
+                    <EndDot
+                      key={props.key ?? props.index}
+                      cx={props.cx}
+                      cy={props.cy}
+                      index={props.index}
+                      lastIndex={lastIndex}
+                      color={color}
+                    />
+                  )}
+                  activeDot={{ r: 3, fill: color, stroke: "var(--card)", strokeWidth: 2 }}
+                  isAnimationActive={false}
+                />
+              );
+            })}
+            {/* Zone de clic élargie et invisible par-dessus chaque ligne (2px de
+                trait = cible trop fine pour cliquer confortablement — voir la
+                skill dataviz sur les cibles de clic). */}
+            {onSelectChannel &&
+              channels.map((channel) => (
+                <Line
+                  key={`${channel}-hit`}
+                  type="monotone"
+                  dataKey={channel}
+                  stroke="transparent"
+                  strokeWidth={16}
+                  dot={false}
+                  activeDot={false}
+                  legendType="none"
+                  isAnimationActive={false}
+                  style={{ cursor: "pointer", pointerEvents: "stroke" }}
+                  onClick={() => onSelectChannel(selectedChannel === channel ? null : channel)}
+                />
+              ))}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-      <Legend channels={channels} />
+      <Legend channels={channels} selectedChannel={selectedChannel} onSelectChannel={onSelectChannel} />
     </div>
   );
 }

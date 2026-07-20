@@ -105,6 +105,23 @@ describe("GET /api/overview (dashboard numbers)", () => {
     expect(sum).toBeCloseTo(json.totals.revenue, 1);
   });
 
+  it("sourceTrend's plotted channel set stays identical whether a channel filter is active or not (only the values re-scope)", async () => {
+    // Le menu de canaux tracés (courbe + légende) doit rester stable quand on
+    // filtre — sinon cliquer un canal fait disparaître/apparaître d'autres
+    // canaux au lieu de simplement les griser, ce qui casse l'interaction
+    // "cliquer pour sélectionner / re-cliquer pour désélectionner".
+    const unscoped = await overviewGet(new NextRequest(overviewUrl({ model: "linear" })));
+    const unscopedJson = await unscoped.json();
+    const firstChannel = unscopedJson.sourceTrend.channels[0];
+
+    const scoped = await overviewGet(
+      new NextRequest(overviewUrl({ model: "linear", channelDimension: "source", channelValue: firstChannel }))
+    );
+    const scopedJson = await scoped.json();
+
+    expect(scopedJson.sourceTrend.channels).toEqual(unscopedJson.sourceTrend.channels);
+  });
+
   it("returns the same total revenue regardless of attribution model", async () => {
     const models = ["last_click", "linear", "time_decay", "u_shape", "markov", "shapley"] as const;
     const revenues: number[] = [];

@@ -5,7 +5,7 @@ import { comparisonRange, defaultRange } from "@/lib/attribution/date-range";
 import { channelLabel } from "@/lib/attribution/dimension";
 import { aggregateCreditsBySource } from "@/lib/attribution/models";
 import { getAttributionRows } from "@/lib/attribution/repository";
-import { buildDailySourceTrend, buildDailyTrend } from "@/lib/attribution/trend";
+import { buildDailySourceTrend, buildDailyTrend, rankPlottedChannels } from "@/lib/attribution/trend";
 import type { AttributionModel } from "@/lib/attribution/types";
 import { apiErrorResponse } from "@/lib/auth/errors";
 
@@ -75,6 +75,13 @@ export async function GET(request: NextRequest) {
         ? ((revenue - previousRevenue) / previousRevenue) * 100
         : null;
 
+    // Classement des canaux tracés calculé sur les lignes NON scopées (même
+    // univers que le camembert) : sélectionner un canal ne doit pas redessiner
+    // le menu du graphe de tendance avec une composition différente — voir
+    // `buildDailySourceTrend`.
+    const globalCredits = aggregateCreditsBySource(rows, model, dimension);
+    const plottedChannels = rankPlottedChannels(globalCredits);
+
     return NextResponse.json({
       range: { from, to },
       comparison: previous,
@@ -84,10 +91,10 @@ export async function GET(request: NextRequest) {
         previousRevenue,
         revenueChangePct,
       },
-      topSources: aggregateCreditsBySource(rows, model, dimension),
+      topSources: globalCredits,
       currencies,
       trend: buildDailyTrend(scopedRows, from, to),
-      sourceTrend: buildDailySourceTrend(scopedRows, from, to, model, dimension),
+      sourceTrend: buildDailySourceTrend(scopedRows, from, to, model, dimension, plottedChannels),
     });
   } catch (error) {
     return apiErrorResponse(error, "[api/overview]", "Failed to load overview data");
