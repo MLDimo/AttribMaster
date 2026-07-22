@@ -190,6 +190,12 @@ describe("GET /api/overview (dashboard numbers)", () => {
     // des sélecteurs), pas restreints au filtre.
     expect(filteredJson.topSources).toEqual(unfilteredJson.topSources);
     expect(filteredJson.trend).toEqual(unfilteredJson.trend);
+    // totalTransactionsAllChannels reste le total non filtré même quand un
+    // canal est sélectionné : c'est ce qui permet d'afficher "N / total" dans
+    // le pied de la liste de transactions plutôt que de perdre le total.
+    expect(filteredJson.totalTransactionsAllChannels).toBe(unfilteredJson.totals.transactions);
+    expect(filteredJson.totalTransactionsAllChannels).toBe(unfilteredJson.totalTransactionsAllChannels);
+    expect(filteredJson.totalTransactionsAllChannels).toBeGreaterThan(filteredJson.totals.transactions);
   });
 
   it("rejects channelDimension without channelValue (and vice versa)", async () => {

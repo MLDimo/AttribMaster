@@ -616,6 +616,7 @@ export default function ProjectPage() {
                     dimension={dimension}
                     selectedChannel={selectedChannel}
                     onClearChannel={() => setSelectedChannel(null)}
+                    totalTransactionsAllChannels={overview?.totalTransactionsAllChannels}
                   />
                 </CardContent>
               </Card>

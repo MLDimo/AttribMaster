@@ -94,6 +94,7 @@ export async function GET(request: NextRequest) {
         previousRevenue,
         revenueChangePct,
       },
+      totalTransactionsAllChannels: rows.length,
       topSources: globalCredits,
       currencies,
       trend: buildDailyTrend(rows, from, to),

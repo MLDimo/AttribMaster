@@ -10,6 +10,9 @@ export type OverviewResponse = {
     previousRevenue: number;
     revenueChangePct: number | null;
   };
+  /** Nombre de transactions sur `range` tous canaux confondus (jamais scopé par le
+   * filtre canal actif) : sert à afficher "N / total" sur la liste des transactions. */
+  totalTransactionsAllChannels: number;
   topSources: SourceCredit[];
   /** Devises distinctes présentes sur la période : > 1 => totaux non homogènes. */
   currencies: string[];
