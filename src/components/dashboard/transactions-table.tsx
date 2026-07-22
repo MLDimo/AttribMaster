@@ -49,6 +49,7 @@ export function TransactionsTable({
   dimension = "source",
   selectedChannel,
   onClearChannel,
+  totalTransactionsAllChannels,
 }: {
   projectId: string;
   from: string;
@@ -58,6 +59,8 @@ export function TransactionsTable({
   dimension?: AttributionDimension;
   selectedChannel?: string | null;
   onClearChannel?: () => void;
+  /** Total tous canaux confondus (non scopé) : affiche "N / total" quand un filtre réduit la liste. */
+  totalTransactionsAllChannels?: number;
 }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -273,7 +276,13 @@ export function TransactionsTable({
       </div>
 
       <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>{data?.total ?? 0} transaction(s)</span>
+        <span>
+          {data?.total ?? 0}
+          {totalTransactionsAllChannels != null && totalTransactionsAllChannels !== data?.total
+            ? ` / ${totalTransactionsAllChannels}`
+            : ""}{" "}
+          transaction(s)
+        </span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
