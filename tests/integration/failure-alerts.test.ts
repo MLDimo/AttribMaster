@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { findProjectsNeedingFailureAlert, sendFailureAlerts } from "@/lib/alerts/failure-alerts";
+import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
 import { getProjectJobHealth } from "@/lib/attribution/queue";
 import { getDbPool } from "@/lib/db/client";
 
@@ -38,6 +39,26 @@ describe("failure alerts", () => {
     await pool.query(`update projects set last_failure_alert_at = now() where id = $1`, [projectId]);
     const after = await findProjectsNeedingFailureAlert();
     expect(after.find((c) => c.project_id === projectId)).toBeUndefined();
+  });
+
+  it("never selects the demo project, even with a failed job and no throttle — its token is fake, it will fail forever otherwise", async () => {
+    const pool = getDbPool();
+    await pool.query(
+      `insert into nightly_jobs (project_id, target_date, status, error, finished_at)
+       values ($1, '2026-06-01', 'failed', 'invalid_grant', now())
+       on conflict (project_id, target_date) do update set status = 'failed', error = excluded.error, finished_at = excluded.finished_at`,
+      [MOCK_PROJECT_ID]
+    );
+
+    // Ne dépend PAS du throttle (last_failure_alert_at) : l'exclusion doit
+    // tenir même quand rien n'a jamais été alerté, sinon le premier email
+    // partirait quand même avant que le throttle ne prenne le relais.
+    const candidates = await findProjectsNeedingFailureAlert();
+    expect(candidates.find((c) => c.project_id === MOCK_PROJECT_ID)).toBeUndefined();
+
+    await pool.query(`delete from nightly_jobs where project_id = $1 and target_date = '2026-06-01'`, [
+      MOCK_PROJECT_ID,
+    ]);
   });
 
   it("does not select a project whose latest job succeeded, even with older failures", async () => {
