@@ -1,3 +1,4 @@
+import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
 import { hasEmailSending, sendEmail } from "@/lib/email/resend";
 import { getDbPool } from "@/lib/db/client";
 
@@ -46,8 +47,10 @@ export async function findProjectsNeedingFailureAlert(): Promise<FailureAlertCan
        ) as owner_emails
      from projects p
      join latest_jobs lj on lj.project_id = p.id and lj.status = 'failed'
-     where p.last_failure_alert_at is null
-        or p.last_failure_alert_at < now() - interval '${ALERT_THROTTLE_DAYS} days'`
+     where p.id != $1
+       and (p.last_failure_alert_at is null
+        or p.last_failure_alert_at < now() - interval '${ALERT_THROTTLE_DAYS} days')`,
+    [MOCK_PROJECT_ID]
   );
   return rows;
 }

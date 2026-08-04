@@ -7,6 +7,7 @@ import {
   toDateOnly,
   yesterdayDateOnly,
 } from "@/lib/attribution/nightly-run";
+import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
 
 type JobStatus = "pending" | "processing" | "done" | "failed";
 
@@ -65,8 +66,13 @@ export async function enqueueJob(
  */
 export async function enqueueBackfillForAllProjects(): Promise<NightlyJob[]> {
   const targetDates = Array.from({ length: BACKFILL_DAYS }, (_, i) => daysAgoDateOnly(i + 1));
+  // Le projet démo (mode public "Explorer une démo") a une ligne réelle en
+  // base pour porter son nom/dataset affichés, mais son token OAuth est
+  // factice et il n'est jamais censé être traité par le cron — sans cette
+  // exclusion, chaque nuit échoue avec invalid_grant et finit par déclencher
+  // une alerte email répétée à son "owner" en base.
   const projects = (await listAllProjectsAsService()).filter(
-    (p) => isProjectConnected(p) && isProjectSubscribed(p)
+    (p) => p.id !== MOCK_PROJECT_ID && isProjectConnected(p) && isProjectSubscribed(p)
   );
   return Promise.all(
     projects.flatMap((p) => targetDates.map((targetDate) => enqueueJob(p.id, targetDate, "cron")))

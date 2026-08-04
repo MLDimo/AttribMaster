@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
+import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
 import {
   enqueueBackfillForAllProjects,
   enqueueHistoricalBackfill,
@@ -132,6 +133,16 @@ describe("nightly attribution job queue", () => {
       await pool.query(`delete from nightly_jobs where id = any($1)`, [
         jobs.filter(Boolean).map((j) => j.id),
       ]);
+    }
+  });
+
+  it("enqueueBackfillForAllProjects never touches the demo project (fake token, guaranteed invalid_grant, spammed the owner with failure alerts every 3 days)", async () => {
+    const jobs = await enqueueBackfillForAllProjects();
+    try {
+      expect(jobs.some((j) => j.project_id === MOCK_PROJECT_ID)).toBe(false);
+    } finally {
+      const pool = getDbPool();
+      await pool.query(`delete from nightly_jobs where id = any($1)`, [jobs.filter(Boolean).map((j) => j.id)]);
     }
   });
 
