@@ -39,7 +39,7 @@ const bodySchema = z.object({
   bigqueryDataset: z.string().trim().regex(BQ_DATASET_ID_RE, "Nom de dataset invalide").optional(),
 });
 
-/** Best effort : crée le dataset + la table d'attribution s'ils n'existent pas. */
+/** Best effort : crée le dataset + les tables résumées (attribution, sessions par canal) s'ils n'existent pas. */
 async function provisionAttributionsTable(
   bigquery: BigQuery,
   gcpProjectId: string,
@@ -58,12 +58,14 @@ async function provisionAttributionsTable(
     await bigquery.createDataset(bigqueryDataset, { location: ga4Metadata.location });
   }
 
-  const ddlPath = path.join(process.cwd(), "sql", "create_attributions_table.sql");
-  const ddl = (await fs.readFile(ddlPath, "utf8")).replaceAll(
-    "@project.@dataset",
-    `${gcpProjectId}.${bigqueryDataset}`
-  );
-  await bigquery.query({ query: ddl });
+  for (const ddlFile of ["create_attributions_table.sql", "create_channel_sessions_table.sql"]) {
+    const ddlPath = path.join(process.cwd(), "sql", ddlFile);
+    const ddl = (await fs.readFile(ddlPath, "utf8")).replaceAll(
+      "@project.@dataset",
+      `${gcpProjectId}.${bigqueryDataset}`
+    );
+    await bigquery.query({ query: ddl });
+  }
 }
 
 export async function POST(

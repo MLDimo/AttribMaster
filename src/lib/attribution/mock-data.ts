@@ -1,6 +1,14 @@
 import type { Project } from "@/lib/projects/types";
 import type { AttributionRow, Touchpoint } from "./types";
 
+export type MockChannelSessionRow = {
+  event_date: string;
+  source: string;
+  medium: string;
+  campaign: string | null;
+  sessions: number;
+};
+
 /**
  * Projet "test mockdata" : jamais connecté à un vrai BigQuery, sert de bac à
  * sable permanent pour tester les modèles d'attribution sans données réelles,
@@ -111,4 +119,44 @@ let cachedRows: AttributionRow[] | null = null;
 export function getMockRows(): AttributionRow[] {
   if (!cachedRows) cachedRows = generateRows();
   return cachedRows;
+}
+
+const MOCK_SESSIONS_PER_CHANNEL_DAY_MIN = 8;
+const MOCK_SESSIONS_PER_CHANNEL_DAY_MAX = 45;
+
+/**
+ * Un taux de conversion par canal réaliste (quelques %) suppose des sessions
+ * bien plus nombreuses que les transactions : ~8-45 sessions/jour/canal sur
+ * 8 canaux × 60 jours contre 180 transactions au total sur la même période.
+ */
+function generateChannelSessions(): MockChannelSessionRow[] {
+  const rng = mulberry32(20260711); // seed distincte de celle des transactions
+  const now = Date.now();
+  const rows: MockChannelSessionRow[] = [];
+
+  for (let daysAgo = 0; daysAgo < MOCK_DAYS_OF_HISTORY; daysAgo++) {
+    const date = new Date(now - daysAgo * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    for (const channel of MOCK_CHANNELS) {
+      const sessions = Math.round(
+        MOCK_SESSIONS_PER_CHANNEL_DAY_MIN +
+          rng() * (MOCK_SESSIONS_PER_CHANNEL_DAY_MAX - MOCK_SESSIONS_PER_CHANNEL_DAY_MIN)
+      );
+      rows.push({
+        event_date: date,
+        source: channel.source,
+        medium: channel.medium,
+        campaign: channel.campaign,
+        sessions,
+      });
+    }
+  }
+  return rows;
+}
+
+let cachedChannelSessions: MockChannelSessionRow[] | null = null;
+
+/** Sessions mock par jour et par canal (dénominateur du taux de conversion), générées une fois puis mises en cache. */
+export function getMockChannelSessionCounts(): MockChannelSessionRow[] {
+  if (!cachedChannelSessions) cachedChannelSessions = generateChannelSessions();
+  return cachedChannelSessions;
 }

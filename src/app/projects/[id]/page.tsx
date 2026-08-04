@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, ChartPie, Check, Eye, GitCompare, Layers, Pencil, Receipt, Settings2, SlidersHorizontal, Sparkles, TrendingUp, UsersRound } from "lucide-react";
+import { Calendar, ChartPie, Check, Eye, GitCompare, Layers, Pencil, Percent, Receipt, Settings2, SlidersHorizontal, Sparkles, TrendingUp, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AppShell } from "@/components/layout/app-shell";
 import { AttributionChart } from "@/components/dashboard/attribution-chart";
 import { AttributionModelsGuide } from "@/components/dashboard/attribution-models-guide";
+import { ChannelPerformanceTable } from "@/components/dashboard/channel-performance-table";
 import { DataFreshnessBanner } from "@/components/dashboard/data-freshness-banner";
 import { DateRangePicker } from "@/components/dashboard/date-range-picker";
 import { OverviewCards } from "@/components/dashboard/overview-cards";
@@ -584,6 +585,35 @@ export default function ProjectPage() {
                           <Skeleton key={i} className="h-5 w-full" />
                         ))}
                       </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+              </FadeIn>
+
+              <FadeIn delay={0.18}>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Percent className="size-4 text-muted-foreground" />
+                    Performance par {DIMENSION_LABELS_LOWER[dimension]}
+                  </CardTitle>
+                  <CardDescription>
+                    Taux de conversion et panier moyen par canal — indépendants du modèle
+                    d&apos;attribution, calculés sur la valeur réelle des commandes.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {overview ? (
+                    <ChannelPerformanceTable
+                      data={overview.channelPerformance}
+                      currencies={overview.currencies}
+                    />
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {[0, 1, 2, 3].map((i) => (
+                        <Skeleton key={i} className="h-8 w-full" />
+                      ))}
                     </div>
                   )}
                 </CardContent>
