@@ -32,6 +32,12 @@ V2 (multi-tenant) et V3 (Stripe) de la roadmap initiale sont livrées. La 2FA
   une démo" sur `/projects`), jamais aux visiteurs anonymes. `getProject` le
   reconnaît par égalité d'ID et renvoie des métadonnées virtuelles sans lecture DB.
 - `sql/nightly_attribution.sql` — script BigQuery idempotent (DELETE+INSERT par jour)
+- `lib/attribution/channel-performance.ts` — taux de conversion + panier moyen par
+  canal (indépendants du modèle d'attribution). Dénominateur (sessions, TOUTES,
+  pas seulement celles qui achètent) alimenté par `sql/nightly_channel_sessions.sql`
+  dans la table résumée `sessions_par_canal` — `attributions_resumees` seule ne
+  contient que des transactions déjà converties, jamais de dénominateur de
+  conversion.
 
 ## Environnements
 - **Prod :** branche `production` → attribmaster.com (+ attrib-master.vercel.app)
@@ -56,7 +62,8 @@ V2 (multi-tenant) et V3 (Stripe) de la roadmap initiale sont livrées. La 2FA
 
 ## Règles
 1. Interdiction de requêter les tables brutes GA4 depuis l'UI : l'UI lit uniquement
-   la table résumée `attributions_resumees` (via `/api/overview` et `/api/transactions`).
+   les tables résumées `attributions_resumees` et `sessions_par_canal` (via
+   `/api/overview` et `/api/transactions`).
 2. Jamais de clé de service GCP à saisir : OAuth uniquement, token chiffré en base.
 3. Plan Vercel Hobby : pas de cron configurable par projet, `maxDuration` ≤ 300s.
 4. Vouvoiement... non : le ton produit est au tutoiement (pages légales, erreurs).

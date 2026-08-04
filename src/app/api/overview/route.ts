@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { computeChannelPerformance } from "@/lib/attribution/channel-performance";
 import { comparisonRange, defaultRange } from "@/lib/attribution/date-range";
 import { channelLabel } from "@/lib/attribution/dimension";
 import { aggregateCreditsBySource } from "@/lib/attribution/models";
-import { getAttributionRows } from "@/lib/attribution/repository";
+import { getAttributionRows, getChannelSessionCounts } from "@/lib/attribution/repository";
 import { buildDailySourceTrend, buildDailyTrend, rankPlottedChannels } from "@/lib/attribution/trend";
 import type { AttributionModel } from "@/lib/attribution/types";
 import { apiErrorResponse } from "@/lib/auth/errors";
@@ -45,9 +46,10 @@ export async function GET(request: NextRequest) {
   const { channelDimension, channelValue } = parsed.data;
 
   try {
-    const [rows, previousRows] = await Promise.all([
+    const [rows, previousRows, sessionCounts] = await Promise.all([
       getAttributionRows(projectId, { from, to }),
       getAttributionRows(projectId, previous),
+      getChannelSessionCounts(projectId, { from, to }),
     ]);
 
     // Le camembert ET le graphe de tendance gardent toujours la vue complète
@@ -99,6 +101,10 @@ export async function GET(request: NextRequest) {
       currencies,
       trend: buildDailyTrend(rows, from, to),
       sourceTrend: buildDailySourceTrend(rows, from, to, model, dimension, plottedChannels),
+      // Vue toujours complète (comme le camembert/graphe de tendance), jamais
+      // scopée par le canal sélectionné : c'est un tableau de sélection, pas
+      // un KPI qui doit se rétrécir au clic.
+      channelPerformance: computeChannelPerformance(rows, sessionCounts, dimension),
     });
   } catch (error) {
     return apiErrorResponse(error, "[api/overview]", "Failed to load overview data");

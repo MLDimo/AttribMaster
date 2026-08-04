@@ -174,6 +174,40 @@ describe("GET /api/overview (dashboard numbers)", () => {
     expect(labels).toContain("(sans campagne)");
   });
 
+  it("channelPerformance: reports a sane conversion rate and average order value per channel", async () => {
+    const res = await overviewGet(new NextRequest(overviewUrl({ model: "linear" })));
+    const json = await res.json();
+
+    expect(json.channelPerformance.length).toBeGreaterThan(0);
+    for (const row of json.channelPerformance) {
+      expect(row.sessions).toBeGreaterThan(0); // fenêtre large : couvre les 60 jours de données mock
+      expect(row.transactions).toBeGreaterThanOrEqual(0);
+      // Le taux de conversion mock est volontairement réaliste (sessions >> transactions).
+      expect(row.conversionRate).toBeGreaterThan(0);
+      expect(row.conversionRate).toBeLessThan(1);
+      if (row.transactions > 0) {
+        expect(row.avgOrderValue).toBeGreaterThan(0);
+      } else {
+        expect(row.avgOrderValue).toBeNull();
+      }
+    }
+    // Trié par sessions décroissant.
+    const sessionCounts = json.channelPerformance.map((r: { sessions: number }) => r.sessions);
+    expect(sessionCounts).toEqual([...sessionCounts].sort((a: number, b: number) => b - a));
+  });
+
+  it("channelPerformance stays the full unfiltered view when a channel filter is active (same selector precedent as topSources/trend)", async () => {
+    const unfiltered = await overviewGet(new NextRequest(overviewUrl({ model: "linear" })));
+    const unfilteredJson = await unfiltered.json();
+
+    const filtered = await overviewGet(
+      new NextRequest(overviewUrl({ model: "linear", channelDimension: "medium", channelValue: "cpc" }))
+    );
+    const filteredJson = await filtered.json();
+
+    expect(filteredJson.channelPerformance).toEqual(unfilteredJson.channelPerformance);
+  });
+
   it("selecting a channel scopes totals to transactions touched by it, without changing topSources' or trend's full breakdown", async () => {
     const unfiltered = await overviewGet(new NextRequest(overviewUrl({ model: "linear", dimension: "medium" })));
     const unfilteredJson = await unfiltered.json();

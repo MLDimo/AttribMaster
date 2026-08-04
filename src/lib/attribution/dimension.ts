@@ -11,7 +11,10 @@ export type AttributionDimension = "source" | "medium" | "campaign";
 export const NO_CAMPAIGN_LABEL = "(sans campagne)";
 
 /** Libellé d'un touchpoint selon la dimension active — clé d'agrégation des modèles. */
-export function channelLabel(touchpoint: Touchpoint, dimension: AttributionDimension): string {
+export function channelLabel(
+  touchpoint: Pick<Touchpoint, "source" | "medium" | "campaign">,
+  dimension: AttributionDimension
+): string {
   if (dimension === "medium") return touchpoint.medium;
   if (dimension === "campaign") return touchpoint.campaign?.trim() || NO_CAMPAIGN_LABEL;
   return `${touchpoint.source} / ${touchpoint.medium}`;

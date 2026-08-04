@@ -5,6 +5,7 @@ import { getProject, getProjectAsService, getProjectOAuthToken } from "@/lib/pro
 import type { Project } from "@/lib/projects/types";
 
 export const ATTRIBUTIONS_TABLE = "attributions_resumees";
+export const CHANNEL_SESSIONS_TABLE = "sessions_par_canal";
 
 export type ProjectBigQuery = {
   client: BigQuery;

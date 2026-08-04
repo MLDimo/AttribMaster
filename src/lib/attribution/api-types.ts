@@ -1,3 +1,4 @@
+import type { ChannelPerformance } from "./channel-performance";
 import type { DailySourceTrend, DailyTrendPoint } from "./trend";
 import type { AttributionRow, SourceCredit } from "./types";
 
@@ -20,6 +21,8 @@ export type OverviewResponse = {
   trend: DailyTrendPoint[];
   /** Revenu par jour ET par canal (top 6 + "Autres"), selon le modèle/la dimension actifs. */
   sourceTrend: DailySourceTrend;
+  /** Taux de conversion + panier moyen par canal, vue toujours complète (comme topSources). */
+  channelPerformance: ChannelPerformance[];
 };
 
 export type TransactionsResponse = {
