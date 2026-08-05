@@ -96,6 +96,12 @@ function roundPercentagesTo100(weights: number[]): number[] {
   return result;
 }
 
+/** Le canal déjà enregistré d'une règle reste sélectionnable même s'il n'est plus dans le top des canaux actuels (ex: canal retombé hors du classement, ou période changée). */
+function channelOptionsFor(knownChannels: string[], currentValue: string): string[] {
+  if (!currentValue || knownChannels.includes(currentValue)) return knownChannels;
+  return [currentValue, ...knownChannels];
+}
+
 function rulesEqual(a: CustomModelRule[], b: CustomModelRule[]): boolean {
   if (a.length !== b.length) return false;
   return a.every((r, i) => r.channelValue === b[i].channelValue && r.position === b[i].position && r.percent === b[i].percent);
@@ -181,11 +187,14 @@ export function CustomModelBuilder({
   config,
   canManage,
   onSaved,
+  knownChannels = [],
 }: {
   projectId: string;
   config: CustomModelConfig | null;
   canManage: boolean;
   onSaved: (config: CustomModelConfig | null) => void;
+  /** Canaux réellement observés sur le projet (triés par revenu, comme le camembert), pour peupler le sélecteur de règle plutôt qu'une saisie libre sujette aux fautes de frappe. */
+  knownChannels?: string[];
 }) {
   const [draft, setDraft] = useState<CustomModelConfig>(config ?? DEFAULT_CONFIG);
   const [saving, setSaving] = useState(false);
@@ -354,13 +363,21 @@ export function CustomModelBuilder({
                     )}
                   </select>
                   <span className="text-xs text-muted-foreground">est</span>
-                  <Input
+                  <select
+                    className="h-8 min-w-32 flex-1 cursor-pointer rounded-md border border-input bg-transparent px-2 text-xs"
                     value={rule.channelValue}
                     disabled={saving}
                     onChange={(e) => updateRule(i, { channelValue: e.target.value })}
-                    placeholder="ex : google / cpc"
-                    className="h-8 min-w-32 flex-1 text-xs"
-                  />
+                  >
+                    <option value="" disabled hidden>
+                      Choisir un canal…
+                    </option>
+                    {channelOptionsFor(knownChannels, rule.channelValue).map((channel) => (
+                      <option key={channel} value={channel}>
+                        {channel}
+                      </option>
+                    ))}
+                  </select>
                   <span className="text-xs text-muted-foreground">→</span>
                   <Input
                     type="number"
