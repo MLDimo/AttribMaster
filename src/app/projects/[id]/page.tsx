@@ -246,8 +246,13 @@ export default function ProjectPage() {
   // invaliderait inutilement les effets qui le prennent en dépendance.
   const customModelConfig = useMemo(
     () => (project ? getCustomModelConfig(project) : null),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- volontairement scopé aux 3 champs primitifs, pas à `project` (nouvelle référence à chaque rendu)
-    [project?.custom_model_first_touch_pct, project?.custom_model_middle_pct, project?.custom_model_last_touch_pct]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- volontairement scopé à ces 4 champs, pas à `project` (nouvelle référence à chaque rendu)
+    [
+      project?.custom_model_first_touch_pct,
+      project?.custom_model_middle_pct,
+      project?.custom_model_last_touch_pct,
+      project?.custom_model_rules,
+    ]
   );
   // Distinct de `usable` : évite d'afficher des squelettes qui ne finiraient
   // jamais de charger quand "Personnalisé" est actif mais pas encore configuré
@@ -309,6 +314,7 @@ export default function ProjectPage() {
             custom_model_first_touch_pct: config?.firstTouchPercent ?? null,
             custom_model_middle_pct: config?.middlePercent ?? null,
             custom_model_last_touch_pct: config?.lastTouchPercent ?? null,
+            custom_model_rules: config?.rules ?? [],
           }
         : prev
     );

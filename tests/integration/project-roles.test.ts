@@ -150,7 +150,7 @@ describe("project roles: read-only collaborator (project_members) vs workspace o
     expect(gcpDatasetsRes.status).toBe(403);
 
     const customModelViewerRes = await customModelPut(
-      customModelPutRequest({ firstTouchPercent: 50, middlePercent: 0, lastTouchPercent: 50 }),
+      customModelPutRequest({ firstTouchPercent: 50, middlePercent: 0, lastTouchPercent: 50, rules: [] }),
       params(project.id)
     );
     expect(customModelViewerRes.status).toBe(403);
@@ -178,24 +178,49 @@ describe("project roles: read-only collaborator (project_members) vs workspace o
     expect(getCustomModelConfig(freshAccess!.project)).toBeNull();
 
     const invalidRes = await customModelPut(
-      customModelPutRequest({ firstTouchPercent: 50, middlePercent: 10, lastTouchPercent: 10 }), // somme = 70
+      customModelPutRequest({ firstTouchPercent: 50, middlePercent: 10, lastTouchPercent: 10, rules: [] }), // somme = 70
       params(project.id)
     );
     expect(invalidRes.status).toBe(400);
 
+    const invalidRulesSumRes = await customModelPut(
+      customModelPutRequest({
+        firstTouchPercent: 60,
+        middlePercent: 15,
+        lastTouchPercent: 25,
+        rules: [
+          { channelValue: "google / cpc", position: "first", percent: 70 },
+          { channelValue: "direct / none", position: "last", percent: 40 },
+        ], // somme des règles = 110 > 100
+      }),
+      params(project.id)
+    );
+    expect(invalidRulesSumRes.status).toBe(400);
+
     const validRes = await customModelPut(
-      customModelPutRequest({ firstTouchPercent: 60, middlePercent: 15, lastTouchPercent: 25 }),
+      customModelPutRequest({
+        firstTouchPercent: 60,
+        middlePercent: 15,
+        lastTouchPercent: 25,
+        rules: [{ channelValue: "google / cpc", position: "first", percent: 70 }],
+      }),
       params(project.id)
     );
     expect(validRes.status).toBe(200);
     const validJson = await validRes.json();
-    expect(validJson.config).toEqual({ firstTouchPercent: 60, middlePercent: 15, lastTouchPercent: 25 });
+    expect(validJson.config).toEqual({
+      firstTouchPercent: 60,
+      middlePercent: 15,
+      lastTouchPercent: 25,
+      rules: [{ channelValue: "google / cpc", position: "first", percent: 70 }],
+    });
 
     const afterSaveAccess = await getProjectWithAccess(project.id);
     expect(getCustomModelConfig(afterSaveAccess!.project)).toEqual({
       firstTouchPercent: 60,
       middlePercent: 15,
       lastTouchPercent: 25,
+      rules: [{ channelValue: "google / cpc", position: "first", percent: 70 }],
     });
 
     const clearRes = await customModelDelete(new NextRequest("http://localhost", { method: "DELETE" }), params(project.id));
@@ -238,7 +263,7 @@ describe("project roles: read-only collaborator (project_members) vs workspace o
     expect(connectRes.status).toBe(403);
 
     const customModelRes = await customModelPut(
-      customModelPutRequest({ firstTouchPercent: 50, middlePercent: 0, lastTouchPercent: 50 }),
+      customModelPutRequest({ firstTouchPercent: 50, middlePercent: 0, lastTouchPercent: 50, rules: [] }),
       params(MOCK_PROJECT_ID)
     );
     expect(customModelRes.status).toBe(403);

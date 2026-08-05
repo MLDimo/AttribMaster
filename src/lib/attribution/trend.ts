@@ -113,7 +113,7 @@ export function buildDailySourceTrend(
     for (const row of rows) {
       const point = byDate.get(row.event_date);
       if (!point) continue; // défensif : les rows sont déjà filtrées sur [from, to]
-      const weights = computeWeights(row.touchpoints, model, customConfig);
+      const weights = computeWeights(row.touchpoints, model, customConfig, dimension);
       row.touchpoints.forEach((tp, i) => {
         const bucket = bucketFor(channelLabel(tp, dimension));
         point[bucket] = (point[bucket] ?? 0) + row.purchase_revenue * weights[i];

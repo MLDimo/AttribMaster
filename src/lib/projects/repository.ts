@@ -226,15 +226,16 @@ export async function saveCustomModelConfig(projectId: string, config: CustomMod
   const db = getDbPool();
   const { rows } = await db.query<Project>(
     `update projects
-     set custom_model_first_touch_pct = $1, custom_model_middle_pct = $2, custom_model_last_touch_pct = $3
-     where id = $4
+     set custom_model_first_touch_pct = $1, custom_model_middle_pct = $2, custom_model_last_touch_pct = $3,
+         custom_model_rules = $4::jsonb
+     where id = $5
      returning *`,
-    [config.firstTouchPercent, config.middlePercent, config.lastTouchPercent, projectId]
+    [config.firstTouchPercent, config.middlePercent, config.lastTouchPercent, JSON.stringify(config.rules), projectId]
   );
   return rows[0];
 }
 
-/** Repasse le projet en "pas de modèle personnalisé configuré" (les 3 colonnes à NULL). */
+/** Repasse le projet en "pas de modèle personnalisé configuré" (les 3 colonnes à NULL, règles vidées). */
 export async function clearCustomModelConfig(projectId: string): Promise<Project> {
   const userId = await requireUserId();
   await requireProjectAccess(projectId, userId);
@@ -242,7 +243,8 @@ export async function clearCustomModelConfig(projectId: string): Promise<Project
   const db = getDbPool();
   const { rows } = await db.query<Project>(
     `update projects
-     set custom_model_first_touch_pct = null, custom_model_middle_pct = null, custom_model_last_touch_pct = null
+     set custom_model_first_touch_pct = null, custom_model_middle_pct = null, custom_model_last_touch_pct = null,
+         custom_model_rules = '[]'::jsonb
      where id = $1
      returning *`,
     [projectId]
