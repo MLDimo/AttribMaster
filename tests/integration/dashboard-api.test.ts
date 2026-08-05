@@ -157,7 +157,12 @@ describe("GET /api/overview (dashboard numbers)", () => {
     const res = await overviewGet(new NextRequest(overviewUrl({ model: "custom" })));
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.customModelConfig).toEqual({ firstTouchPercent: 50, middlePercent: 10, lastTouchPercent: 40 });
+    expect(json.customModelConfig).toEqual({
+      firstTouchPercent: 50,
+      middlePercent: 10,
+      lastTouchPercent: 40,
+      rules: [{ channelValue: "google / cpc", position: "first", percent: 70 }],
+    });
     // Modèle pondéré : la répartition change, jamais le total.
     const topSourcesTotal = json.topSources.reduce((sum: number, s: { revenue: number }) => sum + s.revenue, 0);
     expect(topSourcesTotal).toBeCloseTo(json.totals.revenue, 1);

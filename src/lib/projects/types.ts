@@ -1,4 +1,4 @@
-import type { CustomModelConfig } from "@/lib/attribution/types";
+import type { CustomModelConfig, CustomModelRule } from "@/lib/attribution/types";
 
 export type PlanId = "standard" | "pro" | "custom";
 export type BillingInterval = "monthly" | "annual";
@@ -20,15 +20,17 @@ export type Project = {
   custom_model_first_touch_pct: number | null;
   custom_model_middle_pct: number | null;
   custom_model_last_touch_pct: number | null;
+  custom_model_rules: CustomModelRule[];
 };
 
-/** Les 3 colonnes sont soit toutes NULL (non configuré), soit toutes renseignées (contrainte DB). */
+/** Les 3 colonnes pct sont soit toutes NULL (non configuré), soit toutes renseignées (contrainte DB) ; `custom_model_rules` existe toujours (défaut `[]`). */
 export function getCustomModelConfig(project: Project): CustomModelConfig | null {
   if (project.custom_model_first_touch_pct === null) return null;
   return {
     firstTouchPercent: project.custom_model_first_touch_pct,
     middlePercent: project.custom_model_middle_pct!,
     lastTouchPercent: project.custom_model_last_touch_pct!,
+    rules: project.custom_model_rules,
   };
 }
 

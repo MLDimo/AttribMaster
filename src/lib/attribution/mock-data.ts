@@ -45,6 +45,9 @@ export const MOCK_PROJECT: Project = {
   custom_model_first_touch_pct: 50,
   custom_model_middle_pct: 10,
   custom_model_last_touch_pct: 40,
+  // Illustre les règles conditionnelles : "si google / cpc est le premier
+  // contact, lui donner 70 %" plutôt que le 50 % par défaut ci-dessus.
+  custom_model_rules: [{ channelValue: "google / cpc", position: "first", percent: 70 }],
 };
 
 const MOCK_CHANNELS: Array<{ source: string; medium: string; campaign: string | null }> = [

@@ -9,11 +9,12 @@ import type {
 
 const TIME_DECAY_HALF_LIFE_DAYS = 7;
 
-/** Repli si "custom" est demandé sans config (ne devrait jamais arriver via l'API, voir overview/route.ts) : même partage que le modèle "En U" intégré. */
+/** Repli si "custom" est demandé sans config (ne devrait jamais arriver via l'API, voir overview/route.ts) : même partage que le modèle "En U" intégré, sans règle. */
 const DEFAULT_CUSTOM_CONFIG: CustomModelConfig = {
   firstTouchPercent: 40,
   middlePercent: 20,
   lastTouchPercent: 40,
+  rules: [],
 };
 
 /** Sous-ensemble des modèles calculables touchpoint par touchpoint (poids qui somment à 1). */
@@ -23,7 +24,9 @@ export type WeightedModel = Exclude<AttributionModel, "markov" | "shapley">;
  * Modèle "En U" généralisé et configurable par l'utilisateur : `firstTouchPercent`
  * au premier contact, `lastTouchPercent` au dernier, `middlePercent` réparti à
  * parts égales entre les touchpoints du milieu (comme "En U", mais avec un
- * partage choisi plutôt que le 40/40/20 fixe).
+ * partage choisi plutôt que le 40/40/20 fixe). C'est le modèle "par défaut" :
+ * utilisé tel quel sans règle, et comme filet de sécurité pour tout
+ * touchpoint qu'aucune règle ne cible (voir `computeCustomWeights`).
  *
  * Cas à exactement 2 touchpoints (pas de milieu) : le "milieu" configuré n'a
  * personne à qui l'attribuer, donc premier et dernier se partagent les 100 %
@@ -32,12 +35,13 @@ export type WeightedModel = Exclude<AttributionModel, "markov" | "shapley">;
  * préférence exprimée par l'utilisateur. Si les deux sont aussi à 0 (tout le
  * poids mis sur un "milieu" qui n'existe pas ici), on retombe sur 50/50.
  */
-function computeCustomWeights(touchpoints: Touchpoint[], config: CustomModelConfig): number[] {
+function computeDefaultPositionWeights(touchpoints: Touchpoint[], config: CustomModelConfig): number[] {
   const n = touchpoints.length;
   const first = config.firstTouchPercent / 100;
   const last = config.lastTouchPercent / 100;
   const middle = config.middlePercent / 100;
 
+  if (n === 1) return [1];
   if (n === 2) {
     const edgeTotal = first + last;
     if (edgeTotal === 0) return [0.5, 0.5];
@@ -48,11 +52,72 @@ function computeCustomWeights(touchpoints: Touchpoint[], config: CustomModelConf
   return touchpoints.map((_, i) => (i === 0 ? first : i === n - 1 ? last : middleShare));
 }
 
+/**
+ * Modèle "Personnalisé" complet : les règles conditionnelles (`config.rules`)
+ * surchargent le modèle par défaut pour un canal précis en position première
+ * ou dernière — les deux seules positions qui désignent un touchpoint UNIQUE
+ * par transaction, donc jamais surchargées deux fois. Le "milieu" n'est
+ * jamais ciblable par une règle (voir `CustomModelRulePosition`).
+ *
+ * Le budget non consommé par les règles qui matchent CETTE transaction (100 %
+ * moins leurs pourcentages) est réparti entre les touchpoints non ciblés AU
+ * PRORATA de ce que leur donnerait le modèle par défaut entre eux seuls —
+ * jamais un simple repli à parts égales, pour rester cohérent avec la
+ * préférence premier/milieu/dernier exprimée par ailleurs.
+ *
+ * Garantie : la somme retournée vaut toujours exactement 1, quelle que soit
+ * la combinaison de règles qui matche (y compris le cas limite où premier ET
+ * dernier sont tous deux ciblés par une règle sans totaliser 100 % : le
+ * reliquat est alors réparti en repli en amplifiant proportionnellement les
+ * deux poids fixés, faute d'un autre touchpoint à qui le donner).
+ */
+function computeCustomWeights(
+  touchpoints: Touchpoint[],
+  config: CustomModelConfig,
+  dimension: AttributionDimension
+): number[] {
+  const n = touchpoints.length;
+  const defaultWeights = computeDefaultPositionWeights(touchpoints, config);
+  if (n <= 1) return defaultWeights;
+
+  const fixed: Array<number | null> = new Array(n).fill(null);
+  const firstLabel = channelLabel(touchpoints[0], dimension);
+  const lastLabel = channelLabel(touchpoints[n - 1], dimension);
+  for (const rule of config.rules) {
+    if (rule.position === "first" && fixed[0] === null && rule.channelValue === firstLabel) {
+      fixed[0] = rule.percent / 100;
+    }
+    if (rule.position === "last" && fixed[n - 1] === null && rule.channelValue === lastLabel) {
+      fixed[n - 1] = rule.percent / 100;
+    }
+  }
+
+  const usedFraction = fixed.reduce((sum: number, w) => sum + (w ?? 0), 0);
+  const unmatchedIndices = fixed.map((w, i) => (w === null ? i : -1)).filter((i) => i !== -1);
+
+  if (unmatchedIndices.length === 0) {
+    // Premier ET dernier ciblés par une règle (donc n === 2, seules positions
+    // ciblables) : rien d'autre à qui donner le reliquat éventuel — on
+    // renormalise pour que la somme retombe exactement à 1.
+    return fixed.map((w) => (usedFraction > 0 ? (w as number) / usedFraction : 1 / n));
+  }
+
+  const remainingFraction = Math.max(0, 1 - usedFraction);
+  const unmatchedDefaultSum = unmatchedIndices.reduce((sum, i) => sum + defaultWeights[i], 0);
+  return fixed.map((w, i) => {
+    if (w !== null) return w;
+    return unmatchedDefaultSum > 0
+      ? (defaultWeights[i] / unmatchedDefaultSum) * remainingFraction
+      : remainingFraction / unmatchedIndices.length;
+  });
+}
+
 /** Poids (somme = 1) attribués à chaque touchpoint, du premier au dernier. */
 export function computeWeights(
   touchpoints: Touchpoint[],
   model: WeightedModel,
-  customConfig?: CustomModelConfig
+  customConfig?: CustomModelConfig,
+  dimension: AttributionDimension = "source"
 ): number[] {
   const n = touchpoints.length;
   if (n === 0) return [];
@@ -88,7 +153,7 @@ export function computeWeights(
     }
 
     case "custom":
-      return computeCustomWeights(touchpoints, customConfig ?? DEFAULT_CUSTOM_CONFIG);
+      return computeCustomWeights(touchpoints, customConfig ?? DEFAULT_CUSTOM_CONFIG, dimension);
   }
 }
 
@@ -102,7 +167,7 @@ function aggregateWithWeights(
   let totalRevenue = 0;
 
   for (const row of rows) {
-    const weights = computeWeights(row.touchpoints, model, customConfig);
+    const weights = computeWeights(row.touchpoints, model, customConfig, dimension);
     row.touchpoints.forEach((tp, i) => {
       const credit = row.purchase_revenue * weights[i];
       const label = channelLabel(tp, dimension);
@@ -409,7 +474,7 @@ export function computeRowSharePercents(
   if (n === 0) return [];
 
   if (model !== "markov" && model !== "shapley") {
-    return computeWeights(touchpoints, model, customConfig).map((w) => w * 100);
+    return computeWeights(touchpoints, model, customConfig, dimension).map((w) => w * 100);
   }
 
   const shareByLabel = new Map(topSources.map((s) => [s.source, s.share]));

@@ -1,16 +1,19 @@
 "use client";
 
-import { Info, Loader2, RotateCcw, Save } from "lucide-react";
+import { Info, ListPlus, Loader2, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
 import { useState } from "react";
 
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { computeWeights } from "@/lib/attribution/models";
-import type { CustomModelConfig, Touchpoint } from "@/lib/attribution/types";
+import type { CustomModelConfig, CustomModelRule, CustomModelRulePosition, Touchpoint } from "@/lib/attribution/types";
 
-const DEFAULT_CONFIG: CustomModelConfig = { firstTouchPercent: 40, middlePercent: 20, lastTouchPercent: 40 };
+const DEFAULT_CONFIG: CustomModelConfig = { firstTouchPercent: 40, middlePercent: 20, lastTouchPercent: 40, rules: [] };
 
-type PositionKey = keyof CustomModelConfig;
+type PositionKey = "firstTouchPercent" | "middlePercent" | "lastTouchPercent";
 
 const POSITIONS: Array<{ key: PositionKey; label: string; color: string; hint: string }> = [
   {
@@ -33,12 +36,23 @@ const POSITIONS: Array<{ key: PositionKey; label: string; color: string; hint: s
   },
 ];
 
-/** Parcours factice pour visualiser en direct l'effet des 3 curseurs — jamais envoyé au serveur. */
+const RULE_POSITION_LABELS: Record<CustomModelRulePosition, string> = {
+  first: "Premier contact",
+  last: "Dernier contact",
+};
+
+/**
+ * Parcours factice pour visualiser en direct l'effet des curseurs ET des
+ * règles — jamais envoyé au serveur. Libellés réalistes (au format
+ * "source / support" qu'utilisent les vraies règles) plutôt que des noms
+ * génériques : une règle ciblant "google / cpc" a une chance réelle de
+ * s'appliquer visiblement ici, pas seulement en production.
+ */
 const PREVIEW_TOUCHPOINTS: Touchpoint[] = [
-  { source: "Réseaux sociaux", medium: "paid", campaign: null, timestamp: "2026-07-01T10:00:00Z", position: 0 },
-  { source: "Email", medium: "email", campaign: null, timestamp: "2026-07-03T10:00:00Z", position: 1 },
-  { source: "Recherche payante", medium: "cpc", campaign: null, timestamp: "2026-07-05T10:00:00Z", position: 2 },
-  { source: "Direct", medium: "none", campaign: null, timestamp: "2026-07-06T10:00:00Z", position: 3 },
+  { source: "google", medium: "cpc", campaign: null, timestamp: "2026-07-01T10:00:00Z", position: 0 },
+  { source: "newsletter", medium: "email", campaign: null, timestamp: "2026-07-03T10:00:00Z", position: 1 },
+  { source: "facebook", medium: "paid", campaign: null, timestamp: "2026-07-05T10:00:00Z", position: 2 },
+  { source: "direct", medium: "none", campaign: null, timestamp: "2026-07-06T10:00:00Z", position: 3 },
 ];
 
 /**
@@ -82,11 +96,17 @@ function roundPercentagesTo100(weights: number[]): number[] {
   return result;
 }
 
+function rulesEqual(a: CustomModelRule[], b: CustomModelRule[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((r, i) => r.channelValue === b[i].channelValue && r.position === b[i].position && r.percent === b[i].percent);
+}
+
 function configsEqual(a: CustomModelConfig, b: CustomModelConfig): boolean {
   return (
     a.firstTouchPercent === b.firstTouchPercent &&
     a.middlePercent === b.middlePercent &&
-    a.lastTouchPercent === b.lastTouchPercent
+    a.lastTouchPercent === b.lastTouchPercent &&
+    rulesEqual(a.rules, b.rules)
   );
 }
 
@@ -104,10 +124,57 @@ function SplitBar({ config }: { config: CustomModelConfig }) {
   );
 }
 
+function JourneyPreview({ config }: { config: CustomModelConfig }) {
+  const previewPercents = roundPercentagesTo100(computeWeights(PREVIEW_TOUCHPOINTS, "custom", config, "source"));
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-dashed border-border bg-muted/30 p-3">
+      <p className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+        <Info className="size-3 shrink-0" />
+        Exemple sur un parcours à 4 étapes
+      </p>
+      <div className="flex flex-wrap items-center gap-1">
+        {PREVIEW_TOUCHPOINTS.map((tp, i) => {
+          const color = POSITIONS[i === 0 ? 0 : i === PREVIEW_TOUCHPOINTS.length - 1 ? 2 : 1].color;
+          const label = `${tp.source} / ${tp.medium}`;
+          return (
+            <span key={label} className="flex items-center gap-1">
+              <span
+                className="rounded px-1.5 py-0.5 text-[11px] font-medium text-white"
+                style={{ backgroundColor: color }}
+              >
+                {label} · {previewPercents[i]}%
+              </span>
+              {i < PREVIEW_TOUCHPOINTS.length - 1 && <span className="text-muted-foreground">→</span>}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function RulesReadOnlyList({ rules }: { rules: CustomModelRule[] }) {
+  if (rules.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1.5 text-sm">
+      <p className="text-xs text-muted-foreground">Règles :</p>
+      {rules.map((rule, i) => (
+        <p key={i} className="text-xs text-muted-foreground">
+          Si le <span className="font-medium text-foreground">{RULE_POSITION_LABELS[rule.position].toLowerCase()}</span>{" "}
+          est <span className="font-medium text-foreground">{rule.channelValue}</span> → il reçoit{" "}
+          <span className="font-mono font-medium text-foreground">{rule.percent}%</span>
+        </p>
+      ))}
+    </div>
+  );
+}
+
 /**
  * Onglet "Mon modèle" du panneau d'attribution : construit un modèle "En U"
- * généralisé et configurable (premier / milieu / dernier contact), persisté
- * par projet — voir `computeWeights` (case "custom") côté calcul.
+ * généralisé et configurable (premier / milieu / dernier contact), avec des
+ * règles conditionnelles optionnelles ("si CE canal est en 1er/dernier
+ * contact, donne-lui X%") — persisté par projet, voir `computeWeights` (case
+ * "custom") côté calcul.
  */
 export function CustomModelBuilder({
   projectId,
@@ -134,7 +201,19 @@ export function CustomModelBuilder({
   }
 
   const isDirty = !config || !configsEqual(draft, config);
-  const previewPercents = roundPercentagesTo100(computeWeights(PREVIEW_TOUCHPOINTS, "custom", draft));
+  const rulesSum = draft.rules.reduce((sum, r) => sum + r.percent, 0);
+  const rulesValid = rulesSum <= 100 && draft.rules.every((r) => r.channelValue.trim().length > 0);
+  const canSave = isDirty && rulesValid;
+
+  function addRule() {
+    setDraft((d) => ({ ...d, rules: [...d.rules, { channelValue: "", position: "first", percent: 10 }] }));
+  }
+  function updateRule(index: number, patch: Partial<CustomModelRule>) {
+    setDraft((d) => ({ ...d, rules: d.rules.map((r, i) => (i === index ? { ...r, ...patch } : r)) }));
+  }
+  function removeRule(index: number) {
+    setDraft((d) => ({ ...d, rules: d.rules.filter((_, i) => i !== index) }));
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -143,7 +222,7 @@ export function CustomModelBuilder({
       const res = await fetch(`/api/projects/${projectId}/custom-model`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draft),
+        body: JSON.stringify({ ...draft, rules: draft.rules.map((r) => ({ ...r, channelValue: r.channelValue.trim() })) }),
       });
       if (!res.ok) throw new Error();
       const json: { config: CustomModelConfig } = await res.json();
@@ -187,6 +266,8 @@ export function CustomModelBuilder({
                 </div>
               ))}
             </div>
+            <RulesReadOnlyList rules={config.rules} />
+            <JourneyPreview config={config} />
           </>
         ) : (
           <p className="text-sm text-muted-foreground">
@@ -230,29 +311,7 @@ export function CustomModelBuilder({
       </div>
 
       <SplitBar config={draft} />
-
-      <div className="flex flex-col gap-2 rounded-lg border border-dashed border-border bg-muted/30 p-3">
-        <p className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-          <Info className="size-3 shrink-0" />
-          Exemple sur un parcours à 4 étapes
-        </p>
-        <div className="flex flex-wrap items-center gap-1">
-          {PREVIEW_TOUCHPOINTS.map((tp, i) => {
-            const color = POSITIONS[i === 0 ? 0 : i === PREVIEW_TOUCHPOINTS.length - 1 ? 2 : 1].color;
-            return (
-              <span key={tp.source} className="flex items-center gap-1">
-                <span
-                  className="rounded px-1.5 py-0.5 text-[11px] font-medium text-white"
-                  style={{ backgroundColor: color }}
-                >
-                  {tp.source} · {previewPercents[i]}%
-                </span>
-                {i < PREVIEW_TOUCHPOINTS.length - 1 && <span className="text-muted-foreground">→</span>}
-              </span>
-            );
-          })}
-        </div>
-      </div>
+      <JourneyPreview config={draft} />
 
       <p className="text-[11px] text-muted-foreground">
         Parcours à une seule interaction : elle reçoit 100 %, quels que soient les curseurs. Parcours à
@@ -260,10 +319,94 @@ export function CustomModelBuilder({
         leurs parts respectives ci-dessus.
       </p>
 
+      <Accordion type="single" collapsible defaultValue={draft.rules.length > 0 ? "rules" : undefined}>
+        <AccordionItem value="rules" className="border-none">
+          <AccordionTrigger className="py-1 hover:no-underline">
+            <span className="flex items-center gap-1.5 text-sm font-medium">
+              <ListPlus className="size-3.5 text-muted-foreground" />
+              Règles avancées (optionnel)
+              {draft.rules.length > 0 && <Badge variant="secondary">{draft.rules.length}</Badge>}
+            </span>
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="flex flex-col gap-3 pt-1">
+              <p className="text-[11px] text-muted-foreground">
+                Cible un canal précis en position première ou dernière pour lui donner un % fixe, différent
+                du modèle par défaut ci-dessus (ex: &quot;si google / cpc est le premier contact → 70
+                %&quot;). Le reste retombe automatiquement sur le modèle par défaut — la somme des règles ne
+                doit pas dépasser 100 %.
+              </p>
+
+              {draft.rules.map((rule, i) => (
+                <div key={i} className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2">
+                  <select
+                    className="h-8 shrink-0 cursor-pointer rounded-md border border-input bg-transparent px-2 text-xs"
+                    value={rule.position}
+                    disabled={saving}
+                    onChange={(e) => updateRule(i, { position: e.target.value as CustomModelRulePosition })}
+                  >
+                    {(Object.entries(RULE_POSITION_LABELS) as Array<[CustomModelRulePosition, string]>).map(
+                      ([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      )
+                    )}
+                  </select>
+                  <span className="text-xs text-muted-foreground">est</span>
+                  <Input
+                    value={rule.channelValue}
+                    disabled={saving}
+                    onChange={(e) => updateRule(i, { channelValue: e.target.value })}
+                    placeholder="ex : google / cpc"
+                    className="h-8 min-w-32 flex-1 text-xs"
+                  />
+                  <span className="text-xs text-muted-foreground">→</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={rule.percent}
+                    disabled={saving}
+                    onChange={(e) =>
+                      updateRule(i, { percent: Math.max(0, Math.min(100, Math.round(Number(e.target.value) || 0))) })
+                    }
+                    className="h-8 w-16 text-xs"
+                  />
+                  <span className="text-xs text-muted-foreground">%</span>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-8 shrink-0"
+                    disabled={saving}
+                    onClick={() => removeRule(i)}
+                    aria-label="Supprimer cette règle"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
+              ))}
+
+              <div className="flex items-center justify-between gap-2">
+                <Button size="sm" variant="outline" onClick={addRule} disabled={saving}>
+                  <Plus className="size-3.5" />
+                  Ajouter une règle
+                </Button>
+                {draft.rules.length > 0 && (
+                  <span className={`text-xs ${rulesSum > 100 ? "font-medium text-destructive" : "text-muted-foreground"}`}>
+                    Somme des règles : {rulesSum}%{rulesSum > 100 ? " — dépasse 100 %" : ""}
+                  </span>
+                )}
+              </div>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+
       {error && <p className="text-xs text-destructive">{error}</p>}
 
       <div className="flex items-center gap-2">
-        <Button size="sm" onClick={handleSave} disabled={!isDirty || saving}>
+        <Button size="sm" onClick={handleSave} disabled={!canSave || saving}>
           {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
           Enregistrer
         </Button>

@@ -86,7 +86,7 @@ describe("computeWeights", () => {
 });
 
 describe("computeWeights — custom model", () => {
-  const CONFIG = { firstTouchPercent: 70, middlePercent: 10, lastTouchPercent: 20 };
+  const CONFIG = { firstTouchPercent: 70, middlePercent: 10, lastTouchPercent: 20, rules: [] };
 
   it("gives the configured shares to first/last and splits the rest evenly across the middle", () => {
     const touchpoints = [tp("a", "m", "t1", 0), tp("b", "m", "t2", 1), tp("c", "m", "t3", 2), tp("d", "m", "t4", 3)];
@@ -108,7 +108,7 @@ describe("computeWeights — custom model", () => {
 
   it("with 2 touchpoints and both first/last configured at 0%, falls back to 50/50", () => {
     const touchpoints = [tp("a", "m", "t1", 0), tp("b", "m", "t2", 1)];
-    const weights = computeWeights(touchpoints, "custom", { firstTouchPercent: 0, middlePercent: 100, lastTouchPercent: 0 });
+    const weights = computeWeights(touchpoints, "custom", { firstTouchPercent: 0, middlePercent: 100, lastTouchPercent: 0, rules: [] });
     expect(weights).toEqual([0.5, 0.5]);
   });
 
@@ -123,6 +123,108 @@ describe("computeWeights — custom model", () => {
     expect(weights[0]).toBeCloseTo(0.4);
     expect(weights[1]).toBeCloseTo(0.2);
     expect(weights[2]).toBeCloseTo(0.4);
+  });
+});
+
+describe("computeWeights — custom model rules", () => {
+  const BASE = { firstTouchPercent: 40, middlePercent: 20, lastTouchPercent: 40 };
+
+  it("a matching 'first' rule overrides the default weight for the first touchpoint only", () => {
+    const touchpoints = [tp("a", "m", "t1", 0), tp("b", "m", "t2", 1), tp("c", "m", "t3", 2), tp("d", "m", "t4", 3)];
+    const weights = computeWeights(touchpoints, "custom", {
+      ...BASE,
+      rules: [{ channelValue: "a / m", position: "first", percent: 70 }],
+    });
+    expect(weights[0]).toBeCloseTo(0.7);
+    // Poids par défaut sans règle : [0.4, 0.1, 0.1, 0.4] (20% de milieu réparti
+    // sur 2 touchpoints). Le reliquat (30%, 1 - 0.7) se répartit entre les 3
+    // autres AU PRORATA de ces poids par défaut entre eux (0.1/0.6, 0.1/0.6, 0.4/0.6).
+    expect(weights[1]).toBeCloseTo(0.3 * (0.1 / 0.6));
+    expect(weights[2]).toBeCloseTo(0.3 * (0.1 / 0.6));
+    expect(weights[3]).toBeCloseTo(0.3 * (0.4 / 0.6));
+    expect(weights.reduce((s, w) => s + w, 0)).toBeCloseTo(1);
+  });
+
+  it("a matching 'last' rule overrides only the last touchpoint, never the first even with the same channel value", () => {
+    const touchpoints = [tp("a", "m", "t1", 0), tp("b", "m", "t2", 1), tp("a", "m", "t3", 2)];
+    // "a / m" apparaît en 1ère ET 3ème position, mais la règle ne cible que "last".
+    const weights = computeWeights(touchpoints, "custom", {
+      ...BASE,
+      rules: [{ channelValue: "a / m", position: "last", percent: 55 }],
+    });
+    expect(weights[2]).toBeCloseTo(0.55);
+    expect(weights[0]).not.toBeCloseTo(0.55, 1);
+    expect(weights.reduce((s, w) => s + w, 0)).toBeCloseTo(1);
+  });
+
+  it("a rule that doesn't match any touchpoint's channel falls back entirely to the default weights", () => {
+    const touchpoints = [tp("a", "m", "t1", 0), tp("b", "m", "t2", 1), tp("c", "m", "t3", 2)];
+    const weights = computeWeights(touchpoints, "custom", {
+      ...BASE,
+      rules: [{ channelValue: "nonexistent / channel", position: "first", percent: 90 }],
+    });
+    expect(weights[0]).toBeCloseTo(0.4);
+    expect(weights[1]).toBeCloseTo(0.2);
+    expect(weights[2]).toBeCloseTo(0.4);
+  });
+
+  it("first and last rules can both match simultaneously (different touchpoints), remaining budget covers the middle", () => {
+    const touchpoints = [tp("a", "m", "t1", 0), tp("x", "m", "t2", 1), tp("b", "m", "t3", 2)];
+    const weights = computeWeights(touchpoints, "custom", {
+      ...BASE,
+      rules: [
+        { channelValue: "a / m", position: "first", percent: 30 },
+        { channelValue: "b / m", position: "last", percent: 40 },
+      ],
+    });
+    expect(weights[0]).toBeCloseTo(0.3);
+    expect(weights[2]).toBeCloseTo(0.4);
+    expect(weights[1]).toBeCloseTo(0.3); // 100% - 30% - 40%, seul touchpoint non ciblé
+    expect(weights.reduce((s, w) => s + w, 0)).toBeCloseTo(1);
+  });
+
+  it("when first+last rules match on a 2-touchpoint path and don't sum to 100%, renormalizes proportionally (no middle to absorb the rest)", () => {
+    const touchpoints = [tp("a", "m", "t1", 0), tp("b", "m", "t2", 1)];
+    const weights = computeWeights(touchpoints, "custom", {
+      ...BASE,
+      rules: [
+        { channelValue: "a / m", position: "first", percent: 30 },
+        { channelValue: "b / m", position: "last", percent: 20 },
+      ],
+    });
+    // 30/(30+20) et 20/(30+20)
+    expect(weights[0]).toBeCloseTo(0.6);
+    expect(weights[1]).toBeCloseTo(0.4);
+  });
+
+  it("a single touchpoint always gets 100%, rules are never even evaluated", () => {
+    const touchpoints = [tp("a", "m", "t1", 0)];
+    const weights = computeWeights(touchpoints, "custom", {
+      ...BASE,
+      rules: [{ channelValue: "a / m", position: "first", percent: 1 }],
+    });
+    expect(weights).toEqual([1]);
+  });
+
+  it("respects the active grouping dimension when matching a rule's channel value", () => {
+    const touchpoints = [tp("google", "cpc", "t1", 0), tp("bing", "cpc", "t2", 1)];
+    // Le libellé en dimension "medium" est juste "cpc", pas "google / cpc".
+    const weightsBySource = computeWeights(
+      touchpoints,
+      "custom",
+      { ...BASE, rules: [{ channelValue: "google / cpc", position: "first", percent: 80 }] },
+      "source"
+    );
+    expect(weightsBySource[0]).toBeCloseTo(0.8);
+
+    const weightsByMedium = computeWeights(
+      touchpoints,
+      "custom",
+      { ...BASE, rules: [{ channelValue: "google / cpc", position: "first", percent: 80 }] },
+      "medium"
+    );
+    // Ne matche plus ("cpc" !== "google / cpc") : repli intégral sur le défaut.
+    expect(weightsByMedium[0]).toBeCloseTo(0.5); // n=2, 40/40 par défaut -> 50/50
   });
 });
 
@@ -276,6 +378,7 @@ describe("aggregateCreditsBySource — custom model", () => {
       firstTouchPercent: 90,
       middlePercent: 0,
       lastTouchPercent: 10,
+      rules: [],
     });
     const google = credits.find((c) => c.source === "google / cpc");
     const direct = credits.find((c) => c.source === "direct / none");

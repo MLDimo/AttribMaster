@@ -45,6 +45,14 @@ V2 (multi-tenant) et V3 (Stripe) de la roadmap initiale sont livrées. La 2FA
   `hasProjectManageAccess` uniquement) via `PUT`/`DELETE
   /api/projects/[id]/custom-model`, calcul dans `models.ts` (`computeWeights`
   case "custom"), UI dans l'onglet "Mon modèle" du panneau `AttributionModelsGuide`.
+  Règles conditionnelles optionnelles (`projects.custom_model_rules` jsonb) :
+  "si le premier/dernier contact est CE canal, donne-lui X%" — ne peuvent
+  cibler QUE premier/dernier (positions uniques par transaction, jamais le
+  milieu qui peut en désigner 0/1/plusieurs). Le budget non consommé par les
+  règles qui matchent une transaction donnée retombe sur le modèle par défaut
+  au prorata, garantissant une somme toujours exacte à 100 % (voir
+  `computeCustomWeights`) ; somme des règles ≤ 100 validée par zod uniquement
+  (pas de contrainte DB sur le contenu du JSON).
 
 ## Environnements
 - **Prod :** branche `production` → attribmaster.com (+ attrib-master.vercel.app)
