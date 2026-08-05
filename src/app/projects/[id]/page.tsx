@@ -384,6 +384,7 @@ export default function ProjectPage() {
               customModelConfig={customModelConfig}
               canManageCustomModel={canManage}
               onCustomModelSaved={handleCustomModelSaved}
+              knownChannels={overview?.topSources.map((s) => s.source)}
             />
           </div>
         </FadeIn>

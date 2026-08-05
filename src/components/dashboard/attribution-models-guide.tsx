@@ -60,11 +60,13 @@ export function AttributionModelsGuide({
   customModelConfig,
   canManageCustomModel,
   onCustomModelSaved,
+  knownChannels,
 }: {
   projectId: string;
   customModelConfig: CustomModelConfig | null;
   canManageCustomModel: boolean;
   onCustomModelSaved: (config: CustomModelConfig | null) => void;
+  knownChannels?: string[];
 }) {
   return (
     <Card className="h-fit w-full">
@@ -110,6 +112,7 @@ export function AttributionModelsGuide({
               config={customModelConfig}
               canManage={canManageCustomModel}
               onSaved={onCustomModelSaved}
+              knownChannels={knownChannels}
             />
           </TabsContent>
         </Tabs>
