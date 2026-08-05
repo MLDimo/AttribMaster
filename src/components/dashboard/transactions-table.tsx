@@ -20,7 +20,7 @@ import { AttributionChain } from "@/components/dashboard/attribution-chain";
 import { fadeUpVariants } from "@/components/effects/motion";
 import type { TransactionsResponse } from "@/lib/attribution/api-types";
 import type { AttributionDimension } from "@/lib/attribution/dimension";
-import type { AttributionModel, SourceCredit } from "@/lib/attribution/types";
+import type { AttributionModel, CustomModelConfig, SourceCredit } from "@/lib/attribution/types";
 
 function formatCurrency(value: number, currency: string): string {
   return new Intl.NumberFormat("fr-FR", {
@@ -46,6 +46,7 @@ export function TransactionsTable({
   to,
   model,
   topSources,
+  customModelConfig,
   dimension = "source",
   selectedChannel,
   onClearChannel,
@@ -56,6 +57,7 @@ export function TransactionsTable({
   to: string;
   model: AttributionModel;
   topSources: SourceCredit[];
+  customModelConfig?: CustomModelConfig | null;
   dimension?: AttributionDimension;
   selectedChannel?: string | null;
   onClearChannel?: () => void;
@@ -209,6 +211,7 @@ export function TransactionsTable({
               touchpoints={row.touchpoints}
               model={model}
               topSources={topSources}
+              customModelConfig={customModelConfig}
               dimension={dimension}
               selectedChannel={selectedChannel}
             />

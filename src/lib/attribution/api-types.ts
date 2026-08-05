@@ -1,6 +1,6 @@
 import type { ChannelPerformance } from "./channel-performance";
 import type { DailySourceTrend, DailyTrendPoint } from "./trend";
-import type { AttributionRow, SourceCredit } from "./types";
+import type { AttributionRow, CustomModelConfig, SourceCredit } from "./types";
 
 export type OverviewResponse = {
   range: { from: string; to: string };
@@ -23,6 +23,8 @@ export type OverviewResponse = {
   sourceTrend: DailySourceTrend;
   /** Taux de conversion + panier moyen par canal, vue toujours complète (comme topSources). */
   channelPerformance: ChannelPerformance[];
+  /** Config active du modèle "Personnalisé" (null si `model` n'est pas "custom" ou si non configuré). */
+  customModelConfig: CustomModelConfig | null;
 };
 
 export type TransactionsResponse = {

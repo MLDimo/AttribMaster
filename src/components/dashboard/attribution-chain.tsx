@@ -5,7 +5,7 @@ import { colorForSource, sourceLabel } from "@/lib/attribution/colors";
 import type { AttributionDimension } from "@/lib/attribution/dimension";
 import { channelLabel } from "@/lib/attribution/dimension";
 import { computeRowSharePercents } from "@/lib/attribution/models";
-import type { AttributionModel, SourceCredit, Touchpoint } from "@/lib/attribution/types";
+import type { AttributionModel, CustomModelConfig, SourceCredit, Touchpoint } from "@/lib/attribution/types";
 
 function formatPercent(value: number): string {
   return `${value < 10 ? value.toFixed(1) : Math.round(value)}%`;
@@ -16,16 +16,18 @@ export function AttributionChain({
   touchpoints,
   model,
   topSources,
+  customModelConfig,
   dimension = "source",
   selectedChannel,
 }: {
   touchpoints: Touchpoint[];
   model: AttributionModel;
   topSources: SourceCredit[];
+  customModelConfig?: CustomModelConfig | null;
   dimension?: AttributionDimension;
   selectedChannel?: string | null;
 }) {
-  const shares = computeRowSharePercents(touchpoints, model, topSources, dimension);
+  const shares = computeRowSharePercents(touchpoints, model, topSources, dimension, customModelConfig ?? undefined);
   // Markov/Shapley : part globale du canal (portefeuille), pas une décomposition
   // propre à cette transaction — voir le commentaire de computeRowSharePercents.
   const isGlobalShare = model === "markov" || model === "shapley";

@@ -84,7 +84,7 @@ describe("GET /api/overview (dashboard numbers)", () => {
   });
 
   it("sourceTrend: per-day channel breakdown reconciles with trend's daily revenue, for every model", async () => {
-    for (const model of ["last_click", "linear", "u_shape", "time_decay", "markov", "shapley"] as const) {
+    for (const model of ["last_click", "linear", "u_shape", "time_decay", "markov", "shapley", "custom"] as const) {
       const res = await overviewGet(new NextRequest(overviewUrl({ model })));
       const json = await res.json();
 
@@ -140,7 +140,7 @@ describe("GET /api/overview (dashboard numbers)", () => {
   });
 
   it("returns the same total revenue regardless of attribution model", async () => {
-    const models = ["last_click", "linear", "time_decay", "u_shape", "markov", "shapley"] as const;
+    const models = ["last_click", "linear", "time_decay", "u_shape", "markov", "shapley", "custom"] as const;
     const revenues: number[] = [];
     for (const model of models) {
       const res = await overviewGet(new NextRequest(overviewUrl({ model })));
@@ -151,6 +151,16 @@ describe("GET /api/overview (dashboard numbers)", () => {
     // répartition par source change.
     const distinctRevenues = new Set(revenues.map((r) => Math.round(r * 100)));
     expect(distinctRevenues.size).toBe(1);
+  });
+
+  it("model=custom uses the project's saved config (mock project ships a 50/10/40 preset) and splits revenue accordingly on a last_click-equivalent single-touch check", async () => {
+    const res = await overviewGet(new NextRequest(overviewUrl({ model: "custom" })));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.customModelConfig).toEqual({ firstTouchPercent: 50, middlePercent: 10, lastTouchPercent: 40 });
+    // Modèle pondéré : la répartition change, jamais le total.
+    const topSourcesTotal = json.topSources.reduce((sum: number, s: { revenue: number }) => sum + s.revenue, 0);
+    expect(topSourcesTotal).toBeCloseTo(json.totals.revenue, 1);
   });
 
   it("dimension=medium groups google/cpc and bing/cpc together under \"cpc\", never separately", async () => {

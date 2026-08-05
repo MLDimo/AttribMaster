@@ -38,6 +38,13 @@ V2 (multi-tenant) et V3 (Stripe) de la roadmap initiale sont livrées. La 2FA
   dans la table résumée `sessions_par_canal` — `attributions_resumees` seule ne
   contient que des transactions déjà converties, jamais de dénominateur de
   conversion.
+- 7e modèle d'attribution "Personnalisé" (`AttributionModel = "custom"`) : un
+  "En U" généralisé, un seul par projet, poids (premier/milieu/dernier contact,
+  somme = 100) stockés en colonnes nullables `projects.custom_model_*` (jamais
+  NULL séparément, contrainte DB). Gestion (lecture pour tous, écriture
+  `hasProjectManageAccess` uniquement) via `PUT`/`DELETE
+  /api/projects/[id]/custom-model`, calcul dans `models.ts` (`computeWeights`
+  case "custom"), UI dans l'onglet "Mon modèle" du panneau `AttributionModelsGuide`.
 
 ## Environnements
 - **Prod :** branche `production` → attribmaster.com (+ attrib-master.vercel.app)

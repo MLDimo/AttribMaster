@@ -1,3 +1,5 @@
+import type { CustomModelConfig } from "@/lib/attribution/types";
+
 export type PlanId = "standard" | "pro" | "custom";
 export type BillingInterval = "monthly" | "annual";
 
@@ -15,7 +17,20 @@ export type Project = {
   billing_interval: BillingInterval | null;
   stripe_subscription_id: string | null;
   subscription_status: string | null;
+  custom_model_first_touch_pct: number | null;
+  custom_model_middle_pct: number | null;
+  custom_model_last_touch_pct: number | null;
 };
+
+/** Les 3 colonnes sont soit toutes NULL (non configuré), soit toutes renseignées (contrainte DB). */
+export function getCustomModelConfig(project: Project): CustomModelConfig | null {
+  if (project.custom_model_first_touch_pct === null) return null;
+  return {
+    firstTouchPercent: project.custom_model_first_touch_pct,
+    middlePercent: project.custom_model_middle_pct!,
+    lastTouchPercent: project.custom_model_last_touch_pct!,
+  };
+}
 
 /** Un projet est utilisable (requêtes BigQuery) une fois la connexion faite. */
 export function isProjectConnected(project: Project): boolean {

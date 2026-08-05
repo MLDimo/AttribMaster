@@ -3,7 +3,7 @@
 import { Calendar, ChartPie, Check, Eye, GitCompare, Layers, Pencil, Percent, Receipt, Settings2, SlidersHorizontal, Sparkles, TrendingUp, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,9 +24,9 @@ import { defaultRange } from "@/lib/attribution/date-range";
 import type { ComparisonMode } from "@/lib/attribution/date-range";
 import type { AttributionDimension } from "@/lib/attribution/dimension";
 import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
-import { isProjectConnected, isProjectSubscribed } from "@/lib/projects/types";
+import { getCustomModelConfig, isProjectConnected, isProjectSubscribed } from "@/lib/projects/types";
 import type { Project } from "@/lib/projects/types";
-import type { AttributionModel } from "@/lib/attribution/types";
+import type { AttributionModel, CustomModelConfig } from "@/lib/attribution/types";
 
 const MODEL_LABELS: Record<AttributionModel, string> = {
   last_click: "Last Click",
@@ -35,6 +35,7 @@ const MODEL_LABELS: Record<AttributionModel, string> = {
   u_shape: "En U",
   markov: "Chaînes de Markov",
   shapley: "Valeur de Shapley",
+  custom: "Personnalisé",
 };
 
 const DIMENSION_LABELS: Record<AttributionDimension, string> = {
@@ -240,9 +241,24 @@ export default function ProjectPage() {
   const connected = project ? isProjectConnected(project) : false;
   const subscribed = project ? isProjectSubscribed(project) : false;
   const usable = connected && subscribed;
+  // Mémoïsé sur les 3 champs bruts (primitifs) plutôt que sur `project` : sinon
+  // `getCustomModelConfig` renverrait un nouvel objet à chaque rendu et
+  // invaliderait inutilement les effets qui le prennent en dépendance.
+  const customModelConfig = useMemo(
+    () => (project ? getCustomModelConfig(project) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- volontairement scopé aux 3 champs primitifs, pas à `project` (nouvelle référence à chaque rendu)
+    [project?.custom_model_first_touch_pct, project?.custom_model_middle_pct, project?.custom_model_last_touch_pct]
+  );
+  // Distinct de `usable` : évite d'afficher des squelettes qui ne finiraient
+  // jamais de charger quand "Personnalisé" est actif mais pas encore configuré
+  // (le fetch overview est délibérément sauté dans ce cas, voir l'effet ci-dessous).
+  const showResults = usable && !(model === "custom" && !customModelConfig);
 
   useEffect(() => {
-    if (!projectId || !usable) return;
+    // "Personnalisé" sans config enregistrée : rien à demander au serveur
+    // (qui répondrait 400) tant que l'utilisateur n'a pas d'abord enregistré
+    // son modèle dans l'onglet "Mon modèle".
+    if (!projectId || !usable || (model === "custom" && !customModelConfig)) return;
     const params = new URLSearchParams({ projectId, from, to, model, comparison, dimension });
     if (selectedChannel) {
       params.set("channelDimension", dimension);
@@ -257,7 +273,7 @@ export default function ProjectPage() {
     return () => {
       cancelled = true;
     };
-  }, [projectId, usable, from, to, model, comparison, dimension, selectedChannel]);
+  }, [projectId, usable, from, to, model, comparison, dimension, selectedChannel, customModelConfig]);
 
   // Purge du résultat comparé quand la comparaison est désactivée (ajustement
   // pendant le rendu plutôt qu'un setState synchrone dans un effet).
@@ -268,7 +284,7 @@ export default function ProjectPage() {
   }
 
   useEffect(() => {
-    if (!projectId || !usable || compareModel === "none") {
+    if (!projectId || !usable || compareModel === "none" || (compareModel === "custom" && !customModelConfig)) {
       return;
     }
     const params = new URLSearchParams({ projectId, from, to, model: compareModel, comparison, dimension });
@@ -281,7 +297,22 @@ export default function ProjectPage() {
     return () => {
       cancelled = true;
     };
-  }, [projectId, usable, from, to, compareModel, comparison, dimension]);
+  }, [projectId, usable, from, to, compareModel, comparison, dimension, customModelConfig]);
+
+  // Fusionne le résultat d'un save/reset dans `project` plutôt qu'un refetch :
+  // évite un aller-retour réseau pour 3 champs déjà connus côté client.
+  function handleCustomModelSaved(config: CustomModelConfig | null) {
+    setProject((prev) =>
+      prev
+        ? {
+            ...prev,
+            custom_model_first_touch_pct: config?.firstTouchPercent ?? null,
+            custom_model_middle_pct: config?.middlePercent ?? null,
+            custom_model_last_touch_pct: config?.lastTouchPercent ?? null,
+          }
+        : prev
+    );
+  }
 
   if (notFound) {
     return (
@@ -342,7 +373,12 @@ export default function ProjectPage() {
         <FadeIn>
           <div className="flex w-full shrink-0 flex-col gap-5 lg:w-72">
             <ProjectSettingsSidebar project={project} onRenamed={setProject} readOnly={readOnly} />
-            <AttributionModelsGuide />
+            <AttributionModelsGuide
+              projectId={projectId}
+              customModelConfig={customModelConfig}
+              canManageCustomModel={canManage}
+              onCustomModelSaved={handleCustomModelSaved}
+            />
           </div>
         </FadeIn>
 
@@ -453,7 +489,21 @@ export default function ProjectPage() {
             </FadeIn>
           )}
 
-          {usable && !overview && (
+          {usable && model === "custom" && !customModelConfig && (
+            <FadeIn delay={0.14}>
+            <Card>
+              <CardContent className="flex flex-col items-center gap-3 py-8 text-center text-sm text-muted-foreground">
+                <p>Aucun modèle personnalisé configuré sur ce projet pour le moment.</p>
+                <p className="text-xs">
+                  Ouvre l&apos;onglet <span className="font-medium text-foreground">Mon modèle</span> dans le
+                  panneau &quot;Modèles d&apos;attribution&quot; à gauche pour en créer un.
+                </p>
+              </CardContent>
+            </Card>
+            </FadeIn>
+          )}
+
+          {usable && !overview && !(model === "custom" && !customModelConfig) && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               {[0, 1, 2].map((i) => (
                 <Card key={i} className="gap-3 py-5">
@@ -473,7 +523,7 @@ export default function ProjectPage() {
             <OverviewCards totals={overview.totals} comparisonLabel={COMPARISON_LABELS[comparison]} currencies={overview.currencies} />
           )}
 
-          {usable && (
+          {showResults && (
             <FadeIn delay={0.13}>
             <Card>
               <CardHeader>
@@ -527,7 +577,7 @@ export default function ProjectPage() {
             </FadeIn>
           )}
 
-          {usable && (
+          {showResults && (
             <>
               <FadeIn delay={0.15}>
               <Card>
@@ -643,6 +693,7 @@ export default function ProjectPage() {
                     to={to}
                     model={model}
                     topSources={overview?.topSources ?? []}
+                    customModelConfig={customModelConfig}
                     dimension={dimension}
                     selectedChannel={selectedChannel}
                     onClearChannel={() => setSelectedChannel(null)}

@@ -1,6 +1,6 @@
 import { channelLabel, type AttributionDimension } from "./dimension";
 import { aggregateCreditsBySource, computeWeights } from "./models";
-import type { AttributionModel, AttributionRow } from "./types";
+import type { AttributionModel, AttributionRow, CustomModelConfig } from "./types";
 
 export type DailyTrendPoint = {
   date: string;
@@ -78,10 +78,11 @@ export function buildDailySourceTrend(
   to: string,
   model: AttributionModel,
   dimension: AttributionDimension = "source",
-  plottedChannels?: string[]
+  plottedChannels?: string[],
+  customConfig?: CustomModelConfig
 ): DailySourceTrend {
   const dailyTotals = buildDailyTrend(rows, from, to);
-  const globalCredits = aggregateCreditsBySource(rows, model, dimension); // déjà trié desc par revenu
+  const globalCredits = aggregateCreditsBySource(rows, model, dimension, customConfig); // déjà trié desc par revenu
 
   const channels = plottedChannels ?? rankPlottedChannels(globalCredits);
   const topChannelSet = new Set(channels.filter((c) => c !== OTHER_CHANNEL_LABEL));
@@ -112,7 +113,7 @@ export function buildDailySourceTrend(
     for (const row of rows) {
       const point = byDate.get(row.event_date);
       if (!point) continue; // défensif : les rows sont déjà filtrées sur [from, to]
-      const weights = computeWeights(row.touchpoints, model);
+      const weights = computeWeights(row.touchpoints, model, customConfig);
       row.touchpoints.forEach((tp, i) => {
         const bucket = bucketFor(channelLabel(tp, dimension));
         point[bucket] = (point[bucket] ?? 0) + row.purchase_revenue * weights[i];

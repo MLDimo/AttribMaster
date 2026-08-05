@@ -39,6 +39,12 @@ export const MOCK_PROJECT: Project = {
   billing_interval: null,
   stripe_subscription_id: null,
   subscription_status: "active",
+  // Modèle personnalisé pré-rempli (lecture seule comme tout le reste du
+  // projet démo) pour que "Personnalisé" soit aussi explorable ici, avec un
+  // partage volontairement différent du 40/40/20 du modèle "En U" intégré.
+  custom_model_first_touch_pct: 50,
+  custom_model_middle_pct: 10,
+  custom_model_last_touch_pct: 40,
 };
 
 const MOCK_CHANNELS: Array<{ source: string; medium: string; campaign: string | null }> = [

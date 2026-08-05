@@ -2,19 +2,57 @@ import { channelLabel, type AttributionDimension } from "./dimension";
 import type {
   AttributionModel,
   AttributionRow,
+  CustomModelConfig,
   SourceCredit,
   Touchpoint,
 } from "./types";
 
 const TIME_DECAY_HALF_LIFE_DAYS = 7;
 
+/** Repli si "custom" est demandé sans config (ne devrait jamais arriver via l'API, voir overview/route.ts) : même partage que le modèle "En U" intégré. */
+const DEFAULT_CUSTOM_CONFIG: CustomModelConfig = {
+  firstTouchPercent: 40,
+  middlePercent: 20,
+  lastTouchPercent: 40,
+};
+
 /** Sous-ensemble des modèles calculables touchpoint par touchpoint (poids qui somment à 1). */
 export type WeightedModel = Exclude<AttributionModel, "markov" | "shapley">;
+
+/**
+ * Modèle "En U" généralisé et configurable par l'utilisateur : `firstTouchPercent`
+ * au premier contact, `lastTouchPercent` au dernier, `middlePercent` réparti à
+ * parts égales entre les touchpoints du milieu (comme "En U", mais avec un
+ * partage choisi plutôt que le 40/40/20 fixe).
+ *
+ * Cas à exactement 2 touchpoints (pas de milieu) : le "milieu" configuré n'a
+ * personne à qui l'attribuer, donc premier et dernier se partagent les 100 %
+ * AU PRORATA l'un de l'autre (ex: 70/10/20 configuré -> 87.5/12.5 sur un
+ * parcours à 2 touchpoints), plutôt qu'un 50/50 arbitraire qui ignorerait la
+ * préférence exprimée par l'utilisateur. Si les deux sont aussi à 0 (tout le
+ * poids mis sur un "milieu" qui n'existe pas ici), on retombe sur 50/50.
+ */
+function computeCustomWeights(touchpoints: Touchpoint[], config: CustomModelConfig): number[] {
+  const n = touchpoints.length;
+  const first = config.firstTouchPercent / 100;
+  const last = config.lastTouchPercent / 100;
+  const middle = config.middlePercent / 100;
+
+  if (n === 2) {
+    const edgeTotal = first + last;
+    if (edgeTotal === 0) return [0.5, 0.5];
+    return [first / edgeTotal, last / edgeTotal];
+  }
+
+  const middleShare = middle / (n - 2);
+  return touchpoints.map((_, i) => (i === 0 ? first : i === n - 1 ? last : middleShare));
+}
 
 /** Poids (somme = 1) attribués à chaque touchpoint, du premier au dernier. */
 export function computeWeights(
   touchpoints: Touchpoint[],
-  model: WeightedModel
+  model: WeightedModel,
+  customConfig?: CustomModelConfig
 ): number[] {
   const n = touchpoints.length;
   if (n === 0) return [];
@@ -48,19 +86,23 @@ export function computeWeights(
       const total = rawWeights.reduce((sum, w) => sum + w, 0);
       return rawWeights.map((w) => w / total);
     }
+
+    case "custom":
+      return computeCustomWeights(touchpoints, customConfig ?? DEFAULT_CUSTOM_CONFIG);
   }
 }
 
 function aggregateWithWeights(
   rows: AttributionRow[],
   model: WeightedModel,
-  dimension: AttributionDimension
+  dimension: AttributionDimension,
+  customConfig?: CustomModelConfig
 ): SourceCredit[] {
   const revenueBySource = new Map<string, number>();
   let totalRevenue = 0;
 
   for (const row of rows) {
-    const weights = computeWeights(row.touchpoints, model);
+    const weights = computeWeights(row.touchpoints, model, customConfig);
     row.touchpoints.forEach((tp, i) => {
       const credit = row.purchase_revenue * weights[i];
       const label = channelLabel(tp, dimension);
@@ -332,12 +374,13 @@ function aggregateWithShapley(rows: AttributionRow[], dimension: AttributionDime
 export function aggregateCreditsBySource(
   rows: AttributionRow[],
   model: AttributionModel,
-  dimension: AttributionDimension = "source"
+  dimension: AttributionDimension = "source",
+  customConfig?: CustomModelConfig
 ): SourceCredit[] {
   if (rows.length === 0) return [];
   if (model === "markov") return aggregateWithMarkov(rows, dimension);
   if (model === "shapley") return aggregateWithShapley(rows, dimension);
-  return aggregateWithWeights(rows, model, dimension);
+  return aggregateWithWeights(rows, model, dimension, customConfig);
 }
 
 /**
@@ -359,13 +402,14 @@ export function computeRowSharePercents(
   touchpoints: Touchpoint[],
   model: AttributionModel,
   topSources: SourceCredit[] = [],
-  dimension: AttributionDimension = "source"
+  dimension: AttributionDimension = "source",
+  customConfig?: CustomModelConfig
 ): number[] {
   const n = touchpoints.length;
   if (n === 0) return [];
 
   if (model !== "markov" && model !== "shapley") {
-    return computeWeights(touchpoints, model).map((w) => w * 100);
+    return computeWeights(touchpoints, model, customConfig).map((w) => w * 100);
   }
 
   const shareByLabel = new Map(topSources.map((s) => [s.source, s.share]));
