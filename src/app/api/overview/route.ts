@@ -9,6 +9,8 @@ import { getAttributionRows, getChannelSessionCounts } from "@/lib/attribution/r
 import { buildDailySourceTrend, buildDailyTrend, rankPlottedChannels } from "@/lib/attribution/trend";
 import type { AttributionModel } from "@/lib/attribution/types";
 import { apiErrorResponse } from "@/lib/auth/errors";
+import { getProject } from "@/lib/projects/repository";
+import { getCustomModelConfig } from "@/lib/projects/types";
 
 const querySchema = z
   .object({
@@ -16,7 +18,7 @@ const querySchema = z
     from: z.string().date().optional(),
     to: z.string().date().optional(),
     model: z
-      .enum(["last_click", "linear", "time_decay", "u_shape", "markov", "shapley"])
+      .enum(["last_click", "linear", "time_decay", "u_shape", "markov", "shapley", "custom"])
       .default("linear"),
     comparison: z
       .enum(["previous_period", "last_week", "last_month", "previous_year"])
@@ -46,11 +48,19 @@ export async function GET(request: NextRequest) {
   const { channelDimension, channelValue } = parsed.data;
 
   try {
-    const [rows, previousRows, sessionCounts] = await Promise.all([
+    const [rows, previousRows, sessionCounts, project] = await Promise.all([
       getAttributionRows(projectId, { from, to }),
       getAttributionRows(projectId, previous),
       getChannelSessionCounts(projectId, { from, to }),
+      getProject(projectId),
     ]);
+    // `getProject` renvoie null seulement si le projet n'existe pas ou n'est
+    // pas accessible : dans ce cas les appels ci-dessus ont déjà levé (même
+    // vérification d'accès, voir getBigQueryClientForProject) — défensif.
+    const customModelConfig = project ? (getCustomModelConfig(project) ?? undefined) : undefined;
+    if (model === "custom" && !customModelConfig) {
+      return NextResponse.json({ error: "Aucun modèle personnalisé configuré pour ce projet" }, { status: 400 });
+    }
 
     // Le camembert ET le graphe de tendance gardent toujours la vue complète
     // (ce sont des sélecteurs, pas des vues filtrées) : sélectionner un canal
@@ -84,7 +94,7 @@ export async function GET(request: NextRequest) {
     // univers que le camembert) : sélectionner un canal ne doit pas redessiner
     // le menu du graphe de tendance avec une composition différente — voir
     // `buildDailySourceTrend`.
-    const globalCredits = aggregateCreditsBySource(rows, model, dimension);
+    const globalCredits = aggregateCreditsBySource(rows, model, dimension, customModelConfig);
     const plottedChannels = rankPlottedChannels(globalCredits);
 
     return NextResponse.json({
@@ -100,11 +110,15 @@ export async function GET(request: NextRequest) {
       topSources: globalCredits,
       currencies,
       trend: buildDailyTrend(rows, from, to),
-      sourceTrend: buildDailySourceTrend(rows, from, to, model, dimension, plottedChannels),
+      sourceTrend: buildDailySourceTrend(rows, from, to, model, dimension, plottedChannels, customModelConfig),
       // Vue toujours complète (comme le camembert/graphe de tendance), jamais
       // scopée par le canal sélectionné : c'est un tableau de sélection, pas
       // un KPI qui doit se rétrécir au clic.
       channelPerformance: computeChannelPerformance(rows, sessionCounts, dimension),
+      // Renvoyé pour que l'UI (chaîne de touchpoints, hover) puisse recalculer
+      // les mêmes poids côté client sans un second fetch — null si "model"
+      // n'est pas "custom" ou si le projet n'a pas encore de config enregistrée.
+      customModelConfig: customModelConfig ?? null,
     });
   } catch (error) {
     return apiErrorResponse(error, "[api/overview]", "Failed to load overview data");

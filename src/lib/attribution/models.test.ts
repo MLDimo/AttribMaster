@@ -85,6 +85,47 @@ describe("computeWeights", () => {
   });
 });
 
+describe("computeWeights — custom model", () => {
+  const CONFIG = { firstTouchPercent: 70, middlePercent: 10, lastTouchPercent: 20 };
+
+  it("gives the configured shares to first/last and splits the rest evenly across the middle", () => {
+    const touchpoints = [tp("a", "m", "t1", 0), tp("b", "m", "t2", 1), tp("c", "m", "t3", 2), tp("d", "m", "t4", 3)];
+    const weights = computeWeights(touchpoints, "custom", CONFIG);
+    expect(weights[0]).toBeCloseTo(0.7);
+    expect(weights[3]).toBeCloseTo(0.2);
+    expect(weights[1]).toBeCloseTo(0.05);
+    expect(weights[2]).toBeCloseTo(0.05);
+    expect(weights.reduce((s, w) => s + w, 0)).toBeCloseTo(1);
+  });
+
+  it("with exactly 2 touchpoints, splits first/last proportionally to their configured shares (not 50/50)", () => {
+    const touchpoints = [tp("a", "m", "t1", 0), tp("b", "m", "t2", 1)];
+    const weights = computeWeights(touchpoints, "custom", CONFIG);
+    // 70/(70+20) et 20/(70+20)
+    expect(weights[0]).toBeCloseTo(70 / 90);
+    expect(weights[1]).toBeCloseTo(20 / 90);
+  });
+
+  it("with 2 touchpoints and both first/last configured at 0%, falls back to 50/50", () => {
+    const touchpoints = [tp("a", "m", "t1", 0), tp("b", "m", "t2", 1)];
+    const weights = computeWeights(touchpoints, "custom", { firstTouchPercent: 0, middlePercent: 100, lastTouchPercent: 0 });
+    expect(weights).toEqual([0.5, 0.5]);
+  });
+
+  it("a single touchpoint always gets 100%, regardless of config", () => {
+    const touchpoints = [tp("solo", "m", "t1", 0)];
+    expect(computeWeights(touchpoints, "custom", CONFIG)).toEqual([1]);
+  });
+
+  it("falls back to the 40/40/20 default when no config is provided", () => {
+    const touchpoints = [tp("a", "m", "t1", 0), tp("b", "m", "t2", 1), tp("c", "m", "t3", 2)];
+    const weights = computeWeights(touchpoints, "custom");
+    expect(weights[0]).toBeCloseTo(0.4);
+    expect(weights[1]).toBeCloseTo(0.2);
+    expect(weights[2]).toBeCloseTo(0.4);
+  });
+});
+
 describe("aggregateCreditsBySource — weighted models", () => {
   it("linear splits a single multi-touch transaction correctly", () => {
     const rows: AttributionRow[] = [
@@ -220,6 +261,26 @@ describe("aggregateCreditsBySource — grouping dimension", () => {
     expect(total).toBeCloseTo(200, 1);
     expect(credits.some((c) => c.source === "cpc")).toBe(true);
     expect(credits.some((c) => c.source === "none")).toBe(true);
+  });
+});
+
+describe("aggregateCreditsBySource — custom model", () => {
+  it("splits revenue per the custom config, threaded through to computeWeights", () => {
+    const rows: AttributionRow[] = [
+      row({
+        purchase_revenue: 100,
+        touchpoints: [tp("google", "cpc", "t1", 0), tp("direct", "none", "t2", 1)],
+      }),
+    ];
+    const credits = aggregateCreditsBySource(rows, "custom", "source", {
+      firstTouchPercent: 90,
+      middlePercent: 0,
+      lastTouchPercent: 10,
+    });
+    const google = credits.find((c) => c.source === "google / cpc");
+    const direct = credits.find((c) => c.source === "direct / none");
+    expect(google?.revenue).toBeCloseTo(90);
+    expect(direct?.revenue).toBeCloseTo(10);
   });
 });
 

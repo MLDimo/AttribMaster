@@ -25,6 +25,16 @@ import { POST as refreshPost } from "@/app/api/projects/[id]/refresh/route";
 import { POST as connectBigQueryPost } from "@/app/api/projects/[id]/connect-bigquery/route";
 import { GET as gcpProjectsGet } from "@/app/api/projects/[id]/gcp-projects/route";
 import { GET as gcpDatasetsGet } from "@/app/api/projects/[id]/gcp-datasets/route";
+import { PUT as customModelPut, DELETE as customModelDelete } from "@/app/api/projects/[id]/custom-model/route";
+import { getCustomModelConfig } from "@/lib/projects/types";
+
+function customModelPutRequest(body: unknown) {
+  return new NextRequest("http://localhost", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
 
 const RUN_ID = Date.now();
 const OWNER_EMAIL = `role-test-owner-${RUN_ID}@attribmaster.dev`;
@@ -139,10 +149,64 @@ describe("project roles: read-only collaborator (project_members) vs workspace o
     );
     expect(gcpDatasetsRes.status).toBe(403);
 
+    const customModelViewerRes = await customModelPut(
+      customModelPutRequest({ firstTouchPercent: 50, middlePercent: 0, lastTouchPercent: 50 }),
+      params(project.id)
+    );
+    expect(customModelViewerRes.status).toBe(403);
+
     mockUserId = null;
     await db.query(`delete from projects where id = $1`, [project.id]);
     await db.query(`delete from workspaces where id = $1`, [workspaceId]);
     await db.query(`delete from users where email in ($1, $2)`, [ownerEmail, viewerEmail]);
+  });
+
+  it("custom-model route: zod rejects a body that doesn't sum to 100, the owner can save/clear it, and getCustomModelConfig round-trips null -> populated -> null", async () => {
+    const db = getDbPool();
+    const ownerEmail = `role-test-owner3-${RUN_ID}@attribmaster.dev`;
+    const { userId: ownerId } = await registerUser("Owner3", ownerEmail, "a-strong-password-123", "http://localhost");
+    const { rows: workspaceRows } = await db.query<{ workspace_id: string }>(
+      `select workspace_id from workspace_members where user_id = $1 and role = 'owner'`,
+      [ownerId]
+    );
+    const workspaceId = workspaceRows[0].workspace_id;
+
+    mockUserId = ownerId;
+    const project = await createProject({ name: "Role test project 3", accountId: workspaceId });
+
+    const freshAccess = await getProjectWithAccess(project.id);
+    expect(getCustomModelConfig(freshAccess!.project)).toBeNull();
+
+    const invalidRes = await customModelPut(
+      customModelPutRequest({ firstTouchPercent: 50, middlePercent: 10, lastTouchPercent: 10 }), // somme = 70
+      params(project.id)
+    );
+    expect(invalidRes.status).toBe(400);
+
+    const validRes = await customModelPut(
+      customModelPutRequest({ firstTouchPercent: 60, middlePercent: 15, lastTouchPercent: 25 }),
+      params(project.id)
+    );
+    expect(validRes.status).toBe(200);
+    const validJson = await validRes.json();
+    expect(validJson.config).toEqual({ firstTouchPercent: 60, middlePercent: 15, lastTouchPercent: 25 });
+
+    const afterSaveAccess = await getProjectWithAccess(project.id);
+    expect(getCustomModelConfig(afterSaveAccess!.project)).toEqual({
+      firstTouchPercent: 60,
+      middlePercent: 15,
+      lastTouchPercent: 25,
+    });
+
+    const clearRes = await customModelDelete(new NextRequest("http://localhost", { method: "DELETE" }), params(project.id));
+    expect(clearRes.status).toBe(200);
+    const afterClearAccess = await getProjectWithAccess(project.id);
+    expect(getCustomModelConfig(afterClearAccess!.project)).toBeNull();
+
+    mockUserId = null;
+    await db.query(`delete from projects where id = $1`, [project.id]);
+    await db.query(`delete from workspaces where id = $1`, [workspaceId]);
+    await db.query(`delete from users where email = $1`, [ownerEmail]);
   });
 
   it("the demo project (MOCK_PROJECT_ID) is read-only for EVERY authenticated user, including its own e2e-fixture owner", async () => {
@@ -172,6 +236,12 @@ describe("project roles: read-only collaborator (project_members) vs workspace o
       params(MOCK_PROJECT_ID)
     );
     expect(connectRes.status).toBe(403);
+
+    const customModelRes = await customModelPut(
+      customModelPutRequest({ firstTouchPercent: 50, middlePercent: 0, lastTouchPercent: 50 }),
+      params(MOCK_PROJECT_ID)
+    );
+    expect(customModelRes.status).toBe(403);
 
     // Mais la lecture reste bien accessible (c'est tout le principe du mode démo).
     const getRes = await getProjectRoute(new NextRequest("http://localhost"), params(MOCK_PROJECT_ID));

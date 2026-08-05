@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { MOCK_PROJECT, MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
+import type { CustomModelConfig } from "@/lib/attribution/types";
 import { NotAuthorizedError, UnauthenticatedError } from "@/lib/auth/errors";
 import { decryptSecret, encryptSecret } from "@/lib/crypto/secrets";
 import { getDbPool } from "@/lib/db/client";
@@ -208,6 +209,43 @@ export async function renameProject(projectId: string, name: string): Promise<Pr
   const { rows } = await db.query<Project>(
     `update projects set name = $1 where id = $2 returning *`,
     [name, projectId]
+  );
+  return rows[0];
+}
+
+/**
+ * Enregistre le modèle d'attribution personnalisé du projet (une config à la
+ * fois, pas d'historique de presets). Le contrôle "somme = 100" est déjà fait
+ * par zod à la frontière API et par la contrainte DB (`custom_model_pct_sum_100`) ;
+ * pas de revalidation ici, elle serait redondante avec ces deux couches.
+ */
+export async function saveCustomModelConfig(projectId: string, config: CustomModelConfig): Promise<Project> {
+  const userId = await requireUserId();
+  await requireProjectAccess(projectId, userId);
+
+  const db = getDbPool();
+  const { rows } = await db.query<Project>(
+    `update projects
+     set custom_model_first_touch_pct = $1, custom_model_middle_pct = $2, custom_model_last_touch_pct = $3
+     where id = $4
+     returning *`,
+    [config.firstTouchPercent, config.middlePercent, config.lastTouchPercent, projectId]
+  );
+  return rows[0];
+}
+
+/** Repasse le projet en "pas de modèle personnalisé configuré" (les 3 colonnes à NULL). */
+export async function clearCustomModelConfig(projectId: string): Promise<Project> {
+  const userId = await requireUserId();
+  await requireProjectAccess(projectId, userId);
+
+  const db = getDbPool();
+  const { rows } = await db.query<Project>(
+    `update projects
+     set custom_model_first_touch_pct = null, custom_model_middle_pct = null, custom_model_last_touch_pct = null
+     where id = $1
+     returning *`,
+    [projectId]
   );
   return rows[0];
 }

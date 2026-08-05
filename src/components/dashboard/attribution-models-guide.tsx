@@ -1,7 +1,10 @@
-import { BookOpen } from "lucide-react";
+import { BookOpen, SlidersHorizontal } from "lucide-react";
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CustomModelBuilder } from "@/components/dashboard/custom-model-builder";
+import type { CustomModelConfig } from "@/lib/attribution/types";
 
 type ModelExplanation = {
   id: string;
@@ -52,35 +55,64 @@ const MODEL_EXPLANATIONS: ModelExplanation[] = [
   },
 ];
 
-export function AttributionModelsGuide() {
+export function AttributionModelsGuide({
+  projectId,
+  customModelConfig,
+  canManageCustomModel,
+  onCustomModelSaved,
+}: {
+  projectId: string;
+  customModelConfig: CustomModelConfig | null;
+  canManageCustomModel: boolean;
+  onCustomModelSaved: (config: CustomModelConfig | null) => void;
+}) {
   return (
     <Card className="h-fit w-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <BookOpen className="size-4 text-muted-foreground" />
-          Les modèles d&apos;attribution
+          Modèles d&apos;attribution
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Accordion type="single" collapsible className="w-full">
-          {MODEL_EXPLANATIONS.map((model) => (
-            <AccordionItem key={model.id} value={model.id}>
-              <AccordionTrigger>{model.label}</AccordionTrigger>
-              <AccordionContent>
-                <div className="flex flex-col gap-2 text-xs text-muted-foreground">
-                  <p>
-                    <span className="font-medium text-foreground">Calcul : </span>
-                    {model.calcul}
-                  </p>
-                  <p>
-                    <span className="font-medium text-foreground">Utile pour : </span>
-                    {model.utile}
-                  </p>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+        <Tabs defaultValue="guide">
+          <TabsList className="w-full">
+            <TabsTrigger value="guide">Guide</TabsTrigger>
+            <TabsTrigger value="custom" className="gap-1">
+              <SlidersHorizontal className="size-3.5" />
+              Mon modèle
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="guide">
+            <Accordion type="single" collapsible className="w-full">
+              {MODEL_EXPLANATIONS.map((model) => (
+                <AccordionItem key={model.id} value={model.id}>
+                  <AccordionTrigger>{model.label}</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="flex flex-col gap-2 text-xs text-muted-foreground">
+                      <p>
+                        <span className="font-medium text-foreground">Calcul : </span>
+                        {model.calcul}
+                      </p>
+                      <p>
+                        <span className="font-medium text-foreground">Utile pour : </span>
+                        {model.utile}
+                      </p>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </TabsContent>
+          <TabsContent value="custom" className="pt-1">
+            <CustomModelBuilder
+              projectId={projectId}
+              config={customModelConfig}
+              canManage={canManageCustomModel}
+              onSaved={onCustomModelSaved}
+            />
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );
