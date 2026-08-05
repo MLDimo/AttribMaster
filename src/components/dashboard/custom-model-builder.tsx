@@ -405,7 +405,7 @@ export function CustomModelBuilder({
 
       {error && <p className="text-xs text-destructive">{error}</p>}
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
         <Button size="sm" onClick={handleSave} disabled={!canSave || saving}>
           {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
           Enregistrer
