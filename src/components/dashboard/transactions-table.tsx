@@ -140,6 +140,10 @@ export function TransactionsTable({
   }
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
+  // Partagé entre les deux rendus (mobile/desktop) ci-dessous : évite qu'ils
+  // divergent silencieusement (un vrai bug vécu — le rendu desktop avait
+  // oublié `customModelConfig`, doublon jamais mis à jour en même temps que l'autre).
+  const attributionChainProps = { model, topSources, customModelConfig, dimension, selectedChannel };
 
   return (
     <div className="flex flex-col gap-4" data-testid="transactions-table">
@@ -207,14 +211,7 @@ export function TransactionsTable({
               </span>
             </div>
             <span className="text-xs text-muted-foreground">{formatDate(row.event_timestamp)}</span>
-            <AttributionChain
-              touchpoints={row.touchpoints}
-              model={model}
-              topSources={topSources}
-              customModelConfig={customModelConfig}
-              dimension={dimension}
-              selectedChannel={selectedChannel}
-            />
+            <AttributionChain touchpoints={row.touchpoints} {...attributionChainProps} />
           </motion.div>
         ))}
       </div>
@@ -261,13 +258,7 @@ export function TransactionsTable({
               <TableCell className="font-mono text-xs">{row.transaction_id}</TableCell>
               <TableCell>{formatDate(row.event_timestamp)}</TableCell>
               <TableCell className="max-w-md whitespace-normal">
-                <AttributionChain
-                  touchpoints={row.touchpoints}
-                  model={model}
-                  topSources={topSources}
-                  dimension={dimension}
-                  selectedChannel={selectedChannel}
-                />
+                <AttributionChain touchpoints={row.touchpoints} {...attributionChainProps} />
               </TableCell>
               <TableCell className="text-right font-mono tabular-nums">
                 {formatCurrency(row.purchase_revenue, row.currency)}
