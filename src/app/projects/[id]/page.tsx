@@ -20,6 +20,7 @@ import { RevenueTrendChart } from "@/components/dashboard/revenue-trend-chart";
 import { TransactionsTable } from "@/components/dashboard/transactions-table";
 import { FadeIn } from "@/components/effects/motion";
 import type { OverviewResponse } from "@/lib/attribution/api-types";
+import type { ChannelPerformanceBreakdown } from "@/lib/attribution/channel-performance";
 import { defaultRange } from "@/lib/attribution/date-range";
 import type { ComparisonMode } from "@/lib/attribution/date-range";
 import type { AttributionDimension } from "@/lib/attribution/dimension";
@@ -210,6 +211,17 @@ export default function ProjectPage() {
   const [compareOverview, setCompareOverview] = useState<OverviewResponse | null>(null);
   const [dimension, setDimension] = useState<AttributionDimension>("source");
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
+  const [channelBreakdown, setChannelBreakdown] = useState<ChannelPerformanceBreakdown[]>([]);
+
+  // Une colonne de ventilation devient redondante si elle rejoint la dimension
+  // principale (ex: "Regrouper par: Support" alors que "Support" est déjà une
+  // colonne ajoutée) : on la retire (ajustement pendant le rendu plutôt qu'un
+  // setState synchrone dans un effet).
+  const [prevDimension, setPrevDimension] = useState(dimension);
+  if (prevDimension !== dimension) {
+    setPrevDimension(dimension);
+    setChannelBreakdown((current) => current.filter((d) => d !== dimension));
+  }
 
   // Un canal sélectionné n'a plus de sens si la période/le modèle/la dimension
   // de regroupement change (ajustement pendant le rendu plutôt qu'un setState
@@ -269,6 +281,9 @@ export default function ProjectPage() {
       params.set("channelDimension", dimension);
       params.set("channelValue", selectedChannel);
     }
+    if (channelBreakdown.length > 0) {
+      params.set("channelBreakdown", channelBreakdown.join(","));
+    }
     let cancelled = false;
     fetch(`/api/overview?${params.toString()}`)
       .then((res) => (res.ok ? res.json() : null))
@@ -278,7 +293,7 @@ export default function ProjectPage() {
     return () => {
       cancelled = true;
     };
-  }, [projectId, usable, from, to, model, comparison, dimension, selectedChannel, customModelConfig]);
+  }, [projectId, usable, from, to, model, comparison, dimension, selectedChannel, customModelConfig, channelBreakdown]);
 
   // Purge du résultat comparé quand la comparaison est désactivée (ajustement
   // pendant le rendu plutôt qu'un setState synchrone dans un effet).
@@ -318,6 +333,13 @@ export default function ProjectPage() {
           }
         : prev
     );
+  }
+
+  function handleAddBreakdown(column: ChannelPerformanceBreakdown) {
+    setChannelBreakdown((current) => (current.includes(column) ? current : [...current, column]));
+  }
+  function handleRemoveBreakdown(column: ChannelPerformanceBreakdown) {
+    setChannelBreakdown((current) => current.filter((c) => c !== column));
   }
 
   if (notFound) {
@@ -668,6 +690,12 @@ export default function ProjectPage() {
                     <ChannelPerformanceTable
                       data={overview.channelPerformance}
                       currencies={overview.currencies}
+                      breakdown={channelBreakdown}
+                      availableToAdd={(["medium", "campaign"] as ChannelPerformanceBreakdown[]).filter(
+                        (d) => d !== dimension && !channelBreakdown.includes(d)
+                      )}
+                      onAddBreakdown={handleAddBreakdown}
+                      onRemoveBreakdown={handleRemoveBreakdown}
                     />
                   ) : (
                     <div className="flex flex-col gap-2">

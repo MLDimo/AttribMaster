@@ -113,3 +113,71 @@ describe("computeChannelPerformance", () => {
     expect(result.map((r) => r.sessions)).toEqual([50, 20, 5]);
   });
 });
+
+describe("computeChannelPerformance — extraColumns (breakdown)", () => {
+  it("without extraColumns, a channel with multiple campaigns stays a single row (default, unchanged behavior)", () => {
+    const rows = [
+      row({ transaction_id: "t1", touchpoints: [tp("google", "cpc", "t", 0, "brand-search")] }),
+      row({ transaction_id: "t2", touchpoints: [tp("google", "cpc", "t", 0, "spring-sale")] }),
+    ];
+    const counts = [sessions("google", "cpc", 50, "brand-search"), sessions("google", "cpc", 30, "spring-sale")];
+    const result = computeChannelPerformance(rows, counts, "source");
+    expect(result).toHaveLength(1);
+    expect(result[0].channel).toBe("google / cpc");
+    expect(result[0].sessions).toBe(80);
+    expect(result[0].transactions).toBe(2);
+    expect(result[0].campaign).toBeUndefined();
+  });
+
+  it("with extraColumns=['campaign'], the same channel splits into one row per campaign — an exact breakdown, not an indicative value", () => {
+    const rows = [
+      row({ transaction_id: "t1", touchpoints: [tp("google", "cpc", "t", 0, "brand-search")] }),
+      row({ transaction_id: "t2", touchpoints: [tp("google", "cpc", "t", 0, "spring-sale")] }),
+    ];
+    const counts = [sessions("google", "cpc", 50, "brand-search"), sessions("google", "cpc", 30, "spring-sale")];
+    const result = computeChannelPerformance(rows, counts, "source", ["campaign"]);
+    expect(result).toHaveLength(2);
+
+    const brand = result.find((r) => r.campaign === "brand-search");
+    const spring = result.find((r) => r.campaign === "spring-sale");
+    expect(brand?.channel).toBe("google / cpc");
+    expect(brand?.sessions).toBe(50);
+    expect(brand?.transactions).toBe(1);
+    expect(spring?.sessions).toBe(30);
+    expect(spring?.transactions).toBe(1);
+
+    // La somme des lignes ventilées reconstitue exactement le total non ventilé.
+    const totalSessions = result.reduce((s, r) => s + r.sessions, 0);
+    const totalTransactions = result.reduce((s, r) => s + r.transactions, 0);
+    expect(totalSessions).toBe(80);
+    expect(totalTransactions).toBe(2);
+  });
+
+  it("a touchpoint with no campaign gets the sentinel label, not undefined, when campaign is an active breakdown column", () => {
+    const rows = [row({ touchpoints: [tp("google", "cpc", "t", 0, null)] })];
+    const result = computeChannelPerformance(rows, [], "source", ["campaign"]);
+    expect(result[0].campaign).toBe("(sans campagne)");
+  });
+
+  it("with extraColumns=['medium'], splits a campaign-grouped channel by its underlying medium", () => {
+    const rows = [
+      row({ transaction_id: "t1", touchpoints: [tp("google", "cpc", "t", 0, "brand-search")] }),
+      row({ transaction_id: "t2", touchpoints: [tp("google", "organic", "t", 0, "brand-search")] }),
+    ];
+    const result = computeChannelPerformance(rows, [], "campaign", ["medium"]);
+    expect(result).toHaveLength(2);
+    expect(result.every((r) => r.channel === "brand-search")).toBe(true);
+    expect(result.map((r) => r.medium).sort()).toEqual(["cpc", "organic"]);
+  });
+
+  it("multiple extraColumns combine into one row per unique combination", () => {
+    const rows = [
+      row({ transaction_id: "t1", touchpoints: [tp("google", "cpc", "t", 0, "brand-search")] }),
+      row({ transaction_id: "t2", touchpoints: [tp("bing", "cpc", "t", 0, "brand-search")] }),
+    ];
+    const result = computeChannelPerformance(rows, [], "source", ["campaign"]);
+    // "source" dimension inclut déjà le support (google/cpc vs bing/cpc) : 2 lignes distinctes.
+    expect(result).toHaveLength(2);
+    expect(result.every((r) => r.campaign === "brand-search")).toBe(true);
+  });
+});
