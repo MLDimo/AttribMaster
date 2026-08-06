@@ -193,7 +193,7 @@ export function CustomModelBuilder({
   config: CustomModelConfig | null;
   canManage: boolean;
   onSaved: (config: CustomModelConfig | null) => void;
-  /** Canaux réellement observés sur le projet (triés par revenu, comme le camembert), pour peupler le sélecteur de règle plutôt qu'une saisie libre sujette aux fautes de frappe. */
+  /** Canaux réellement observés sur le projet — sessions ET transactions, triés par volume de sessions (comme le tableau "Performance par canal") — pour peupler le sélecteur de règle plutôt qu'une saisie libre sujette aux fautes de frappe. */
   knownChannels?: string[];
 }) {
   const [draft, setDraft] = useState<CustomModelConfig>(config ?? DEFAULT_CONFIG);

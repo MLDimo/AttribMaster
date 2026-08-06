@@ -384,7 +384,10 @@ export default function ProjectPage() {
               customModelConfig={customModelConfig}
               canManageCustomModel={canManage}
               onCustomModelSaved={handleCustomModelSaved}
-              knownChannels={overview?.topSources.map((s) => s.source)}
+              // channelPerformance (pas topSources) : union des canaux avec sessions
+              // ET/OU transactions — un canal qui génère du trafic sans jamais avoir
+              // encore converti doit rester ciblable par une règle.
+              knownChannels={overview?.channelPerformance.map((c) => c.channel)}
             />
           </div>
         </FadeIn>
