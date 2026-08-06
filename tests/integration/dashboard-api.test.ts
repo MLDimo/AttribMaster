@@ -223,6 +223,32 @@ describe("GET /api/overview (dashboard numbers)", () => {
     expect(filteredJson.channelPerformance).toEqual(unfilteredJson.channelPerformance);
   });
 
+  it("channelBreakdown=campaign adds a campaign field to every row, without changing the summed totals", async () => {
+    // Le classement fin (une vraie ligne de plus par combinaison canal x
+    // campagne) est déjà couvert au niveau unitaire (channel-performance.test.ts) ;
+    // ce test-ci vérifie juste le branchement route -> fonction et la
+    // reconciliation des totaux, pas la logique de ventilation elle-même
+    // (les données mock ont par coïncidence 1 seule campagne par canal, donc
+    // pas de sous-division réelle à observer ici).
+    const base = await overviewGet(new NextRequest(overviewUrl({ model: "linear" })));
+    const baseJson = await base.json();
+
+    const broken = await overviewGet(new NextRequest(overviewUrl({ model: "linear", channelBreakdown: "campaign" })));
+    const brokenJson = await broken.json();
+
+    expect(brokenJson.channelPerformance.length).toBeGreaterThanOrEqual(baseJson.channelPerformance.length);
+    expect(brokenJson.channelPerformance.every((r: { campaign?: string }) => typeof r.campaign === "string")).toBe(true);
+    expect(baseJson.channelPerformance.every((r: { campaign?: string }) => r.campaign === undefined)).toBe(true);
+
+    const sumSessions = (rows: Array<{ sessions: number }>) => rows.reduce((s, r) => s + r.sessions, 0);
+    expect(sumSessions(brokenJson.channelPerformance)).toBe(sumSessions(baseJson.channelPerformance));
+  });
+
+  it("channelBreakdown rejects an invalid column name", async () => {
+    const res = await overviewGet(new NextRequest(overviewUrl({ model: "linear", channelBreakdown: "not-a-real-column" })));
+    expect(res.status).toBe(400);
+  });
+
   it("selecting a channel scopes totals to transactions touched by it, without changing topSources' or trend's full breakdown", async () => {
     const unfiltered = await overviewGet(new NextRequest(overviewUrl({ model: "linear", dimension: "medium" })));
     const unfilteredJson = await unfiltered.json();

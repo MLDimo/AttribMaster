@@ -26,6 +26,14 @@ const querySchema = z
     dimension: z.enum(["source", "medium", "campaign"]).default("source"),
     channelDimension: z.enum(["source", "medium", "campaign"]).optional(),
     channelValue: z.string().trim().min(1).optional(),
+    // Colonnes de ventilation additionnelles du tableau "Performance par canal"
+    // (voir computeChannelPerformance) — liste séparée par des virgules, ex: "campaign" ou "medium,campaign".
+    channelBreakdown: z
+      .string()
+      .optional()
+      .default("")
+      .transform((v) => v.split(",").filter(Boolean))
+      .pipe(z.array(z.enum(["medium", "campaign"]))),
   })
   .refine((data) => Boolean(data.channelDimension) === Boolean(data.channelValue), {
     message: "channelDimension and channelValue must be provided together",
@@ -114,7 +122,7 @@ export async function GET(request: NextRequest) {
       // Vue toujours complète (comme le camembert/graphe de tendance), jamais
       // scopée par le canal sélectionné : c'est un tableau de sélection, pas
       // un KPI qui doit se rétrécir au clic.
-      channelPerformance: computeChannelPerformance(rows, sessionCounts, dimension),
+      channelPerformance: computeChannelPerformance(rows, sessionCounts, dimension, parsed.data.channelBreakdown),
       // Renvoyé pour que l'UI (chaîne de touchpoints, hover) puisse recalculer
       // les mêmes poids côté client sans un second fetch — null si "model"
       // n'est pas "custom" ou si le projet n'a pas encore de config enregistrée.

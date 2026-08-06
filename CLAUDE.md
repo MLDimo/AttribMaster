@@ -37,7 +37,10 @@ V2 (multi-tenant) et V3 (Stripe) de la roadmap initiale sont livrées. La 2FA
   pas seulement celles qui achètent) alimenté par `sql/nightly_channel_sessions.sql`
   dans la table résumée `sessions_par_canal` — `attributions_resumees` seule ne
   contient que des transactions déjà converties, jamais de dénominateur de
-  conversion.
+  conversion. Colonnes de ventilation optionnelles ("+" dans l'en-tête du
+  tableau, `ChannelPerformanceBreakdown`) : Support/Campagne en plus de la
+  dimension principale, chaque ajout subdivise réellement les lignes (une par
+  combinaison canal × valeur ajoutée), jamais une valeur indicative.
 - 7e modèle d'attribution "Personnalisé" (`AttributionModel = "custom"`) : un
   "En U" généralisé, un seul par projet, poids (premier/milieu/dernier contact,
   somme = 100) stockés en colonnes nullables `projects.custom_model_*` (jamais
