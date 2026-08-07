@@ -2,10 +2,17 @@ import { OAuth2Client } from "google-auth-library";
 
 // Scope complet BigQuery (lecture + jobs de requête, requis pour le script de
 // nuit qui fait des DELETE/INSERT) + lecture des projets GCP accessibles
-// (pour laisser choisir le projet sans le taper à la main).
+// (pour laisser choisir le projet sans le taper à la main) + écriture Google
+// Sheets (export nocturne, voir lib/google-sheets/client.ts). Un scope
+// supplémentaire (spreadsheets) ajouté après la première vérification OAuth
+// par Google nécessite une mise à jour de l'écran de consentement + une
+// nouvelle revue de vérification côté Google Cloud Console — les projets déjà
+// connectés doivent se reconnecter une fois pour l'obtenir (leur refresh
+// token existant ne l'a pas).
 const GCP_OAUTH_SCOPES = [
   "https://www.googleapis.com/auth/bigquery",
   "https://www.googleapis.com/auth/cloudplatformprojects.readonly",
+  "https://www.googleapis.com/auth/spreadsheets",
 ];
 
 function getOAuthRedirectUri(origin: string): string {

@@ -3,8 +3,11 @@ import path from "node:path";
 
 import type { BigQuery } from "@google-cloud/bigquery";
 
-import { getBigQueryClientForProjectAsService } from "@/lib/bigquery/client";
+import { ATTRIBUTIONS_TABLE, getBigQueryClientForProjectAsService } from "@/lib/bigquery/client";
+import { exportTransactionsToSheet, parseSpreadsheetId } from "@/lib/google-sheets/client";
+import { getProjectOAuthToken, recordGoogleSheetExportResult } from "@/lib/projects/repository";
 import type { Project } from "@/lib/projects/types";
+import { fetchAttributionRowsForBigQueryClient } from "./repository";
 
 const DEFAULT_LOOKBACK_DAYS = 90;
 
@@ -29,12 +32,16 @@ async function loadSql(fileName: string, project: Project): Promise<string> {
     .replaceAll("@project.@dataset", `${project.gcp_project_id}.${project.bigquery_dataset}`);
 }
 
+/** Fenêtre exportée vers Google Sheets à chaque nuit (remplacement complet de l'onglet, pas un ajout) — même largeur que le rattrapage d'attribution, pour rester borné et rapide sous la limite Vercel Hobby (maxDuration 300s). */
+const SHEET_EXPORT_LOOKBACK_DAYS = 90;
+
 export type NightlyRunResult = {
   projectId: string;
   projectName: string;
   targetDate: string;
   rowsInserted: number;
   sessionsRowsInserted: number;
+  sheetExportedRows: number | null;
 };
 
 /**
@@ -94,5 +101,31 @@ export async function runNightlyAttributionForProject(
     console.error("[nightly-run] channel sessions count failed (non-blocking)", error);
   }
 
-  return { projectId, projectName: project.name, targetDate, rowsInserted, sessionsRowsInserted };
+  // Export Google Sheets (best-effort, comme les sessions par canal ci-dessus) :
+  // un échec ici (jeton pas encore reconnecté avec le scope Sheets, feuille
+  // supprimée, quota Google atteint...) ne doit jamais faire échouer le job
+  // nocturne principal, dont les lignes sont déjà insérées et valables.
+  let sheetExportedRows: number | null = null;
+  if (project.export_google_sheet_url) {
+    try {
+      const spreadsheetId = parseSpreadsheetId(project.export_google_sheet_url);
+      if (!spreadsheetId) throw new Error("URL Google Sheets enregistrée invalide");
+      const refreshToken = await getProjectOAuthToken(projectId);
+      if (!refreshToken) throw new Error("Aucun token OAuth pour ce projet");
+
+      const table = `\`${project.gcp_project_id}.${project.bigquery_dataset}.${ATTRIBUTIONS_TABLE}\``;
+      const rows = await fetchAttributionRowsForBigQueryClient(client, table, {
+        from: daysAgoDateOnly(SHEET_EXPORT_LOOKBACK_DAYS),
+        to: targetDate,
+      });
+      sheetExportedRows = await exportTransactionsToSheet(refreshToken, spreadsheetId, rows);
+      await recordGoogleSheetExportResult(projectId, null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[nightly-run] google sheet export failed (non-blocking)", error);
+      await recordGoogleSheetExportResult(projectId, message);
+    }
+  }
+
+  return { projectId, projectName: project.name, targetDate, rowsInserted, sessionsRowsInserted, sheetExportedRows };
 }

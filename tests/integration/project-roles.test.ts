@@ -26,15 +26,17 @@ import { POST as connectBigQueryPost } from "@/app/api/projects/[id]/connect-big
 import { GET as gcpProjectsGet } from "@/app/api/projects/[id]/gcp-projects/route";
 import { GET as gcpDatasetsGet } from "@/app/api/projects/[id]/gcp-datasets/route";
 import { PUT as customModelPut, DELETE as customModelDelete } from "@/app/api/projects/[id]/custom-model/route";
+import { PUT as sheetExportPut } from "@/app/api/projects/[id]/google-sheet-export/route";
 import { getCustomModelConfig } from "@/lib/projects/types";
 
-function customModelPutRequest(body: unknown) {
+function jsonPutRequest(body: unknown) {
   return new NextRequest("http://localhost", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
 }
+const customModelPutRequest = jsonPutRequest;
 
 const RUN_ID = Date.now();
 const OWNER_EMAIL = `role-test-owner-${RUN_ID}@attribmaster.dev`;
@@ -155,6 +157,12 @@ describe("project roles: read-only collaborator (project_members) vs workspace o
     );
     expect(customModelViewerRes.status).toBe(403);
 
+    const sheetExportViewerRes = await sheetExportPut(
+      jsonPutRequest({ url: "https://docs.google.com/spreadsheets/d/abc123/edit" }),
+      params(project.id)
+    );
+    expect(sheetExportViewerRes.status).toBe(403);
+
     mockUserId = null;
     await db.query(`delete from projects where id = $1`, [project.id]);
     await db.query(`delete from workspaces where id = $1`, [workspaceId]);
@@ -234,6 +242,46 @@ describe("project roles: read-only collaborator (project_members) vs workspace o
     await db.query(`delete from users where email = $1`, [ownerEmail]);
   });
 
+  it("google-sheet-export route: rejects a malformed URL, and rejects a valid URL when the project isn't connected to BigQuery yet", async () => {
+    const db = getDbPool();
+    const ownerEmail = `role-test-owner4-${RUN_ID}@attribmaster.dev`;
+    const { userId: ownerId } = await registerUser("Owner4", ownerEmail, "a-strong-password-123", "http://localhost");
+    const { rows: workspaceRows } = await db.query<{ workspace_id: string }>(
+      `select workspace_id from workspace_members where user_id = $1 and role = 'owner'`,
+      [ownerId]
+    );
+    const workspaceId = workspaceRows[0].workspace_id;
+
+    mockUserId = ownerId;
+    // Jamais connecté à BigQuery : createProject seule (étape 1) ne renseigne
+    // aucun oauth_refresh_token_encrypted.
+    const project = await createProject({ name: "Role test project 4", accountId: workspaceId });
+
+    const malformedRes = await sheetExportPut(jsonPutRequest({ url: "not a url" }), params(project.id));
+    expect(malformedRes.status).toBe(400);
+
+    const notASheetRes = await sheetExportPut(
+      jsonPutRequest({ url: "https://example.com/not-a-sheet" }),
+      params(project.id)
+    );
+    expect(notASheetRes.status).toBe(400);
+
+    // URL bien formée, mais le projet n'a pas encore de token OAuth (jamais
+    // connecté à BigQuery) : rejeté avant même de tenter un appel Google.
+    const notConnectedRes = await sheetExportPut(
+      jsonPutRequest({ url: "https://docs.google.com/spreadsheets/d/abc123/edit" }),
+      params(project.id)
+    );
+    expect(notConnectedRes.status).toBe(400);
+    const notConnectedJson = await notConnectedRes.json();
+    expect(notConnectedJson.error).toMatch(/BigQuery/);
+
+    mockUserId = null;
+    await db.query(`delete from projects where id = $1`, [project.id]);
+    await db.query(`delete from workspaces where id = $1`, [workspaceId]);
+    await db.query(`delete from users where email = $1`, [ownerEmail]);
+  });
+
   it("the demo project (MOCK_PROJECT_ID) is read-only for EVERY authenticated user, including its own e2e-fixture owner", async () => {
     const email = `role-test-demo-${RUN_ID}@attribmaster.dev`;
     const { userId } = await registerUser("Demo Checker", email, "a-strong-password-123", "http://localhost");
@@ -267,6 +315,12 @@ describe("project roles: read-only collaborator (project_members) vs workspace o
       params(MOCK_PROJECT_ID)
     );
     expect(customModelRes.status).toBe(403);
+
+    const sheetExportRes = await sheetExportPut(
+      jsonPutRequest({ url: "https://docs.google.com/spreadsheets/d/abc123/edit" }),
+      params(MOCK_PROJECT_ID)
+    );
+    expect(sheetExportRes.status).toBe(403);
 
     // Mais la lecture reste bien accessible (c'est tout le principe du mode démo).
     const getRes = await getProjectRoute(new NextRequest("http://localhost"), params(MOCK_PROJECT_ID));

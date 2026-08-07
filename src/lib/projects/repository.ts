@@ -252,6 +252,56 @@ export async function clearCustomModelConfig(projectId: string): Promise<Project
   return rows[0];
 }
 
+/** Enregistre l'URL Google Sheets cible ; efface tout état d'erreur précédent (une nouvelle URL mérite un essai propre). */
+export async function saveGoogleSheetExportUrl(projectId: string, url: string): Promise<Project> {
+  const userId = await requireUserId();
+  await requireProjectAccess(projectId, userId);
+
+  const db = getDbPool();
+  const { rows } = await db.query<Project>(
+    `update projects
+     set export_google_sheet_url = $1, export_google_sheet_last_error = null, export_google_sheet_last_synced_at = null
+     where id = $2
+     returning *`,
+    [url, projectId]
+  );
+  return rows[0];
+}
+
+/** Désactive l'export (l'URL et tout état associé). */
+export async function clearGoogleSheetExportUrl(projectId: string): Promise<Project> {
+  const userId = await requireUserId();
+  await requireProjectAccess(projectId, userId);
+
+  const db = getDbPool();
+  const { rows } = await db.query<Project>(
+    `update projects
+     set export_google_sheet_url = null, export_google_sheet_last_error = null, export_google_sheet_last_synced_at = null
+     where id = $1
+     returning *`,
+    [projectId]
+  );
+  return rows[0];
+}
+
+/**
+ * Enregistre le résultat d'une tentative d'export nocturne — sans vérification
+ * d'accès, réservé au contexte serveur-à-serveur (script de nuit), comme
+ * `getProjectOAuthToken`. Un succès efface l'erreur précédente ; un échec la
+ * pose sans toucher `last_synced_at` (garde la date de la dernière réussite).
+ */
+export async function recordGoogleSheetExportResult(projectId: string, error: string | null): Promise<void> {
+  const db = getDbPool();
+  if (error === null) {
+    await db.query(
+      `update projects set export_google_sheet_last_synced_at = now(), export_google_sheet_last_error = null where id = $1`,
+      [projectId]
+    );
+  } else {
+    await db.query(`update projects set export_google_sheet_last_error = $1 where id = $2`, [error, projectId]);
+  }
+}
+
 export async function deleteProject(projectId: string): Promise<void> {
   const userId = await requireUserId();
   await requireProjectAccess(projectId, userId);

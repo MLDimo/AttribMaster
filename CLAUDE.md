@@ -56,6 +56,16 @@ V2 (multi-tenant) et V3 (Stripe) de la roadmap initiale sont livrées. La 2FA
   au prorata, garantissant une somme toujours exacte à 100 % (voir
   `computeCustomWeights`) ; somme des règles ≤ 100 validée par zod uniquement
   (pas de contrainte DB sur le contenu du JSON).
+- `lib/google-sheets/client.ts` — export nocturne vers Google Sheets (`/manage`,
+  colonne `projects.export_google_sheet_url`) : réécrit chaque nuit un onglet
+  dédié "AttribMaster" (créé automatiquement, jamais le premier onglet) avec
+  les 90 derniers jours de transactions, best-effort comme les sessions par
+  canal. Scope OAuth `spreadsheets` ajouté après la vérification Google
+  initiale : les projets déjà connectés doivent se reconnecter une fois pour
+  l'obtenir. Utilise `@googleapis/sheets` (pas `googleapis` — le paquet complet
+  fait sortir `next build` en OOM) avec sa PROPRE copie de google-auth-library,
+  non dédupliquée avec celle utilisée pour BigQuery (voir le commentaire dans
+  le fichier) : jamais interchanger les `OAuth2Client` des deux paquets.
 
 ## Environnements
 - **Prod :** branche `production` → attribmaster.com (+ attrib-master.vercel.app)
