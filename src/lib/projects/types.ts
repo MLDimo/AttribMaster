@@ -21,6 +21,9 @@ export type Project = {
   custom_model_middle_pct: number | null;
   custom_model_last_touch_pct: number | null;
   custom_model_rules: CustomModelRule[];
+  export_google_sheet_url: string | null;
+  export_google_sheet_last_synced_at: string | null;
+  export_google_sheet_last_error: string | null;
 };
 
 /** Les 3 colonnes pct sont soit toutes NULL (non configuré), soit toutes renseignées (contrainte DB) ; `custom_model_rules` existe toujours (défaut `[]`). */

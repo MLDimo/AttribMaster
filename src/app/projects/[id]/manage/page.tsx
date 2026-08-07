@@ -1,6 +1,6 @@
 "use client";
 
-import { CreditCard, RefreshCw, Users } from "lucide-react";
+import { CreditCard, RefreshCw, Sheet, Users } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppShell } from "@/components/layout/app-shell";
 import { PlanPicker } from "@/components/billing/plan-picker";
+import { GoogleSheetExportSettings } from "@/components/dashboard/google-sheet-export-settings";
 import { ProjectMembers } from "@/components/dashboard/project-members";
 import { RefreshDataButton } from "@/components/dashboard/refresh-data-button";
 import { SubscriptionStatus } from "@/components/dashboard/subscription-status";
@@ -87,6 +88,22 @@ export default function ManageProjectPage() {
               </CardHeader>
               <CardContent>
                 <RefreshDataButton projectId={project.id} onDone={() => {}} />
+              </CardContent>
+            </Card>
+          </FadeIn>
+        )}
+
+        {isProjectConnected(project) && isProjectSubscribed(project) && (
+          <FadeIn delay={0.01}>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Sheet className="size-4 text-muted-foreground" />
+                  Export Google Sheets
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <GoogleSheetExportSettings projectId={project.id} project={project} onSaved={setProject} />
               </CardContent>
             </Card>
           </FadeIn>
