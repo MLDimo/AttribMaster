@@ -70,10 +70,14 @@ V2 (multi-tenant) et V3 (Stripe) de la roadmap initiale sont livrées. La 2FA
   ouvre le détail complet de chaque point de contact (source/support/campagne
   séparés, pas le libellé combiné, + `entry_url` = page d'atterrissage de la
   session, capturée dans `nightly_attribution.sql` depuis le premier
-  `page_view`). Champ ajouté au STRUCT `touchpoints` de `attributions_resumees`
-  — les projets déjà connectés avant cet ajout ont besoin de
-  `sql/alter_attributions_table_add_entry_url.sql` (one-off, pas dans le flux
-  de connexion) ; `entry_url` reste `null` pour toute ligne calculée avant.
+  `page_view`). Champ ajouté au STRUCT `touchpoints` de `attributions_resumees` ;
+  `entry_url` reste `null` pour toute ligne calculée avant cet ajout.
+- `runNightlyAttributionForProject` fait converger le schéma BigQuery avant
+  d'insérer (`sql/alter_attributions_table_add_entry_url.sql`, `ADD COLUMN IF
+  NOT EXISTS`, idempotent, best-effort) : un projet déjà connecté avant l'ajout
+  d'un champ se met à jour tout seul à son prochain run nocturne, plus besoin
+  d'un script ponctuel par client déjà connecté (contrairement à
+  `sessions_par_canal`, qui lui avait eu besoin d'un tel script one-off).
 
 ## Environnements
 - **Prod :** branche `production` → attribmaster.com (+ attrib-master.vercel.app)
