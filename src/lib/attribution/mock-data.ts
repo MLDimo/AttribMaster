@@ -67,6 +67,18 @@ const MOCK_CHANNELS: Array<{ source: string; medium: string; campaign: string | 
 const MOCK_DAYS_OF_HISTORY = 60;
 const MOCK_TRANSACTION_COUNT = 180;
 
+// Domaine ".example" (RFC 2606, réservé à la documentation) : jamais un vrai
+// domaine tiers, pour un jeu de données de démo qui reste sans ambiguïté fictif.
+const MOCK_STORE_DOMAIN = "https://demo-boutique.example";
+const MOCK_ENTRY_PATHS = [
+  "/",
+  "/produits/sac-cabas-toile",
+  "/collections/nouveautes",
+  "/promo/soldes-ete",
+  "/produits/veste-lin",
+  "/blog/guide-des-tailles",
+];
+
 /** PRNG déterministe (mulberry32) : mêmes données générées à chaque appel, sans dépendre de l'état du module. */
 function mulberry32(seed: number): () => number {
   let a = seed;
@@ -81,6 +93,12 @@ function mulberry32(seed: number): () => number {
 
 function generateRows(): AttributionRow[] {
   const rng = mulberry32(20260710);
+  // Flux séparé (ne consomme jamais `rng`) : ajouter entry_url ne doit pas
+  // décaler la séquence déjà utilisée pour canal/revenu/dates ci-dessous, au
+  // risque de faire dériver TOUT le jeu de données mock (déjà stable et
+  // capturé dans les baselines de régression visuelle) pour un champ qui n'a
+  // aucun lien avec ces tirages.
+  const entryUrlRng = mulberry32(20260712);
   const now = Date.now();
   const rows: AttributionRow[] = [];
 
@@ -102,6 +120,7 @@ function generateRows(): AttributionRow[] {
         campaign: channel.campaign,
         timestamp,
         position: t,
+        entry_url: `${MOCK_STORE_DOMAIN}${MOCK_ENTRY_PATHS[Math.floor(entryUrlRng() * MOCK_ENTRY_PATHS.length)]}`,
       });
     }
     // Dernier touchpoint au plus près de l'achat (position temporelle cohérente).

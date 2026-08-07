@@ -66,6 +66,14 @@ V2 (multi-tenant) et V3 (Stripe) de la roadmap initiale sont livrées. La 2FA
   fait sortir `next build` en OOM) avec sa PROPRE copie de google-auth-library,
   non dédupliquée avec celle utilisée pour BigQuery (voir le commentaire dans
   le fichier) : jamais interchanger les `OAuth2Client` des deux paquets.
+- Chaque transaction du dashboard est cliquable (`TransactionDetailDialog`) :
+  ouvre le détail complet de chaque point de contact (source/support/campagne
+  séparés, pas le libellé combiné, + `entry_url` = page d'atterrissage de la
+  session, capturée dans `nightly_attribution.sql` depuis le premier
+  `page_view`). Champ ajouté au STRUCT `touchpoints` de `attributions_resumees`
+  — les projets déjà connectés avant cet ajout ont besoin de
+  `sql/alter_attributions_table_add_entry_url.sql` (one-off, pas dans le flux
+  de connexion) ; `entry_url` reste `null` pour toute ligne calculée avant.
 
 ## Environnements
 - **Prod :** branche `production` → attribmaster.com (+ attrib-master.vercel.app)

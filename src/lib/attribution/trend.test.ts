@@ -4,7 +4,7 @@ import { buildDailySourceTrend, buildDailyTrend, OTHER_CHANNEL_LABEL } from "./t
 import type { AttributionRow, Touchpoint } from "./types";
 
 function tp(source: string, medium: string, timestamp: string, position: number): Touchpoint {
-  return { source, medium, campaign: null, timestamp, position };
+  return { source, medium, campaign: null, timestamp, position, entry_url: null };
 }
 
 function row(overrides: Partial<AttributionRow>): AttributionRow {

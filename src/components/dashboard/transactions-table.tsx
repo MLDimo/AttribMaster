@@ -17,10 +17,11 @@ import {
   MotionTableRow,
 } from "@/components/ui/table";
 import { AttributionChain } from "@/components/dashboard/attribution-chain";
+import { TransactionDetailDialog } from "@/components/dashboard/transaction-detail-dialog";
 import { fadeUpVariants } from "@/components/effects/motion";
 import type { TransactionsResponse } from "@/lib/attribution/api-types";
 import type { AttributionDimension } from "@/lib/attribution/dimension";
-import type { AttributionModel, CustomModelConfig, SourceCredit } from "@/lib/attribution/types";
+import type { AttributionModel, AttributionRow, CustomModelConfig, SourceCredit } from "@/lib/attribution/types";
 
 function formatCurrency(value: number, currency: string): string {
   return new Intl.NumberFormat("fr-FR", {
@@ -66,6 +67,7 @@ export function TransactionsTable({
 }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [selectedTransaction, setSelectedTransaction] = useState<AttributionRow | null>(null);
   const [sortBy, setSortBy] = useState<SortColumn>("event_timestamp");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -202,7 +204,8 @@ export function TransactionsTable({
             initial="hidden"
             animate="show"
             variants={fadeUpVariants}
-            className="flex flex-col gap-2 rounded-lg border p-3"
+            onClick={() => setSelectedTransaction(row)}
+            className="flex cursor-pointer flex-col gap-2 rounded-lg border p-3 transition-colors hover:border-primary/40 hover:bg-accent/40"
           >
             <div className="flex items-center justify-between gap-2">
               <span className="font-mono text-xs text-muted-foreground">{row.transaction_id}</span>
@@ -254,7 +257,12 @@ export function TransactionsTable({
             </TableRow>
           )}
           {data?.rows.map((row) => (
-            <MotionTableRow key={row.transaction_id} variants={fadeUpVariants}>
+            <MotionTableRow
+              key={row.transaction_id}
+              variants={fadeUpVariants}
+              onClick={() => setSelectedTransaction(row)}
+              className="cursor-pointer transition-colors hover:bg-accent/40"
+            >
               <TableCell className="font-mono text-xs">{row.transaction_id}</TableCell>
               <TableCell>{formatDate(row.event_timestamp)}</TableCell>
               <TableCell className="max-w-md whitespace-normal">
@@ -301,6 +309,18 @@ export function TransactionsTable({
           </Button>
         </div>
       </div>
+
+      <TransactionDetailDialog
+        transaction={selectedTransaction}
+        open={selectedTransaction !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedTransaction(null);
+        }}
+        model={model}
+        topSources={topSources}
+        customModelConfig={customModelConfig}
+        dimension={dimension}
+      />
     </div>
   );
 }

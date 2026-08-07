@@ -47,6 +47,29 @@ WITH sessions AS (
   GROUP BY user_pseudo_id, session_id
 ),
 
+-- Page d'atterrissage de chaque session (le "lien d'entrée" affiché par
+-- touchpoint dans le dashboard) : le `page_location` du tout premier
+-- `page_view` de la session, PAS celui de `session_start` (qui ne porte pas
+-- ce paramètre de façon fiable). Un balayage `page_view` séparé plutôt qu'un
+-- LEFT JOIN direct sur `sessions` pour ne retenir que le PREMIER par session
+-- (ARRAY_AGG + LIMIT 1, la même technique que `touchpoints_per_purchase`
+-- ci-dessous plutôt qu'une sous-requête corrélée coûteuse).
+entry_pages AS (
+  SELECT
+    user_pseudo_id,
+    (SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'ga_session_id') AS session_id,
+    ARRAY_AGG(
+      (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'page_location')
+      IGNORE NULLS
+      ORDER BY event_timestamp ASC
+      LIMIT 1
+    )[SAFE_OFFSET(0)] AS entry_url
+  FROM `@project.@ga4_dataset.events_*`
+  WHERE _TABLE_SUFFIX BETWEEN lookback_start_suffix AND target_date_suffix
+    AND event_name = 'page_view'
+  GROUP BY user_pseudo_id, session_id
+),
+
 purchases AS (
   SELECT
     (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'transaction_id') AS transaction_id,
@@ -77,7 +100,8 @@ touchpoints_per_purchase AS (
         s.medium AS medium,
         s.campaign AS campaign,
         TIMESTAMP_MICROS(s.session_start_timestamp) AS timestamp,
-        CAST(NULL AS INT64) AS position
+        CAST(NULL AS INT64) AS position,
+        e.entry_url AS entry_url
       )
       ORDER BY s.session_start_timestamp ASC
     ) AS touchpoints
@@ -85,6 +109,9 @@ touchpoints_per_purchase AS (
   JOIN sessions s
     ON s.user_pseudo_id = p.user_pseudo_id
    AND TIMESTAMP_MICROS(s.session_start_timestamp) <= p.event_timestamp
+  LEFT JOIN entry_pages e
+    ON e.user_pseudo_id = s.user_pseudo_id
+   AND e.session_id = s.session_id
   GROUP BY p.transaction_id, p.user_pseudo_id, p.event_date, p.event_timestamp, p.purchase_revenue, p.currency
 ),
 
@@ -92,7 +119,7 @@ numbered AS (
   SELECT
     * REPLACE (
       ARRAY(
-        SELECT AS STRUCT tp.source, tp.medium, tp.campaign, tp.timestamp, off + 1 AS position
+        SELECT AS STRUCT tp.source, tp.medium, tp.campaign, tp.timestamp, off + 1 AS position, tp.entry_url
         FROM UNNEST(touchpoints) AS tp WITH OFFSET off
       ) AS touchpoints
     )
