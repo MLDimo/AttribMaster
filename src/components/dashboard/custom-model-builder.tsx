@@ -49,10 +49,10 @@ const RULE_POSITION_LABELS: Record<CustomModelRulePosition, string> = {
  * s'appliquer visiblement ici, pas seulement en production.
  */
 const PREVIEW_TOUCHPOINTS: Touchpoint[] = [
-  { source: "google", medium: "cpc", campaign: null, timestamp: "2026-07-01T10:00:00Z", position: 0 },
-  { source: "newsletter", medium: "email", campaign: null, timestamp: "2026-07-03T10:00:00Z", position: 1 },
-  { source: "facebook", medium: "paid", campaign: null, timestamp: "2026-07-05T10:00:00Z", position: 2 },
-  { source: "direct", medium: "none", campaign: null, timestamp: "2026-07-06T10:00:00Z", position: 3 },
+  { source: "google", medium: "cpc", campaign: null, timestamp: "2026-07-01T10:00:00Z", position: 0, entry_url: null },
+  { source: "newsletter", medium: "email", campaign: null, timestamp: "2026-07-03T10:00:00Z", position: 1, entry_url: null },
+  { source: "facebook", medium: "paid", campaign: null, timestamp: "2026-07-05T10:00:00Z", position: 2, entry_url: null },
+  { source: "direct", medium: "none", campaign: null, timestamp: "2026-07-06T10:00:00Z", position: 3, entry_url: null },
 ];
 
 /**

@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS `@project.@dataset.attributions_resumees`
     medium     STRING,
     campaign   STRING,
     timestamp  TIMESTAMP,
-    position   INT64
+    position   INT64,
+    entry_url  STRING
   >>
 )
 PARTITION BY event_date

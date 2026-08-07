@@ -11,7 +11,7 @@ import type { AttributionRow, Touchpoint } from "./types";
  * (ex: recalcul redondant dans la boucle) ferait exploser ce temps.
  */
 function tp(source: string, timestamp: string, position: number): Touchpoint {
-  return { source, medium: "m", campaign: null, timestamp, position };
+  return { source, medium: "m", campaign: null, timestamp, position, entry_url: null };
 }
 
 function buildRowsWithNChannels(channelCount: number, transactionCount: number): AttributionRow[] {

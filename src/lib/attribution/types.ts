@@ -4,6 +4,8 @@ export type Touchpoint = {
   campaign: string | null;
   timestamp: string;
   position: number;
+  /** Page d'atterrissage de la session (premier `page_view`) — null pour les transactions calculées avant l'ajout de ce champ, ou une session sans page_view exploitable. */
+  entry_url: string | null;
 };
 
 export type AttributionRow = {

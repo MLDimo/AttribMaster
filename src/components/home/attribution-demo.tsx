@@ -26,10 +26,10 @@ const SHAPLEY: SourceCredit[] = [
 
 // Un parcours client réaliste : découverte payante, relance, nurture, achat en direct.
 const EXAMPLE_TOUCHPOINTS: Touchpoint[] = [
-  { source: "google", medium: "cpc", campaign: null, timestamp: "2026-07-01T09:00:00Z", position: 0 },
-  { source: "meta", medium: "paid social", campaign: null, timestamp: "2026-07-04T18:30:00Z", position: 1 },
-  { source: "email", medium: "newsletter", campaign: null, timestamp: "2026-07-08T08:00:00Z", position: 2 },
-  { source: "direct", medium: "none", campaign: null, timestamp: "2026-07-09T20:15:00Z", position: 3 },
+  { source: "google", medium: "cpc", campaign: null, timestamp: "2026-07-01T09:00:00Z", position: 0, entry_url: null },
+  { source: "meta", medium: "paid social", campaign: null, timestamp: "2026-07-04T18:30:00Z", position: 1, entry_url: null },
+  { source: "email", medium: "newsletter", campaign: null, timestamp: "2026-07-08T08:00:00Z", position: 2, entry_url: null },
+  { source: "direct", medium: "none", campaign: null, timestamp: "2026-07-09T20:15:00Z", position: 3, entry_url: null },
 ];
 const EXAMPLE_AMOUNT = 340;
 

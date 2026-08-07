@@ -10,7 +10,7 @@ function tp(
   position: number,
   campaign: string | null = null
 ): Touchpoint {
-  return { source, medium, campaign, timestamp, position };
+  return { source, medium, campaign, timestamp, position, entry_url: null };
 }
 
 function row(overrides: Partial<AttributionRow> & { touchpoints: Touchpoint[] }): AttributionRow {
