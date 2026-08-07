@@ -74,6 +74,20 @@ export async function runNightlyAttributionForProject(
 ): Promise<NightlyRunResult> {
   const { client, project } = await getBigQueryClientForProjectAsService(projectId);
 
+  // Fait converger le schéma vers la dernière version attendue avant
+  // d'insérer — idempotent (ADD COLUMN IF NOT EXISTS) et quasi gratuit
+  // (opération de métadonnées, pas de réécriture). Best-effort : un projet
+  // connecté avant l'ajout d'un champ se met ainsi à jour tout seul à son
+  // prochain run nocturne, sans script ponctuel à faire tourner à la main
+  // contre chaque client déjà connecté (voir sessions_par_canal, qui lui
+  // avait eu besoin d'un tel script — ce garde-fou évite de le refaire).
+  try {
+    const alterSql = await loadSql("alter_attributions_table_add_entry_url.sql", project);
+    await client.query({ query: alterSql });
+  } catch (error) {
+    console.error("[nightly-run] schema alter (entry_url) failed (non-blocking)", error);
+  }
+
   const attributionSql = await loadSql("nightly_attribution.sql", project);
   // Le paramètre DATE doit être encapsulé via client.date(...) : passer une
   // simple string avec `types: { target_date: "DATE" }` est silencieusement
