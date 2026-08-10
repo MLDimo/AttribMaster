@@ -193,11 +193,35 @@ export async function getLatestJobForProject(projectId: string): Promise<Nightly
   return rows[0] ?? null;
 }
 
+/**
+ * `billing` = le projet GCP du client n'a plus de compte de facturation actif,
+ * BigQuery l'a donc basculé en mode "sandbox" où toute écriture (le DELETE +
+ * INSERT du script de nuit, mais aussi la simple mise à jour du schéma) est
+ * refusée. Cas à isoler des autres : la connexion BigQuery, elle, fonctionne
+ * parfaitement (les SELECT passent), donc le message générique "vérifie ta
+ * connexion" envoie le client sur une fausse piste — et lui seul peut
+ * corriger, depuis sa console Google Cloud.
+ */
+export type NightlyFailureKind = "billing" | "generic";
+
+/**
+ * BigQuery formule le problème de deux façons selon l'opération refusée
+ * ("Billing has not been enabled..." pour le DML, "...while in sandbox mode"
+ * pour les contraintes d'expiration du dataset) : les deux désignent la même
+ * cause côté client.
+ */
+export function classifyNightlyFailure(error: string | null): NightlyFailureKind {
+  if (!error) return "generic";
+  return /billing has not been enabled|sandbox mode/i.test(error) ? "billing" : "generic";
+}
+
 export type ProjectJobHealth = {
   /** Dernier job, quel que soit son statut (null si jamais aucun run). */
   latestJob: NightlyJob | null;
   /** Fin du dernier run réussi — la vraie fraîcheur des données affichées. */
   lastSuccessAt: string | null;
+  /** Cause du dernier échec, pour afficher le bon conseil ; null si le dernier job n'a pas échoué. */
+  failureKind: NightlyFailureKind | null;
 };
 
 /** Fraîcheur des données d'un projet, pour le bandeau dashboard et le cache. */
@@ -211,5 +235,9 @@ export async function getProjectJobHealth(projectId: string): Promise<ProjectJob
       [projectId]
     ),
   ]);
-  return { latestJob, lastSuccessAt: successRows.rows[0]?.last_success_at ?? null };
+  return {
+    latestJob,
+    lastSuccessAt: successRows.rows[0]?.last_success_at ?? null,
+    failureKind: latestJob?.status === "failed" ? classifyNightlyFailure(latestJob.error) : null,
+  };
 }
