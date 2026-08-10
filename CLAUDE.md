@@ -31,7 +31,13 @@ V2 (multi-tenant) et V3 (Stripe) de la roadmap initiale sont livrées. La 2FA
   BigQuery**, où les SELECT passent mais où toute écriture est refusée (DML du
   script de nuit ET `tables.patch` du schéma). Le conseil générique "vérifie ta
   connexion BigQuery" est alors une fausse piste — d'où un bandeau dédié
-  (`DataFreshnessBanner`) pointant vers la facturation du bon projet GCP.
+  (`DataFreshnessBanner`) pointant vers la facturation du bon projet GCP, et un
+  email dédié. Cet email part **une seule fois** par panne
+  (`projects.billing_alert_sent_at`, remis à NULL par `completeJob` au premier
+  run réussi), contrairement au throttle glissant de 3 jours des autres pannes :
+  le geste correctif est unique et hors de notre portée, relancer n'apprendrait
+  rien. Il dit explicitement que réactiver la facturation ne fait pas payer
+  (palier gratuit maintenu) — c'est la crainte qui bloque le plus.
 - `lib/attribution/mock-data.ts` — projet démo public `MOCK_PROJECT_ID` (données
   déterministes mais relatives à "maintenant"), court-circuite BigQuery mais PAS
   l'auth : accessible en lecture seule à tout utilisateur connecté (bouton "Explorer

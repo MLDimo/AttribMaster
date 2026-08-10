@@ -1,0 +1,12 @@
+-- Alerte email dédiée quand le projet GCP du client perd sa facturation et
+-- retombe en mode sandbox BigQuery (voir lib/alerts/failure-alerts.ts).
+--
+-- Colonne distincte de `last_failure_alert_at`, qui est un throttle glissant
+-- (une relance tous les 3 jours tant que ça échoue) : ici on veut l'inverse,
+-- UN SEUL email par panne. Le geste correctif est unique et connu du client
+-- (rattacher un compte de facturation) — le relancer tous les 3 jours serait
+-- du harcèlement pour une information qu'il a déjà.
+--
+-- Remise à NULL dès qu'un run réussit (voir completeJob) : une nouvelle panne
+-- de facturation plus tard doit bien redonner lieu à un email.
+alter table projects add column if not exists billing_alert_sent_at timestamptz;
