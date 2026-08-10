@@ -7,6 +7,24 @@ export function hasEmailSending(): boolean {
   return Boolean(process.env.RESEND_API_KEY);
 }
 
+/**
+ * À appliquer à TOUTE valeur non littérale insérée dans le HTML d'un email.
+ *
+ * Les corps de mail sont des template strings : un nom de projet ou un nom
+ * d'utilisateur y arrive tel quel. Sans échappement, un membre d'un workspace
+ * peut renommer un projet en `<a href="...">` et faire partir ce lien dans
+ * l'email d'alerte reçu par les OWNERS — une injection qui traverse les
+ * utilisateurs, pas seulement l'auteur.
+ */
+export function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 export async function sendEmail(to: string[], subject: string, html: string): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
