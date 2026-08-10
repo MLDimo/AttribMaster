@@ -22,8 +22,16 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     if (!project) {
       return NextResponse.json({ error: "Project not found or not accessible" }, { status: 404 });
     }
-    const { latestJob, lastSuccessAt } = await getProjectJobHealth(id);
-    return NextResponse.json({ job: latestJob, lastSuccessAt });
+    const { latestJob, lastSuccessAt, failureKind } = await getProjectJobHealth(id);
+    // gcpProjectId sert au lien direct vers la facturation du bon projet Google
+    // Cloud quand c'est elle qui bloque — l'accès en lecture au projet est déjà
+    // vérifié par getProject ci-dessus.
+    return NextResponse.json({
+      job: latestJob,
+      lastSuccessAt,
+      failureKind,
+      gcpProjectId: project.gcp_project_id,
+    });
   } catch (error) {
     return apiErrorResponse(error, "[api/projects/[id]/refresh GET]", "Failed to load refresh status");
   }
