@@ -18,6 +18,7 @@ export type FailureAlertCandidate = {
   gcp_project_id: string | null;
   error: string | null;
   last_success_at: string | null;
+  last_failure_alert_at: string | null;
   billing_alert_sent_at: string | null;
   owner_emails: string[];
 };
@@ -25,24 +26,37 @@ export type FailureAlertCandidate = {
 /**
  * Décide s'il faut écrire au client, et avec quel message.
  *
- * Une panne de facturation n'appelle qu'UN email : le geste correctif est
- * unique et hors de notre portée (rattacher un compte de facturation dans SA
- * console Google Cloud). Répéter tous les 3 jours comme pour les autres pannes
- * n'apprendrait rien de neuf. `billing_alert_sent_at` est remis à NULL au
- * premier run réussi, donc une future panne redonnera bien lieu à un email.
+ * Les deux cadences vivent ICI plutôt qu'en SQL, et surtout elles sont
+ * INDÉPENDANTES : sinon le throttle glissant des pannes génériques retenait
+ * jusqu'à 3 jours le premier email de facturation (constaté sur un vrai
+ * projet, déjà alerté 2 jours plus tôt pour une autre panne) — or c'est
+ * précisément l'email qui demande d'agir vite.
+ *
+ * - facturation : UN SEUL email par panne. Le geste correctif est unique et
+ *   hors de notre portée (rattacher un compte de facturation dans SA console
+ *   Google Cloud) ; relancer n'apprendrait rien. `billing_alert_sent_at` est
+ *   remis à NULL au premier run réussi (voir `completeJob`), donc une panne
+ *   ultérieure redonne bien lieu à un email.
+ * - reste : relance tous les 3 jours tant que ça échoue, la cause pouvant
+ *   changer ou se résoudre d'elle-même.
  */
-export function planFailureAlert(candidate: FailureAlertCandidate): {
-  kind: NightlyFailureKind;
-  send: boolean;
-} {
+export function planFailureAlert(
+  candidate: FailureAlertCandidate,
+  now: Date = new Date()
+): { kind: NightlyFailureKind; send: boolean } {
   const kind = classifyNightlyFailure(candidate.error);
   if (kind === "billing") return { kind, send: candidate.billing_alert_sent_at === null };
-  return { kind, send: true };
+  if (!candidate.last_failure_alert_at) return { kind, send: true };
+  const elapsedDays =
+    (now.getTime() - new Date(candidate.last_failure_alert_at).getTime()) / (24 * 60 * 60 * 1000);
+  return { kind, send: elapsedDays >= ALERT_THROTTLE_DAYS };
 }
 
 /**
- * Projets dont le DERNIER job est en échec, pas déjà alertés depuis moins de
- * 3 jours, avec les emails des owners des workspaces rattachés.
+ * Projets dont le DERNIER job est en échec, avec les emails des owners des
+ * workspaces rattachés. Ne filtre PAS sur la cadence d'envoi : c'est
+ * `planFailureAlert` qui tranche, faute de quoi le throttle générique
+ * masquerait aussi le premier email de facturation.
  */
 export async function findProjectsNeedingFailureAlert(): Promise<FailureAlertCandidate[]> {
   const db = getDbPool();
@@ -56,6 +70,7 @@ export async function findProjectsNeedingFailureAlert(): Promise<FailureAlertCan
        p.id as project_id,
        p.name as project_name,
        p.gcp_project_id,
+       p.last_failure_alert_at::text as last_failure_alert_at,
        p.billing_alert_sent_at::text as billing_alert_sent_at,
        lj.error,
        (select max(finished_at)::text from nightly_jobs nj
@@ -70,9 +85,7 @@ export async function findProjectsNeedingFailureAlert(): Promise<FailureAlertCan
        ) as owner_emails
      from projects p
      join latest_jobs lj on lj.project_id = p.id and lj.status = 'failed'
-     where p.id != $1
-       and (p.last_failure_alert_at is null
-        or p.last_failure_alert_at < now() - interval '${ALERT_THROTTLE_DAYS} days')`,
+     where p.id != $1`,
     [MOCK_PROJECT_ID]
   );
   return rows;
