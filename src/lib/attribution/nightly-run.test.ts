@@ -1,6 +1,24 @@
-import { describe, expect, it } from "vitest";
+import type { BigQuery } from "@google-cloud/bigquery";
+import { describe, expect, it, vi } from "vitest";
 
-import { daysAgoDateOnly, toDateOnly, yesterdayDateOnly } from "./nightly-run";
+import { daysAgoDateOnly, ensureNestedField, toDateOnly, yesterdayDateOnly } from "./nightly-run";
+
+type Field = { name: string; type: string; mode?: string; fields?: Field[] };
+
+/** Faux client BigQuery réduit à ce que `ensureNestedField` touche : lire puis patcher le schéma d'une table. */
+function fakeClient(fields: Field[]) {
+  const setMetadata = vi.fn(async () => {});
+  const getMetadata = vi.fn(async () => [{ schema: { fields } }]);
+  const client = {
+    dataset: () => ({ table: () => ({ getMetadata, setMetadata }) }),
+  } as unknown as BigQuery;
+  return { client, setMetadata };
+}
+
+const touchpointsField = (children: Field[]): Field[] => [
+  { name: "transaction_id", type: "STRING" },
+  { name: "touchpoints", type: "RECORD", mode: "REPEATED", fields: children },
+];
 
 describe("nightly-run date helpers", () => {
   it("toDateOnly formats a Date as YYYY-MM-DD in UTC", () => {
@@ -19,5 +37,56 @@ describe("nightly-run date helpers", () => {
 
   it("yesterdayDateOnly is exactly daysAgoDateOnly(1)", () => {
     expect(yesterdayDateOnly()).toBe(daysAgoDateOnly(1));
+  });
+});
+
+describe("ensureNestedField", () => {
+  it("ajoute le champ manquant en NULLABLE sans toucher aux champs existants", async () => {
+    const { client, setMetadata } = fakeClient(
+      touchpointsField([
+        { name: "source", type: "STRING" },
+        { name: "position", type: "INTEGER" },
+      ])
+    );
+
+    await ensureNestedField(client, "attribution", "attributions_resumees", "touchpoints", {
+      name: "entry_url",
+      type: "STRING",
+    });
+
+    expect(setMetadata).toHaveBeenCalledTimes(1);
+    const patched = setMetadata.mock.calls[0][0] as unknown as { schema: { fields: Field[] } };
+    expect(patched.schema.fields[1].fields).toEqual([
+      { name: "source", type: "STRING" },
+      { name: "position", type: "INTEGER" },
+      { name: "entry_url", type: "STRING", mode: "NULLABLE" },
+    ]);
+  });
+
+  it("ne patche rien si le champ est déjà là (idempotent, appelé chaque nuit)", async () => {
+    const { client, setMetadata } = fakeClient(
+      touchpointsField([
+        { name: "source", type: "STRING" },
+        { name: "entry_url", type: "STRING", mode: "NULLABLE" },
+      ])
+    );
+
+    await ensureNestedField(client, "attribution", "attributions_resumees", "touchpoints", {
+      name: "entry_url",
+      type: "STRING",
+    });
+
+    expect(setMetadata).not.toHaveBeenCalled();
+  });
+
+  it("échoue explicitement si le STRUCT parent n'existe pas", async () => {
+    const { client } = fakeClient([{ name: "transaction_id", type: "STRING" }]);
+
+    await expect(
+      ensureNestedField(client, "attribution", "attributions_resumees", "touchpoints", {
+        name: "entry_url",
+        type: "STRING",
+      })
+    ).rejects.toThrow(/touchpoints/);
   });
 });

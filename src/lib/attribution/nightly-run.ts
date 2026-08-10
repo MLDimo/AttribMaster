@@ -35,6 +35,39 @@ async function loadSql(fileName: string, project: Project): Promise<string> {
 /** Fenêtre exportée vers Google Sheets à chaque nuit (remplacement complet de l'onglet, pas un ajout) — même largeur que le rattrapage d'attribution, pour rester borné et rapide sous la limite Vercel Hobby (maxDuration 300s). */
 const SHEET_EXPORT_LOOKBACK_DAYS = 90;
 
+type BigQuerySchemaField = { name: string; type: string; mode?: string; fields?: BigQuerySchemaField[] };
+
+/**
+ * Ajoute un champ à l'intérieur d'un STRUCT existant, si absent.
+ *
+ * BigQuery n'a AUCUNE syntaxe DDL pour ça : `ALTER TABLE ... ADD COLUMN
+ * touchpoints.entry_url STRING` est rejeté (`Syntax error: Unexpected "."`),
+ * et `ADD COLUMN touchpoints` échoue puisque la colonne existe déjà. Seul
+ * `tables.patch` (ici `setMetadata`) accepte un schéma imbriqué modifié. Le
+ * champ est forcément NULLABLE : BigQuery refuse d'ajouter un REQUIRED à une
+ * table qui contient déjà des lignes.
+ */
+export async function ensureNestedField(
+  client: BigQuery,
+  datasetId: string,
+  tableId: string,
+  parentFieldName: string,
+  field: { name: string; type: string }
+): Promise<void> {
+  const table = client.dataset(datasetId).table(tableId);
+  const [metadata] = await table.getMetadata();
+  const parent = (metadata?.schema?.fields as BigQuerySchemaField[] | undefined)?.find(
+    (f) => f.name === parentFieldName
+  );
+  if (!parent?.fields) {
+    throw new Error(`Champ STRUCT "${parentFieldName}" introuvable dans ${datasetId}.${tableId}`);
+  }
+  if (parent.fields.some((f) => f.name === field.name)) return;
+
+  parent.fields.push({ ...field, mode: "NULLABLE" });
+  await table.setMetadata({ schema: metadata.schema });
+}
+
 export type NightlyRunResult = {
   projectId: string;
   projectName: string;
@@ -74,19 +107,20 @@ export async function runNightlyAttributionForProject(
 ): Promise<NightlyRunResult> {
   const { client, project } = await getBigQueryClientForProjectAsService(projectId);
 
-  // Fait converger le schéma vers la dernière version attendue avant
-  // d'insérer — idempotent (ADD COLUMN IF NOT EXISTS) et quasi gratuit
-  // (opération de métadonnées, pas de réécriture). Best-effort : un projet
-  // connecté avant l'ajout d'un champ se met ainsi à jour tout seul à son
-  // prochain run nocturne, sans script ponctuel à faire tourner à la main
+  // Fait converger le schéma vers la dernière version attendue AVANT
+  // d'insérer — idempotent et quasi gratuit (opération de métadonnées, pas de
+  // réécriture, et pas une requête : ni facturée ni bloquée en sandbox). Un
+  // projet connecté avant l'ajout d'un champ se met ainsi à jour tout seul à
+  // son prochain run nocturne, sans script ponctuel à faire tourner à la main
   // contre chaque client déjà connecté (voir sessions_par_canal, qui lui
   // avait eu besoin d'un tel script — ce garde-fou évite de le refaire).
-  try {
-    const alterSql = await loadSql("alter_attributions_table_add_entry_url.sql", project);
-    await client.query({ query: alterSql });
-  } catch (error) {
-    console.error("[nightly-run] schema alter (entry_url) failed (non-blocking)", error);
-  }
+  // PAS best-effort, contrairement aux étapes secondaires plus bas : si la
+  // convergence échoue, l'INSERT juste après échouera de toute façon sur un
+  // STRUCT `touchpoints` incompatible, avec un message autrement plus obscur.
+  await ensureNestedField(client, project.bigquery_dataset, ATTRIBUTIONS_TABLE, "touchpoints", {
+    name: "entry_url",
+    type: "STRING",
+  });
 
   const attributionSql = await loadSql("nightly_attribution.sql", project);
   // Le paramètre DATE doit être encapsulé via client.date(...) : passer une
