@@ -9,8 +9,6 @@ if (!name || !email || !password) {
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-await pool.query(`alter table users add column if not exists password_hash text`);
-
 const passwordHash = await bcrypt.hash(password, 10);
 
 const { rows } = await pool.query(
