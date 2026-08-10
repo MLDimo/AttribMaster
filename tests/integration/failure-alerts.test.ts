@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { findProjectsNeedingFailureAlert, sendFailureAlerts } from "@/lib/alerts/failure-alerts";
+import { findProjectsNeedingFailureAlert, planFailureAlert, sendFailureAlerts } from "@/lib/alerts/failure-alerts";
 import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
 import { completeJob, getProjectJobHealth } from "@/lib/attribution/queue";
 import { getDbPool } from "@/lib/db/client";
@@ -34,11 +34,16 @@ describe("failure alerts", () => {
     const own = candidates.find((c) => c.project_id === projectId);
     expect(own).toBeDefined();
     expect(own?.error).toBe("invalid_grant");
+    expect(planFailureAlert(own!)).toEqual({ kind: "generic", send: true });
 
-    // Simule un envoi : le throttle doit exclure le projet du prochain tour.
+    // Simule un envoi. La requête continue de remonter le projet (elle ne
+    // filtre plus sur la cadence, pour ne pas masquer le premier email de
+    // facturation) : c'est planFailureAlert qui doit désormais le taire.
     await pool.query(`update projects set last_failure_alert_at = now() where id = $1`, [projectId]);
     const after = await findProjectsNeedingFailureAlert();
-    expect(after.find((c) => c.project_id === projectId)).toBeUndefined();
+    const throttled = after.find((c) => c.project_id === projectId);
+    expect(throttled).toBeDefined();
+    expect(planFailureAlert(throttled!).send).toBe(false);
   });
 
   it("never selects the demo project, even with a failed job and no throttle — its token is fake, it will fail forever otherwise", async () => {
