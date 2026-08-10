@@ -131,7 +131,8 @@ async function claimNextJob(projectId?: string): Promise<NightlyJob | null> {
   return rows[0] ?? null;
 }
 
-async function completeJob(
+/** Exporté pour les tests : c'est ici que se joue la clôture d'une panne de facturation. */
+export async function completeJob(
   jobId: string,
   result: { status: "done"; rowsInserted: number } | { status: "failed"; error: string }
 ): Promise<void> {
@@ -147,6 +148,19 @@ async function completeJob(
       result.status === "failed" ? result.error : null,
     ]
   );
+
+  // Un run réussi clôt la panne de facturation : sans cette remise à zéro,
+  // l'email "une seule fois" ne repartirait JAMAIS pour une panne ultérieure
+  // (voir planFailureAlert). Conditionné pour n'écrire que quand il y a
+  // vraiment quelque chose à effacer.
+  if (result.status === "done") {
+    await db.query(
+      `update projects set billing_alert_sent_at = null
+       where id = (select project_id from nightly_jobs where id = $1)
+         and billing_alert_sent_at is not null`,
+      [jobId]
+    );
+  }
 }
 
 /**

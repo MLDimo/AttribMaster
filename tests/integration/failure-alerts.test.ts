@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { findProjectsNeedingFailureAlert, sendFailureAlerts } from "@/lib/alerts/failure-alerts";
 import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
-import { getProjectJobHealth } from "@/lib/attribution/queue";
+import { completeJob, getProjectJobHealth } from "@/lib/attribution/queue";
 import { getDbPool } from "@/lib/db/client";
 
 describe("failure alerts", () => {
@@ -72,6 +72,27 @@ describe("failure alerts", () => {
 
     const candidates = await findProjectsNeedingFailureAlert();
     expect(candidates.find((c) => c.project_id === projectId)).toBeUndefined();
+  });
+
+  it("completeJob clears billing_alert_sent_at on success, so a later outage alerts again", async () => {
+    const pool = getDbPool();
+    const { rows: jobRows } = await pool.query(
+      `insert into nightly_jobs (project_id, target_date, status, trigger_source)
+       values ($1, '2026-06-03', 'pending', 'cron') returning id`,
+      [projectId]
+    );
+    const jobId = jobRows[0].id;
+
+    // Un échec ne clôt rien : la panne dure, le client a déjà son email.
+    await pool.query(`update projects set billing_alert_sent_at = now() where id = $1`, [projectId]);
+    await completeJob(jobId, { status: "failed", error: "Billing has not been enabled for this project." });
+    const stillSet = await pool.query(`select billing_alert_sent_at from projects where id = $1`, [projectId]);
+    expect(stillSet.rows[0].billing_alert_sent_at).not.toBeNull();
+
+    // Un succès clôt la panne : le prochain incident redonnera droit à un email.
+    await completeJob(jobId, { status: "done", rowsInserted: 3 });
+    const cleared = await pool.query(`select billing_alert_sent_at from projects where id = $1`, [projectId]);
+    expect(cleared.rows[0].billing_alert_sent_at).toBeNull();
   });
 
   it("sendFailureAlerts is a clean no-op without RESEND_API_KEY", async () => {
