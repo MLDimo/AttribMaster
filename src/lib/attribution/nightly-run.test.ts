@@ -7,7 +7,7 @@ type Field = { name: string; type: string; mode?: string; fields?: Field[] };
 
 /** Faux client BigQuery réduit à ce que `ensureNestedField` touche : lire puis patcher le schéma d'une table. */
 function fakeClient(fields: Field[]) {
-  const setMetadata = vi.fn(async () => {});
+  const setMetadata = vi.fn(async (_metadata: { schema: { fields: Field[] } }) => {});
   const getMetadata = vi.fn(async () => [{ schema: { fields } }]);
   const client = {
     dataset: () => ({ table: () => ({ getMetadata, setMetadata }) }),
@@ -55,8 +55,7 @@ describe("ensureNestedField", () => {
     });
 
     expect(setMetadata).toHaveBeenCalledTimes(1);
-    const patched = setMetadata.mock.calls[0][0] as unknown as { schema: { fields: Field[] } };
-    expect(patched.schema.fields[1].fields).toEqual([
+    expect(setMetadata.mock.calls[0][0].schema.fields[1].fields).toEqual([
       { name: "source", type: "STRING" },
       { name: "position", type: "INTEGER" },
       { name: "entry_url", type: "STRING", mode: "NULLABLE" },
