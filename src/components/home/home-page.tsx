@@ -7,8 +7,11 @@ import {
   Database,
   FileSpreadsheet,
   FilterX,
-  GitCompare,
+  Percent,
+  Route,
+  SlidersHorizontal,
   Sparkles,
+  Table2,
   TrendingDown,
   Waypoints,
 } from "lucide-react";
@@ -57,19 +60,38 @@ const PROBLEMS = [
 const FEATURES = [
   {
     icon: Waypoints,
-    title: "6 modèles d'attribution",
+    title: "6 modèles prêts à l'emploi",
     description:
-      "Last Click, Linéaire, Croissant, En U, Chaînes de Markov, Valeur de Shapley — calculés sur tes vraies données de conversion.",
+      "Last Click, Linéaire, Croissant, En U, Chaînes de Markov, Valeur de Shapley. Compare deux périodes ou deux modèles côte à côte.",
+  },
+  {
+    icon: SlidersHorizontal,
+    title: "Et le tien, en 7ᵉ",
+    description:
+      "Fixe toi-même les poids premier / milieu / dernier contact, et ajoute des règles : « si Google Ads est le premier contact, il prend 70 % ».",
+  },
+  {
+    icon: Route,
+    title: "Le parcours de chaque vente",
+    description:
+      "Clique une transaction et déroule ses points de contact un par un : source, support, campagne, page d'arrivée et part du crédit.",
+  },
+  {
+    icon: Percent,
+    title: "Taux de conversion par canal",
+    description:
+      "Taux de conversion et panier moyen canal par canal, ventilables par support ou par campagne — sur toutes les sessions, pas seulement celles qui achètent.",
+  },
+  {
+    icon: Table2,
+    title: "Export Google Sheets nocturne",
+    description:
+      "Tes transactions attribuées réécrites chaque nuit dans ta feuille. Tes reportings se mettent à jour seuls, sans recalcul manuel.",
   },
   {
     icon: Database,
     title: "Données 100 % réelles",
     description: "Aucune donnée échantillonnée : les requêtes tournent directement sur ton export BigQuery.",
-  },
-  {
-    icon: GitCompare,
-    title: "Comparaisons de périodes",
-    description: "N-1, semaine dernière, mois dernier — repère les tendances en un clic.",
   },
 ];
 
@@ -87,8 +109,16 @@ const FAQ_ITEMS = [
     a: "Oui, bascule entre les 6 modèles en un clic, à tout moment, inclus dans tous les plans.",
   },
   {
+    q: "Puis-je définir mon propre modèle d'attribution ?",
+    a: "Oui. Tu fixes les poids donnés au premier contact, aux contacts intermédiaires et au dernier, et tu peux y ajouter des règles du type « si ce canal est le premier contact, il prend 70 % ». Le total reste toujours exactement à 100 %, quel que soit le nombre de points de contact.",
+  },
+  {
+    q: "Puis-je récupérer mes données ailleurs ?",
+    a: "Oui, de deux façons : un export CSV à la demande, et une synchronisation automatique chaque nuit vers une feuille Google Sheets de ton choix.",
+  },
+  {
     q: "Un projet peut-il avoir plusieurs collaborateurs ?",
-    a: "Oui, invite qui tu veux par email, sans limite de nombre.",
+    a: "Oui, invite qui tu veux par email, sans limite de nombre. Tu peux aussi partager un projet en lecture seule, pour qu'un client ou un stagiaire consulte les chiffres sans rien pouvoir modifier.",
   },
   {
     q: "Un compte de facturation peut-il couvrir plusieurs projets ?",
@@ -165,7 +195,8 @@ export function HomePage({ authenticated }: { authenticated: boolean }) {
           <FadeIn delay={0.1}>
             <p className="text-balance text-muted-foreground sm:text-lg">
               AttribMaster reconstruit le vrai parcours de conversion depuis BigQuery.
-              <br />6 modèles d&apos;attribution calculés sur tes données réelles, sans échantillonnage.
+              <br />6 modèles d&apos;attribution prêts à l&apos;emploi — ou le tien, calculés sur tes données
+              réelles, sans échantillonnage.
             </p>
           </FadeIn>
           <FadeIn delay={0.15} className="flex flex-wrap items-center justify-center gap-3">
@@ -214,7 +245,9 @@ export function HomePage({ authenticated }: { authenticated: boolean }) {
         <FadeIn className="mb-8 flex flex-col items-center gap-2 text-center">
           <h2 className="text-2xl font-semibold">Le même mois, deux vérités différentes</h2>
           <p className="text-sm text-muted-foreground">Change juste de modèle d&apos;attribution.</p>
-          <p className="text-sm text-muted-foreground">6 modèles d&apos;attribution disponibles.</p>
+          <p className="text-sm text-muted-foreground">
+            6 modèles disponibles, plus celui que tu construis toi-même.
+          </p>
         </FadeIn>
         <FadeIn delay={0.1}>
           <Card>
