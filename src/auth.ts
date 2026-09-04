@@ -22,6 +22,14 @@ export const { handlers, auth } = NextAuth({
       // Google vérifie toujours l'email : on autorise le lien automatique avec
       // un compte existant (créé via email/mot de passe) ayant le même email.
       allowDangerousEmailAccountLinking: true,
+      // Sans ça, se déconnecter d'AttribMaster puis recliquer "Se connecter
+      // avec Google" reconnecte en silence tant que la session Google elle-
+      // même reste active dans le navigateur — la déconnexion AttribMaster
+      // est bien réelle (cookie de session effacé), mais rien ne le montre à
+      // l'utilisateur. `select_account` force l'écran de choix de compte à
+      // chaque connexion, sans redemander le mot de passe ni re-consentir aux
+      // scopes (contrairement à `prompt: "consent"`, inutilement lourd ici).
+      authorization: { params: { prompt: "select_account" } },
     }),
     Credentials({
       credentials: {
