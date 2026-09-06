@@ -27,9 +27,13 @@ import type { Account, Project } from "@/lib/projects/types";
 
 const HOUR_MS = 60 * 60 * 1000;
 
-type DataStatus = "fresh" | "stale" | "dead";
+// "loading" : pas encore de réponse de /status pour ce projet — distinct de
+// "dead" (réponse reçue, aucune donnée trouvée) pour ne jamais afficher un
+// point rouge le temps que la vraie réponse arrive.
+type DataStatus = "fresh" | "stale" | "dead" | "loading";
 
-function dataStatus(lastDataAt: string | null): DataStatus {
+function dataStatus(lastDataAt: string | null | undefined): DataStatus {
+  if (lastDataAt === undefined) return "loading";
   if (!lastDataAt) return "dead";
   const ageHours = (Date.now() - new Date(lastDataAt).getTime()) / HOUR_MS;
   if (ageHours < 24) return "fresh";
@@ -41,6 +45,7 @@ const STATUS_STYLES: Record<DataStatus, { dot: string; label: string; text: stri
   fresh: { dot: "bg-success", label: "Données à jour (moins de 24h)", text: "À jour" },
   stale: { dot: "bg-amber-500", label: "Pas de données depuis au moins 24h", text: "24h+" },
   dead: { dot: "bg-destructive", label: "Pas de données depuis 3 jours ou plus", text: "3j+" },
+  loading: { dot: "bg-muted-foreground/30 animate-pulse", label: "Vérification en cours...", text: "…" },
 };
 
 function StatusDot({ status }: { status: DataStatus }) {
@@ -56,12 +61,21 @@ function StatusDot({ status }: { status: DataStatus }) {
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [lastDataById, setLastDataById] = useState<Record<string, string | null>>({});
+  const [lastDataById, setLastDataById] = useState<Record<string, string | null | undefined>>({});
   const [loaded, setLoaded] = useState(false);
   const [search, setSearch] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // La liste (noms, connexion, plan) ne dépend que de Postgres et doit
+  // s'afficher tout de suite. La fraîcheur des données par projet, elle,
+  // suppose un aller-retour OAuth + une requête BigQuery par projet connecté
+  // (mesuré : plus d'1s chacun) — jamais assez rapide pour bloquer le rendu
+  // de toute la liste derrière son point le plus lent (vécu en prod : la
+  // page restait vide plusieurs secondes le temps que TOUS les projets
+  // répondent). Chaque ligne se met donc à jour dès que SA PROPRE requête
+  // répond, sans attendre les autres.
   async function reload() {
+    setLastDataById({});
     const [projectsList] = await Promise.all([
       fetch("/api/projects")
         .then((res) => (res.ok ? res.json() : { projects: [] }))
@@ -71,22 +85,20 @@ export default function ProjectsPage() {
         .then((json: { accounts: Account[] }) => setAccounts(json.accounts)),
     ]);
     setProjects(projectsList);
+    setLoaded(true);
 
-    const connected = projectsList.filter(isProjectConnected);
-    const statuses = await Promise.all(
-      connected.map((project) =>
-        fetch(`/api/projects/${project.id}/status`)
-          .then((res) => (res.ok ? res.json() : { lastDataAt: null }))
-          .then((json: { lastDataAt: string | null }) => [project.id, json.lastDataAt] as const)
-      )
-    );
-    setLastDataById(Object.fromEntries(statuses));
+    for (const project of projectsList.filter(isProjectConnected)) {
+      fetch(`/api/projects/${project.id}/status`)
+        .then((res) => (res.ok ? res.json() : { lastDataAt: null }))
+        .then((json: { lastDataAt: string | null }) => {
+          setLastDataById((prev) => ({ ...prev, [project.id]: json.lastDataAt }));
+        });
+    }
   }
 
   useEffect(() => {
     async function run() {
       await reload();
-      setLoaded(true);
     }
     void run();
   }, []);
@@ -192,7 +204,7 @@ export default function ProjectsPage() {
                         </TableCell>
                         <TableCell>
                           {connected ? (
-                            <StatusDot status={dataStatus(lastDataById[project.id] ?? null)} />
+                            <StatusDot status={dataStatus(lastDataById[project.id])} />
                           ) : (
                             "—"
                           )}
