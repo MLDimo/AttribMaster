@@ -1,8 +1,9 @@
 "use client";
 
-import { ExternalLink, Sheet } from "lucide-react";
+import { ExternalLink, Loader2, RefreshCw, Sheet } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
 
 type Status = {
@@ -17,24 +18,37 @@ type Status = {
  * sur "Project mockdata", pour pouvoir la montrer telle quelle lors de la
  * vérification du scope `spreadsheets` par l'équipe OAuth de Google : c'est
  * la seule preuve du scope accessible sans compte client réel connecté.
+ *
+ * Le bouton "Exporter maintenant" déclenche le même export que le cron
+ * nocturne, à la demande — pour ne pas dépendre du prochain tick pendant une
+ * démo en direct.
  */
 export function DemoGoogleSheetExportStatus() {
   const [status, setStatus] = useState<Status | null>(null);
+  const [exporting, setExporting] = useState(false);
+
+  function loadStatus() {
+    return fetch(`/api/projects/${MOCK_PROJECT_ID}/google-sheet-export`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json: Status | null) => setStatus(json))
+      .catch(() => setStatus(null));
+  }
 
   useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/projects/${MOCK_PROJECT_ID}/google-sheet-export`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json: Status | null) => {
-        if (!cancelled) setStatus(json);
-      })
-      .catch(() => {
-        if (!cancelled) setStatus(null);
-      });
-    return () => {
-      cancelled = true;
-    };
+    void loadStatus();
   }, []);
+
+  async function handleExportNow() {
+    setExporting(true);
+    try {
+      const res = await fetch(`/api/projects/${MOCK_PROJECT_ID}/google-sheet-export`, { method: "POST" });
+      const json: Status | null = res.ok ? await res.json() : null;
+      if (json) setStatus(json);
+      else await loadStatus();
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const live = status?.spreadsheetTitle !== null && status?.spreadsheetTitle !== undefined;
 
@@ -69,6 +83,16 @@ export function DemoGoogleSheetExportStatus() {
           Statut indisponible pour le moment
         </span>
       )}
+      <Button
+        variant="outline"
+        size="sm"
+        className="mt-1 w-fit"
+        onClick={handleExportNow}
+        disabled={exporting}
+      >
+        {exporting ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
+        Exporter maintenant
+      </Button>
     </div>
   );
 }
