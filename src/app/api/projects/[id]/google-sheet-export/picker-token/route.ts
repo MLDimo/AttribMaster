@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { apiErrorResponse } from "@/lib/auth/errors";
-import { mintAccessToken } from "@/lib/gcp-oauth/client";
+import { googleCloudProjectNumber, mintAccessToken } from "@/lib/gcp-oauth/client";
 import { getProjectOAuthToken, requireProjectAccess, requireUserId } from "@/lib/projects/repository";
 
 /**
@@ -26,7 +26,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     }
 
     const accessToken = await mintAccessToken(refreshToken);
-    return NextResponse.json({ accessToken });
+    // `appId` (numéro de projet Cloud) : requis par le Picker pour que la
+    // sélection sous scope `drive.file` enregistre réellement l'accès côté
+    // Drive — voir le commentaire dans googleCloudProjectNumber.
+    return NextResponse.json({ accessToken, appId: googleCloudProjectNumber() });
   } catch (error) {
     return apiErrorResponse(
       error,

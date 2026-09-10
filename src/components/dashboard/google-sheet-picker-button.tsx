@@ -90,13 +90,21 @@ export function GoogleSheetPickerButton({
       // l'apparence de ce dialogue pour que l'utilisateur le reconnaisse sans
       // ambiguïté comme SA propre frontière de sécurité Google, jamais comme
       // un composant de l'app hôte qui pourrait l'imiter.
-      const instance = new picker.PickerBuilder()
+      let builder = new picker.PickerBuilder()
         .addView(view)
         .enableFeature(picker.Feature.NAV_HIDDEN)
         .setTitle("Choisir la feuille pour l'export AttribMaster")
         .setLocale("fr")
         .setOAuthToken(tokenJson.accessToken)
-        .setDeveloperKey(apiKey!)
+        .setDeveloperKey(apiKey!);
+      // Sans setAppId, la sélection réussit visuellement mais Drive
+      // n'enregistre jamais l'accès par fichier qu'exige `drive.file` — toute
+      // requête serveur ultérieure sur ce fichier échoue en 404 (bug vécu :
+      // voir le commentaire dans googleCloudProjectNumber). appId peut
+      // manquer si GOOGLE_CLIENT_ID est absent côté serveur — le Picker
+      // s'ouvre quand même, juste sans cette étape.
+      if (tokenJson.appId) builder = builder.setAppId(tokenJson.appId);
+      const instance = builder
         .setCallback((data: { action: string; docs?: { url: string }[] }) => {
           if (data.action === picker.Action.PICKED && data.docs?.[0]?.url) {
             onPicked(data.docs[0].url);
@@ -133,6 +141,7 @@ interface PickerInstance {
 interface PickerBuilderInstance {
   addView: (view: PickerDocsView) => PickerBuilderInstance;
   enableFeature: (feature: unknown) => PickerBuilderInstance;
+  setAppId: (appId: string) => PickerBuilderInstance;
   setTitle: (title: string) => PickerBuilderInstance;
   setLocale: (locale: string) => PickerBuilderInstance;
   setOAuthToken: (token: string) => PickerBuilderInstance;
