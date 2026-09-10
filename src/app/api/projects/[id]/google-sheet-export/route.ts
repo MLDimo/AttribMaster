@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
 import { apiErrorResponse } from "@/lib/auth/errors";
+import { getDemoGoogleSheetExportStatus } from "@/lib/google-sheets/demo-export";
 import { parseSpreadsheetId, verifySheetAccess } from "@/lib/google-sheets/client";
 import {
   clearGoogleSheetExportUrl,
@@ -10,6 +12,32 @@ import {
   requireUserId,
   saveGoogleSheetExportUrl,
 } from "@/lib/projects/repository";
+
+/**
+ * Statut en lecture seule, réservé au projet démo — voir demo-export.ts. Un
+ * vrai projet n'a pas besoin de cette route : son statut vit déjà sur l'objet
+ * `Project` renvoyé par `GET /api/projects/[id]`.
+ */
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  if (id !== MOCK_PROJECT_ID) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  try {
+    // Même règle que le reste du projet démo : accessible à tout utilisateur
+    // connecté (pas d'accès via workspace nécessaire), jamais aux visiteurs
+    // anonymes — voir getProjectWithAccess.
+    await requireUserId();
+    const status = await getDemoGoogleSheetExportStatus();
+    return NextResponse.json(status);
+  } catch (error) {
+    return apiErrorResponse(
+      error,
+      "[api/projects/[id]/google-sheet-export GET]",
+      "Failed to load demo export status"
+    );
+  }
+}
 
 const bodySchema = z
   .object({ url: z.string().trim().url() })
