@@ -84,8 +84,17 @@ export function GoogleSheetPickerButton({
       const picker = window.google!.picker;
       const view = new picker.DocsView(picker.ViewId.SPREADSHEETS).setMode(picker.DocsViewMode.LIST);
 
+      // Ce qui EST personnalisable côté Google (titre, langue, pas de volet
+      // de navigation superflu vu qu'une seule vue est ajoutée) — le reste
+      // (couleurs, police) ne l'est délibérément pas : Google verrouille
+      // l'apparence de ce dialogue pour que l'utilisateur le reconnaisse sans
+      // ambiguïté comme SA propre frontière de sécurité Google, jamais comme
+      // un composant de l'app hôte qui pourrait l'imiter.
       const instance = new picker.PickerBuilder()
         .addView(view)
+        .enableFeature(picker.Feature.NAV_HIDDEN)
+        .setTitle("Choisir la feuille pour l'export AttribMaster")
+        .setLocale("fr")
         .setOAuthToken(tokenJson.accessToken)
         .setDeveloperKey(apiKey!)
         .setCallback((data: { action: string; docs?: { url: string }[] }) => {
@@ -123,6 +132,9 @@ interface PickerInstance {
 
 interface PickerBuilderInstance {
   addView: (view: PickerDocsView) => PickerBuilderInstance;
+  enableFeature: (feature: unknown) => PickerBuilderInstance;
+  setTitle: (title: string) => PickerBuilderInstance;
+  setLocale: (locale: string) => PickerBuilderInstance;
   setOAuthToken: (token: string) => PickerBuilderInstance;
   setDeveloperKey: (key: string) => PickerBuilderInstance;
   setCallback: (cb: (data: { action: string; docs?: { url: string }[] }) => void) => PickerBuilderInstance;
@@ -136,6 +148,7 @@ declare global {
       picker: {
         DocsView: new (viewId: unknown) => PickerDocsView;
         DocsViewMode: { LIST: unknown };
+        Feature: { NAV_HIDDEN: unknown };
         ViewId: { SPREADSHEETS: unknown };
         Action: { PICKED: string };
         PickerBuilder: new () => PickerBuilderInstance;
