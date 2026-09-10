@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
 
 type Status = {
-  spreadsheetUrl: string;
+  spreadsheetUrl: string | null;
   spreadsheetTitle: string | null;
   rowCount: number | null;
 };
@@ -59,16 +59,18 @@ export function DemoGoogleSheetExportStatus() {
         Chaque nuit, les transactions des 90 derniers jours sont écrites dans un onglet{" "}
         <span className="font-medium text-foreground">« AttribMaster »</span> de cette feuille.
       </p>
-      <a
-        href={status?.spreadsheetUrl ?? "#"}
-        target="_blank"
-        rel="noreferrer"
-        className="flex w-fit items-center gap-1.5 text-xs font-medium text-primary hover:underline"
-      >
-        <Sheet className="size-3.5 shrink-0" />
-        {live ? status.spreadsheetTitle : "Ouvrir la feuille"}
-        <ExternalLink className="size-3 shrink-0" />
-      </a>
+      {status?.spreadsheetUrl && (
+        <a
+          href={status.spreadsheetUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="flex w-fit items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+        >
+          <Sheet className="size-3.5 shrink-0" />
+          {live ? status.spreadsheetTitle : "Ouvrir la feuille"}
+          <ExternalLink className="size-3 shrink-0" />
+        </a>
+      )}
       {status === null ? (
         <span className="text-xs text-muted-foreground">Chargement du statut…</span>
       ) : live ? (
@@ -76,6 +78,11 @@ export function DemoGoogleSheetExportStatus() {
           <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-success" />
           Connecté — {status.rowCount} ligne{status.rowCount === 1 ? "" : "s"} actuellement exportée
           {status.rowCount === 1 ? "" : "s"}
+        </span>
+      ) : status.spreadsheetUrl === null ? (
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-muted-foreground/30" />
+          Aucune feuille choisie pour le moment
         </span>
       ) : (
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">

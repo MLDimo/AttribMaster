@@ -72,24 +72,37 @@ V2 (multi-tenant) et V3 (Stripe) de la roadmap initiale sont livrées. La 2FA
   colonne `projects.export_google_sheet_url`) : réécrit chaque nuit un onglet
   dédié "AttribMaster" (créé automatiquement, jamais le premier onglet) avec
   les 90 derniers jours de transactions, best-effort comme les sessions par
-  canal. Scope OAuth `spreadsheets` ajouté après la vérification Google
-  initiale : les projets déjà connectés doivent se reconnecter une fois pour
-  l'obtenir. Utilise `@googleapis/sheets` (pas `googleapis` — le paquet complet
+  canal. Utilise `@googleapis/sheets` (pas `googleapis` — le paquet complet
   fait sortir `next build` en OOM) avec sa PROPRE copie de google-auth-library,
   non dédupliquée avec celle utilisée pour BigQuery (voir le commentaire dans
   le fichier) : jamais interchanger les `OAuth2Client` des deux paquets.
-- `lib/google-sheets/demo-export.ts` — export nocturne du projet démo vers un
-  Google Sheet FIXE, séparé du mécanisme ci-dessus (le projet démo n'a jamais
-  de vraie connexion Google, `projects.export_google_sheet_url` ne le
-  concerne pas). Emprunte le jeton OAuth d'un vrai projet déjà reconnecté
-  avec le scope `spreadsheets` (au 2026-09, seul "Molted" l'a — voir
-  commentaire dans le fichier pour vérifier lequel avant d'y toucher).
-  `GET /api/projects/[id]/google-sheet-export` (réservé à `MOCK_PROJECT_ID`)
-  expose un statut EN LECTURE SEULE (titre + nb de lignes, lu en direct sur
-  Google Sheets) affiché sur la page du projet démo
-  (`DemoGoogleSheetExportStatus`) : seule preuve visible du scope
-  `spreadsheets` sans compte client réel — sert de support à la vérification
-  OAuth par Google.
+- **Scope OAuth `drive.file`** (pas `spreadsheets`, retiré 2026-09 à la demande
+  de l'équipe de vérification OAuth de Google — pousse systématiquement vers
+  le scope le plus étroit). `drive.file` ne donne accès qu'aux fichiers créés
+  par l'app ou explicitement ouverts par l'utilisateur via le **sélecteur
+  Google (Picker)** — jamais à un fichier identifié seulement par une URL
+  collée. D'où `GoogleSheetPickerButton` (charge `apis.google.com/js/api.js`
+  côté client, nécessite `NEXT_PUBLIC_GOOGLE_PICKER_API_KEY` — dégrade
+  proprement si absente plutôt que de planter) qui a remplacé le champ "colle
+  ton URL" dans `GoogleSheetExportSettings`. Le Picker a besoin d'un access
+  token de courte durée côté navigateur (jamais le refresh token) : fabriqué à
+  la demande par `mintAccessToken` (`gcp-oauth/client.ts`) via
+  `GET .../google-sheet-export/picker-token`, réservé à la gestion du projet.
+  Un projet déjà connecté doit se reconnecter ET re-choisir sa feuille via le
+  Picker — reconnecter seul ne suffit pas, le scope n'accorde rien tant que le
+  fichier n'a pas été ouvert une fois par ce mécanisme.
+- `lib/google-sheets/demo-export.ts` — export nocturne du projet démo. Le
+  projet démo (`MOCK_PROJECT_ID`) n'a jamais de vraie connexion Google
+  (`projects.export_google_sheet_url` ne le concerne pas) : jeton ET URL de la
+  feuille viennent d'un projet DÉDIÉ à cet usage interne uniquement ("Jeton
+  export démo", jamais un vrai projet client — voir id dans le fichier),
+  configuré comme n'importe quel projet via `/manage` → Export Google Sheets
+  → Picker. `GET/POST /api/projects/[id]/google-sheet-export` (réservé à
+  `MOCK_PROJECT_ID`) expose un statut EN LECTURE SEULE (titre + nb de lignes,
+  lu en direct sur Google Sheets) + un déclenchement manuel, affichés sur la
+  page du projet démo (`DemoGoogleSheetExportStatus`) : seule preuve visible
+  du scope `drive.file` sans compte client réel — sert de support à la
+  vérification OAuth par Google.
 - Chaque transaction du dashboard est cliquable (`TransactionDetailDialog`) :
   ouvre le détail complet de chaque point de contact (source/support/campagne
   séparés, pas le libellé combiné, + `entry_url` = page d'atterrissage de la
