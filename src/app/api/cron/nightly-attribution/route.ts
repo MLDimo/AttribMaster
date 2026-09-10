@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendFailureAlerts } from "@/lib/alerts/failure-alerts";
 import { runNightlyAttributionForProject } from "@/lib/attribution/nightly-run";
 import { enqueueBackfillForAllProjects, processQueue } from "@/lib/attribution/queue";
+import { runDemoGoogleSheetExport } from "@/lib/google-sheets/demo-export";
 
 // Sans ça, la fonction serverless est tuée au timeout par défaut du plan
 // Vercel avant d'avoir traité tous les projets (constaté en prod : un projet
@@ -49,7 +50,18 @@ export async function GET(request: NextRequest) {
     // Alerte les owners dont la mise à jour vient d'échouer (throttlé à un
     // email / 3 jours par projet ; no-op si RESEND_API_KEY absent).
     const alerts = await sendFailureAlerts();
-    return NextResponse.json({ enqueued: enqueued.length, processed, alerts });
+
+    // Export démo vers un Google Sheet fixe (voir demo-export.ts) — best-
+    // effort comme les autres étapes secondaires du tick quotidien, jamais
+    // bloquant pour les vrais projets.
+    let demoSheetExportedRows: number | null = null;
+    try {
+      demoSheetExportedRows = await runDemoGoogleSheetExport();
+    } catch (error) {
+      console.error("[cron/nightly-attribution] demo sheet export failed (non-blocking)", error);
+    }
+
+    return NextResponse.json({ enqueued: enqueued.length, processed, alerts, demoSheetExportedRows });
   } catch (error) {
     console.error("[cron/nightly-attribution]", error);
     return NextResponse.json(
