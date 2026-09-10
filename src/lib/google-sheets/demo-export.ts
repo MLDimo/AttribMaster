@@ -1,6 +1,6 @@
 import { getMockRows } from "@/lib/attribution/mock-data";
 import { getProjectOAuthToken } from "@/lib/projects/repository";
-import { exportTransactionsToSheet, parseSpreadsheetId } from "./client";
+import { exportTransactionsToSheet, getSheetPreview, parseSpreadsheetId } from "./client";
 
 /**
  * Export nocturne du jeu de données démo vers un Google Sheet précis, à la
@@ -26,6 +26,13 @@ const DEMO_EXPORT_SPREADSHEET_URL =
   "https://docs.google.com/spreadsheets/d/1TS7Ngtz2RLGC0euPvDKaakmRWMI89pS4SrRaImp15YA/edit?gid=0#gid=0";
 const DEMO_EXPORT_TOKEN_SOURCE_PROJECT_ID = "07f5ced7-3ce8-4cca-803d-2cae755335c6";
 
+export type DemoGoogleSheetExportStatus = {
+  spreadsheetUrl: string;
+  /** null si le jeton source est indisponible ou si l'appel Google échoue — jamais une exception. */
+  spreadsheetTitle: string | null;
+  rowCount: number | null;
+};
+
 /** Même largeur que l'export nocturne des vrais projets (voir SHEET_EXPORT_LOOKBACK_DAYS dans nightly-run.ts). */
 const DEMO_EXPORT_LOOKBACK_DAYS = 90;
 
@@ -44,4 +51,27 @@ export async function runDemoGoogleSheetExport(): Promise<number | null> {
   const from = daysAgoDateOnly(DEMO_EXPORT_LOOKBACK_DAYS);
   const rows = getMockRows().filter((row) => row.event_date >= from);
   return exportTransactionsToSheet(refreshToken, spreadsheetId, rows);
+}
+
+/**
+ * Statut en LECTURE SEULE de cette connexion, pour l'afficher sur la page du
+ * projet démo — la preuve visuelle à montrer à l'équipe de vérification OAuth
+ * de Google (le scope `spreadsheets` n'a autrement aucune surface visible
+ * sans compte client réel connecté). N'écrit jamais rien ; échoue en douceur
+ * (title/rowCount à null) plutôt que de lever, pour ne jamais faire planter
+ * le rendu de la page démo si le jeton source est un jour révoqué.
+ */
+export async function getDemoGoogleSheetExportStatus(): Promise<DemoGoogleSheetExportStatus> {
+  const base = { spreadsheetUrl: DEMO_EXPORT_SPREADSHEET_URL, spreadsheetTitle: null, rowCount: null };
+  try {
+    const spreadsheetId = parseSpreadsheetId(DEMO_EXPORT_SPREADSHEET_URL);
+    if (!spreadsheetId) return base;
+    const refreshToken = await getProjectOAuthToken(DEMO_EXPORT_TOKEN_SOURCE_PROJECT_ID);
+    if (!refreshToken) return base;
+    const preview = await getSheetPreview(refreshToken, spreadsheetId);
+    return { ...base, spreadsheetTitle: preview.title, rowCount: preview.rowCount };
+  } catch (error) {
+    console.error("[demo-export] failed to read live sheet status", error);
+    return base;
+  }
 }

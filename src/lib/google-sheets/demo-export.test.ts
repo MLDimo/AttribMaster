@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const exportTransactionsToSheet = vi.fn(async (_token: string, _id: string, rows: unknown[]) => rows.length);
+const getSheetPreview = vi.fn(async (_token: string, _id: string) => ({ title: "Export AttribMaster Demo project", rowCount: 42 }));
 const getProjectOAuthToken = vi.fn(async (_projectId: string): Promise<string | null> => "a-refresh-token");
 
 vi.mock("./client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./client")>()),
   exportTransactionsToSheet,
+  getSheetPreview,
 }));
 vi.mock("@/lib/projects/repository", () => ({ getProjectOAuthToken }));
 
@@ -30,6 +32,7 @@ vi.mock("@/lib/attribution/mock-data", () => ({
 describe("runDemoGoogleSheetExport", () => {
   beforeEach(() => {
     exportTransactionsToSheet.mockClear();
+    getSheetPreview.mockClear();
     getProjectOAuthToken.mockClear();
   });
 
@@ -63,5 +66,47 @@ describe("runDemoGoogleSheetExport", () => {
 
     const rows = exportTransactionsToSheet.mock.calls[0][2] as { transaction_id: string }[];
     expect(rows.map((r) => r.transaction_id)).toEqual(["t-5", "t-89"]);
+  });
+});
+
+describe("getDemoGoogleSheetExportStatus", () => {
+  beforeEach(() => {
+    exportTransactionsToSheet.mockClear();
+    getSheetPreview.mockClear();
+    getProjectOAuthToken.mockClear();
+  });
+
+  it("renvoie le titre et le nombre de lignes en lecture seule, sans jamais écrire", async () => {
+    const { getDemoGoogleSheetExportStatus } = await import("./demo-export");
+
+    const status = await getDemoGoogleSheetExportStatus();
+
+    expect(status).toEqual({
+      spreadsheetUrl: "https://docs.google.com/spreadsheets/d/1TS7Ngtz2RLGC0euPvDKaakmRWMI89pS4SrRaImp15YA/edit?gid=0#gid=0",
+      spreadsheetTitle: "Export AttribMaster Demo project",
+      rowCount: 42,
+    });
+    expect(exportTransactionsToSheet).not.toHaveBeenCalled();
+  });
+
+  it("retombe sur un titre null (pas une exception) si le projet source n'a plus de jeton", async () => {
+    getProjectOAuthToken.mockResolvedValueOnce(null);
+    const { getDemoGoogleSheetExportStatus } = await import("./demo-export");
+
+    const status = await getDemoGoogleSheetExportStatus();
+
+    expect(status.spreadsheetTitle).toBeNull();
+    expect(status.rowCount).toBeNull();
+    expect(getSheetPreview).not.toHaveBeenCalled();
+  });
+
+  it("retombe sur un titre null (pas une exception) si l'appel Google échoue", async () => {
+    getSheetPreview.mockRejectedValueOnce(new Error("boom"));
+    const { getDemoGoogleSheetExportStatus } = await import("./demo-export");
+
+    const status = await getDemoGoogleSheetExportStatus();
+
+    expect(status.spreadsheetTitle).toBeNull();
+    expect(status.rowCount).toBeNull();
   });
 });

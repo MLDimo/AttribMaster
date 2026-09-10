@@ -78,6 +78,18 @@ V2 (multi-tenant) et V3 (Stripe) de la roadmap initiale sont livrées. La 2FA
   fait sortir `next build` en OOM) avec sa PROPRE copie de google-auth-library,
   non dédupliquée avec celle utilisée pour BigQuery (voir le commentaire dans
   le fichier) : jamais interchanger les `OAuth2Client` des deux paquets.
+- `lib/google-sheets/demo-export.ts` — export nocturne du projet démo vers un
+  Google Sheet FIXE, séparé du mécanisme ci-dessus (le projet démo n'a jamais
+  de vraie connexion Google, `projects.export_google_sheet_url` ne le
+  concerne pas). Emprunte le jeton OAuth d'un vrai projet déjà reconnecté
+  avec le scope `spreadsheets` (au 2026-09, seul "Molted" l'a — voir
+  commentaire dans le fichier pour vérifier lequel avant d'y toucher).
+  `GET /api/projects/[id]/google-sheet-export` (réservé à `MOCK_PROJECT_ID`)
+  expose un statut EN LECTURE SEULE (titre + nb de lignes, lu en direct sur
+  Google Sheets) affiché sur la page du projet démo
+  (`DemoGoogleSheetExportStatus`) : seule preuve visible du scope
+  `spreadsheets` sans compte client réel — sert de support à la vérification
+  OAuth par Google.
 - Chaque transaction du dashboard est cliquable (`TransactionDetailDialog`) :
   ouvre le détail complet de chaque point de contact (source/support/campagne
   séparés, pas le libellé combiné, + `entry_url` = page d'atterrissage de la

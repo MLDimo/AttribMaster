@@ -57,6 +57,33 @@ export async function verifySheetAccess(refreshToken: string, spreadsheetId: str
   await ensureExportTabExists(sheetsApi, spreadsheetId);
 }
 
+export type SheetPreview = { title: string; rowCount: number };
+
+/**
+ * Aperçu en lecture seule (titre de la feuille + nombre de lignes déjà
+ * exportées dans l'onglet dédié) : utilisé pour afficher un statut vivant à
+ * l'écran sans jamais écrire — voir `getDemoGoogleSheetExportStatus`, qui
+ * l'utilise pour montrer la connexion Google Sheets du projet démo lors de
+ * la vérification OAuth par Google (la démo est la seule preuve visible du
+ * scope `spreadsheets` sans compte client réel).
+ */
+export async function getSheetPreview(refreshToken: string, spreadsheetId: string): Promise<SheetPreview> {
+  const sheetsApi = sheets({ version: "v4", auth: createSheetsAuthClient(refreshToken) });
+  const { data } = await sheetsApi.spreadsheets.get({ spreadsheetId });
+  const title = data.properties?.title ?? "";
+  const exists = data.sheets?.some((s) => s.properties?.title === EXPORT_SHEET_TAB_NAME);
+  if (!exists) return { title, rowCount: 0 };
+
+  const { data: valuesData } = await sheetsApi.spreadsheets.values.get({
+    spreadsheetId,
+    range: EXPORT_SHEET_TAB_NAME,
+  });
+  // -1 pour l'en-tête (voir exportTransactionsToSheet) ; jamais négatif si
+  // l'onglet existe mais est vide.
+  const rowCount = Math.max(0, (valuesData.values?.length ?? 0) - 1);
+  return { title, rowCount };
+}
+
 /**
  * Remplace intégralement le contenu de l'onglet dédié par les transactions
  * fournies (DELETE+INSERT logique, pas un ajout) : idempotent, jamais de

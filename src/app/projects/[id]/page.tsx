@@ -14,6 +14,7 @@ import { AttributionChart } from "@/components/dashboard/attribution-chart";
 import { AttributionModelsGuide } from "@/components/dashboard/attribution-models-guide";
 import { ChannelPerformanceTable } from "@/components/dashboard/channel-performance-table";
 import { DataFreshnessBanner } from "@/components/dashboard/data-freshness-banner";
+import { DemoGoogleSheetExportStatus } from "@/components/dashboard/demo-google-sheet-export-status";
 import { DateRangePicker } from "@/components/dashboard/date-range-picker";
 import { OverviewCards } from "@/components/dashboard/overview-cards";
 import { RevenueTrendChart } from "@/components/dashboard/revenue-trend-chart";
@@ -179,6 +180,8 @@ function ProjectSettingsSidebar({
             </Button>
           )}
         </div>
+
+        {project.id === MOCK_PROJECT_ID && <DemoGoogleSheetExportStatus />}
 
         {!readOnly && (
           <div className="border-t pt-4">
