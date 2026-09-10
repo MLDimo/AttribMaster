@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
 import { apiErrorResponse } from "@/lib/auth/errors";
-import { getDemoGoogleSheetExportStatus } from "@/lib/google-sheets/demo-export";
+import { getDemoGoogleSheetExportStatus, runDemoGoogleSheetExport } from "@/lib/google-sheets/demo-export";
 import { parseSpreadsheetId, verifySheetAccess } from "@/lib/google-sheets/client";
 import {
   clearGoogleSheetExportUrl,
@@ -35,6 +35,31 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       error,
       "[api/projects/[id]/google-sheet-export GET]",
       "Failed to load demo export status"
+    );
+  }
+}
+
+/**
+ * Déclenchement manuel de l'export démo, en plus du tick de cron quotidien
+ * (voir /api/cron/nightly-attribution) — pour pouvoir montrer une mise à
+ * jour immédiate lors de la démo de vérification OAuth Google, sans attendre
+ * la prochaine nuit. Réservé au projet démo comme le GET ci-dessus.
+ */
+export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  if (id !== MOCK_PROJECT_ID) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  try {
+    await requireUserId();
+    await runDemoGoogleSheetExport();
+    const status = await getDemoGoogleSheetExportStatus();
+    return NextResponse.json(status);
+  } catch (error) {
+    return apiErrorResponse(
+      error,
+      "[api/projects/[id]/google-sheet-export POST]",
+      "Failed to run demo export"
     );
   }
 }
