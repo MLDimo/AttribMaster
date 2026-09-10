@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 const getAccessToken = vi.fn(async (): Promise<{ token: string | null }> => ({ token: "a-fresh-access-token" }));
 const setCredentials = vi.fn();
@@ -22,5 +22,26 @@ describe("mintAccessToken", () => {
     const { mintAccessToken } = await import("./client");
 
     await expect(mintAccessToken("a-refresh-token")).rejects.toThrow(/access token/i);
+  });
+});
+
+describe("googleCloudProjectNumber", () => {
+  const ORIGINAL = process.env.GOOGLE_CLIENT_ID;
+  afterEach(() => {
+    process.env.GOOGLE_CLIENT_ID = ORIGINAL;
+  });
+
+  it("extrait le préfixe numérique d'un vrai client ID Google", async () => {
+    process.env.GOOGLE_CLIENT_ID = "565818019661-msj12ru5j6qkqopk5l0aodq9t38lvein.apps.googleusercontent.com";
+    const { googleCloudProjectNumber } = await import("./client");
+
+    expect(googleCloudProjectNumber()).toBe("565818019661");
+  });
+
+  it("renvoie null si GOOGLE_CLIENT_ID est absent, plutôt qu'une chaîne vide silencieuse", async () => {
+    delete process.env.GOOGLE_CLIENT_ID;
+    const { googleCloudProjectNumber } = await import("./client");
+
+    expect(googleCloudProjectNumber()).toBeNull();
   });
 });

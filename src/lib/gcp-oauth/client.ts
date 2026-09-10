@@ -86,3 +86,21 @@ export async function mintAccessToken(refreshToken: string): Promise<string> {
   }
   return token;
 }
+
+/**
+ * Numéro de projet Cloud (préfixe numérique d'un client ID OAuth Google,
+ * ex: "565818019661-abc123.apps.googleusercontent.com" -> "565818019661"),
+ * requis par `PickerBuilder.setAppId` pour le scope `drive.file`.
+ *
+ * Sans lui, le Picker s'ouvre et laisse choisir un fichier normalement, mais
+ * Drive n'enregistre JAMAIS l'autorisation par fichier qu'exige `drive.file`
+ * — bug vécu en prod : sélection réussie côté Picker, puis 404 "Requested
+ * entity was not found" à la moindre requête serveur ensuite, alors que le
+ * jeton porte bien le scope et que l'ID de fichier extrait est le bon. Le
+ * scope OAuth seul identifie QUI demande l'accès ; `setAppId` identifie à
+ * QUEL PROJET CLOUD l'accorder — Picker a besoin des deux pour `drive.file`.
+ */
+export function googleCloudProjectNumber(): string | null {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  return clientId?.split("-")[0] || null;
+}
