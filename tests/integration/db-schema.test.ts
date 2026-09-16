@@ -46,6 +46,7 @@ const EXPECTED_COLUMNS: Record<string, string[]> = {
   ],
   billing_accounts: ["id", "workspace_id", "name", "stripe_customer_id"],
   users: ["id", "name", "email", "password_hash"],
+  project_members: ["project_id", "user_id", "role"],
 };
 
 describe("database schema", () => {

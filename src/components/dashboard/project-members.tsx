@@ -1,10 +1,9 @@
 "use client";
 
-import { ChevronRight, Eye, Loader2, UserPlus, X } from "lucide-react";
+import { ChevronRight, Crown, Eye, Loader2, UserPlus, X } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { StaggerContainer, StaggerItem } from "@/components/effects/motion";
-import type { ProjectMember } from "@/lib/projects/types";
+import type { ProjectMember, ProjectMemberRole } from "@/lib/projects/types";
 
 const AVATAR_TINTS = [
   "bg-chart-1/70",
@@ -68,6 +67,7 @@ export function ProjectMembers({ projectId }: { projectId: string }) {
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
 
   function load() {
     fetch(`/api/projects/${projectId}/members`)
@@ -111,6 +111,23 @@ export function ProjectMembers({ projectId }: { projectId: string }) {
     }
   }
 
+  async function handleRoleChange(userId: string, role: ProjectMemberRole) {
+    setUpdatingRoleId(userId);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/members/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      if (res.ok) {
+        const json: { member: ProjectMember } = await res.json();
+        setMembers((prev) => prev?.map((m) => (m.user_id === userId ? json.member : m)) ?? prev);
+      }
+    } finally {
+      setUpdatingRoleId(null);
+    }
+  }
+
   const visible = members?.slice(0, MAX_STACK) ?? [];
   const overflow = members ? Math.max(0, members.length - MAX_STACK) : 0;
 
@@ -142,9 +159,11 @@ export function ProjectMembers({ projectId }: { projectId: string }) {
         <DialogHeader>
           <DialogTitle>Collaborateurs</DialogTitle>
           <DialogDescription>
-            Accès en lecture seule : les personnes ajoutées ici peuvent consulter ce projet et son
-            dashboard, mais ne peuvent rien modifier (connexion, abonnement, autres collaborateurs)
-            — idéal pour un client final ou un stagiaire.
+            Par défaut, les personnes ajoutées ici ont un accès en lecture seule : elles peuvent
+            consulter ce projet et son dashboard, mais ne peuvent rien modifier — idéal pour un
+            client final ou un stagiaire. Passe un collaborateur en <strong>Owner</strong> pour lui
+            donner un accès de gestion complet sur ce projet (connexion, abonnement, autres
+            collaborateurs).
           </DialogDescription>
         </DialogHeader>
 
@@ -184,10 +203,46 @@ export function ProjectMembers({ projectId }: { projectId: string }) {
                         <p className="truncate text-xs text-muted-foreground">{member.email}</p>
                       )}
                     </div>
-                    <Badge variant="outline" className="shrink-0 gap-1 text-muted-foreground">
-                      <Eye className="size-3" />
-                      Lecture seule
-                    </Badge>
+                    <div
+                      role="radiogroup"
+                      aria-label={`Rôle de ${member.email}`}
+                      className="flex shrink-0 items-center gap-0.5 rounded-full border bg-muted/50 p-0.5"
+                    >
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={member.role === "read"}
+                        onClick={() => handleRoleChange(member.user_id, "read")}
+                        disabled={updatingRoleId === member.user_id || member.role === "read"}
+                        className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
+                          member.role === "read"
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <Eye className="size-3" />
+                        Lecture
+                      </button>
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={member.role === "owner"}
+                        onClick={() => handleRoleChange(member.user_id, "owner")}
+                        disabled={updatingRoleId === member.user_id || member.role === "owner"}
+                        className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
+                          member.role === "owner"
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {updatingRoleId === member.user_id ? (
+                          <Loader2 className="size-3 animate-spin" />
+                        ) : (
+                          <Crown className="size-3" />
+                        )}
+                        Owner
+                      </button>
+                    </div>
                     <button
                       type="button"
                       aria-label={`Retirer ${member.email}`}

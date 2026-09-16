@@ -21,6 +21,7 @@ import {
 } from "@/lib/projects/repository";
 
 import { GET as getProjectRoute, PATCH as patchProjectRoute, DELETE as deleteProjectRoute } from "@/app/api/projects/[id]/route";
+import { PATCH as patchMemberRoleRoute } from "@/app/api/projects/[id]/members/[userId]/route";
 import { POST as refreshPost } from "@/app/api/projects/[id]/refresh/route";
 import { POST as connectBigQueryPost } from "@/app/api/projects/[id]/connect-bigquery/route";
 import { GET as gcpProjectsGet } from "@/app/api/projects/[id]/gcp-projects/route";
@@ -44,6 +45,18 @@ const VIEWER_EMAIL = `role-test-viewer-${RUN_ID}@attribmaster.dev`;
 
 function params(id: string) {
   return { params: Promise.resolve({ id }) };
+}
+
+function memberParams(id: string, userId: string) {
+  return { params: Promise.resolve({ id, userId }) };
+}
+
+function patchRoleRequest(role: string) {
+  return new NextRequest("http://localhost", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role }),
+  });
 }
 
 describe("project roles: read-only collaborator (project_members) vs workspace owner/admin", () => {
@@ -333,5 +346,99 @@ describe("project roles: read-only collaborator (project_members) vs workspace o
       select workspace_id from workspace_members wm
       join users u on u.id = wm.user_id where u.email = $1 and wm.role = 'owner')`, [email]);
     await pool.query(`delete from users where email = $1`, [email]);
+  });
+
+  it("admin can promote a read-only collaborator to project owner via PATCH, and demote them back", async () => {
+    const db = getDbPool();
+    const ownerEmail = `role-test-owner5-${RUN_ID}@attribmaster.dev`;
+    const collabEmail = `role-test-collab5-${RUN_ID}@attribmaster.dev`;
+    const { userId: ownerId } = await registerUser("Owner5", ownerEmail, "a-strong-password-123", "http://localhost");
+    const { userId: collabId } = await registerUser("Collab5", collabEmail, "a-strong-password-123", "http://localhost");
+    const { rows: workspaceRows } = await db.query<{ workspace_id: string }>(
+      `select workspace_id from workspace_members where user_id = $1 and role = 'owner'`,
+      [ownerId]
+    );
+    const workspaceId = workspaceRows[0].workspace_id;
+
+    mockUserId = ownerId;
+    const project = await createProject({ name: "Role test project 5", accountId: workspaceId });
+    const added = await addProjectMember(project.id, collabEmail);
+    // Nouveau collaborateur : toujours "read" par défaut (comportement historique inchangé).
+    expect(added.role).toBe("read");
+    expect(await hasProjectManageAccess(project.id, collabId)).toBe(false);
+
+    // L'admin (owner du workspace) promeut le collaborateur en "owner" du projet.
+    const promoteRes = await patchMemberRoleRoute(patchRoleRequest("owner"), memberParams(project.id, collabId));
+    expect(promoteRes.status).toBe(200);
+    expect((await promoteRes.json()).member.role).toBe("owner");
+    expect(await hasProjectManageAccess(project.id, collabId)).toBe(true);
+    await expect(requireProjectAccess(project.id, collabId)).resolves.toBeUndefined();
+
+    // "Owner" n'est pas honorifique : le collaborateur promu peut maintenant
+    // gérer lui-même le projet (ex: le renommer), comme le ferait l'owner du workspace.
+    mockUserId = collabId;
+    const renameRes = await patchProjectRoute(
+      new NextRequest("http://localhost", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Renamed by promoted collaborator" }),
+      }),
+      params(project.id)
+    );
+    expect(renameRes.status).toBe(200);
+
+    // Rétrogradation par l'admin : redevient un simple collaborateur en lecture seule.
+    mockUserId = ownerId;
+    const demoteRes = await patchMemberRoleRoute(patchRoleRequest("read"), memberParams(project.id, collabId));
+    expect(demoteRes.status).toBe(200);
+    expect((await demoteRes.json()).member.role).toBe("read");
+    expect(await hasProjectManageAccess(project.id, collabId)).toBe(false);
+    await expect(requireProjectAccess(project.id, collabId)).rejects.toBeInstanceOf(NotAuthorizedError);
+
+    mockUserId = null;
+    await db.query(`delete from projects where id = $1`, [project.id]);
+    await db.query(`delete from workspaces where id = $1`, [workspaceId]);
+    await db.query(`delete from users where email in ($1, $2)`, [ownerEmail, collabEmail]);
+  });
+
+  it("PATCH member role: 403 for a read-only collaborator trying to self-promote, 400 for an invalid role, 404 for a non-member", async () => {
+    const db = getDbPool();
+    const ownerEmail = `role-test-owner6-${RUN_ID}@attribmaster.dev`;
+    const collabEmail = `role-test-collab6-${RUN_ID}@attribmaster.dev`;
+    const strangerEmail = `role-test-stranger6-${RUN_ID}@attribmaster.dev`;
+    const { userId: ownerId } = await registerUser("Owner6", ownerEmail, "a-strong-password-123", "http://localhost");
+    const { userId: collabId } = await registerUser("Collab6", collabEmail, "a-strong-password-123", "http://localhost");
+    const { userId: strangerId } = await registerUser("Stranger6", strangerEmail, "a-strong-password-123", "http://localhost");
+    const { rows: workspaceRows } = await db.query<{ workspace_id: string }>(
+      `select workspace_id from workspace_members where user_id = $1 and role = 'owner'`,
+      [ownerId]
+    );
+    const workspaceId = workspaceRows[0].workspace_id;
+
+    mockUserId = ownerId;
+    const project = await createProject({ name: "Role test project 6", accountId: workspaceId });
+    await addProjectMember(project.id, collabEmail);
+
+    // Un collaborateur en lecture seule n'a pas le droit de se promouvoir lui-même.
+    mockUserId = collabId;
+    const selfPromoteRes = await patchMemberRoleRoute(patchRoleRequest("owner"), memberParams(project.id, collabId));
+    expect(selfPromoteRes.status).toBe(403);
+
+    // L'admin envoie un rôle qui n'existe pas : rejeté par zod avant d'atteindre la DB.
+    mockUserId = ownerId;
+    const invalidRoleRes = await patchMemberRoleRoute(patchRoleRequest("admin"), memberParams(project.id, collabId));
+    expect(invalidRoleRes.status).toBe(400);
+
+    // Cible qui n'est pas un collaborateur direct de ce projet (project_members) : 404.
+    const unknownMemberRes = await patchMemberRoleRoute(
+      patchRoleRequest("owner"),
+      memberParams(project.id, strangerId)
+    );
+    expect(unknownMemberRes.status).toBe(404);
+
+    mockUserId = null;
+    await db.query(`delete from projects where id = $1`, [project.id]);
+    await db.query(`delete from workspaces where id = $1`, [workspaceId]);
+    await db.query(`delete from users where email in ($1, $2, $3)`, [ownerEmail, collabEmail, strangerEmail]);
   });
 });
