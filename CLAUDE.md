@@ -27,6 +27,17 @@ V2 (multi-tenant) et V3 (Stripe) de la roadmap initiale sont livrées. La 2FA
   donne un accès de gestion complet sur CE projet uniquement (jamais sur les autres
   projets du workspace, sa facturation, ou ses membres). `getProjectWithAccess`
   combine les deux niveaux pour l'UI (`canManage`).
+- Ajouter un collaborateur (`addProjectMember`) par un email sans compte AttribMaster
+  ne renvoie plus d'erreur : une invitation est mémorisée (`project_member_invites`,
+  migration 0016) et un email est envoyé (lien vers `/signup?email=...`, prérempli
+  côté page). Elle se convertit automatiquement en accès réel (`project_members`,
+  avec le rôle fixé à l'invitation) dès qu'un compte est créé avec cet email —
+  email/mot de passe OU Google OAuth, peu importe : la conversion se fait dans le
+  trigger DB `handle_new_user` (celui qui crée déjà le workspace personnel), pas
+  dans le code applicatif, pour couvrir les deux chemins d'inscription sans dupliquer
+  la logique. Annulable tant qu'elle est en attente (`DELETE
+  /api/projects/[id]/invites/[email]`) ; visible dans `ProjectMembers` à côté des
+  vrais collaborateurs, avec un badge "en attente" distinct.
 - `lib/attribution/models.ts` — 6 modèles (last click, linéaire, croissant, en U,
   Markov par effet de suppression, Shapley : exact ≤12 canaux, Monte Carlo au-delà)
 - `lib/attribution/queue.ts` — file `nightly_jobs` (claim atomique SKIP LOCKED) :

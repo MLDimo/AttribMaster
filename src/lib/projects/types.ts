@@ -69,6 +69,17 @@ export type ProjectMember = {
   created_at: string;
 };
 
+/**
+ * Invitation en attente : l'email n'a pas (encore) de compte AttribMaster.
+ * Convertie automatiquement en `ProjectMember` dès qu'un compte est créé
+ * avec cet email (voir le trigger `handle_new_user`, migration 0016).
+ */
+export type ProjectMemberInvite = {
+  email: string;
+  role: ProjectMemberRole;
+  created_at: string;
+};
+
 export type BillingAccount = {
   id: string;
   workspace_id: string;

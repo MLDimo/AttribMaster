@@ -10,6 +10,7 @@ const EXPECTED_TABLES = [
   "custom_plan_requests",
   "nightly_jobs",
   "project_members",
+  "project_member_invites",
   "projects",
   "sessions",
   "users",
