@@ -5,7 +5,7 @@ import { NotAuthorizedError, UnauthenticatedError } from "@/lib/auth/errors";
 import { decryptSecret, encryptSecret } from "@/lib/crypto/secrets";
 import { getDbPool } from "@/lib/db/client";
 import { cancelStripeSubscription } from "@/lib/stripe/cancel-subscription";
-import type { Account, Project, ProjectMember } from "./types";
+import type { Account, Project, ProjectMember, ProjectMemberRole } from "./types";
 
 export async function requireUserId(): Promise<string> {
   const session = await auth();
@@ -125,23 +125,33 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
   return project;
 }
 
-/** Owner/admin du workspace propriétaire du projet — le seul niveau habilité à modifier quoi que ce soit. */
+/**
+ * Owner/admin du workspace propriétaire du projet, OU collaborateur promu
+ * "owner" directement sur ce projet (project_members.role = 'owner') — le
+ * seul niveau habilité à modifier quoi que ce soit. Un collaborateur "owner"
+ * de projet a les mêmes droits qu'un owner/admin de workspace mais SEULEMENT
+ * sur ce projet (jamais sur les autres projets du workspace, sa facturation,
+ * ou ses membres).
+ */
 export async function hasProjectManageAccess(projectId: string, userId: string): Promise<boolean> {
   const db = getDbPool();
   const { rows } = await db.query(
     `select 1 from workspace_projects wp
      join workspace_members wm on wm.workspace_id = wp.workspace_id
-     where wp.project_id = $1 and wm.user_id = $2 and wm.role in ('owner', 'admin')`,
+     where wp.project_id = $1 and wm.user_id = $2 and wm.role in ('owner', 'admin')
+     union
+     select 1 from project_members pm
+     where pm.project_id = $1 and pm.user_id = $2 and pm.role = 'owner'`,
     [projectId, userId]
   );
   return rows.length > 0;
 }
 
 /**
- * Un collaborateur ajouté directement (project_members) n'a QUE cet accès en
- * lecture : jamais admin/owner du workspace, donc `hasProjectManageAccess`
- * est toujours faux pour lui — c'est ce qui en fait un rôle "lecture seule"
- * sûr pour partager avec un client final ou un stagiaire.
+ * Un collaborateur ajouté directement (project_members) démarre en rôle
+ * "read" (lecture seule) : jamais admin/owner du workspace, donc
+ * `hasProjectManageAccess` est faux pour lui tant qu'il n'a pas été promu
+ * "owner" — voir `updateProjectMemberRole`.
  */
 export type ProjectWithAccess = { project: Project; canManage: boolean };
 
@@ -342,7 +352,7 @@ export async function listProjectMembers(projectId: string): Promise<ProjectMemb
 
   const db = getDbPool();
   const { rows } = await db.query<ProjectMember>(
-    `select u.id as user_id, u.name, u.email, u.image, pm.created_at
+    `select u.id as user_id, u.name, u.email, u.image, pm.role, pm.created_at
      from project_members pm
      join users u on u.id = pm.user_id
      where pm.project_id = $1
@@ -381,8 +391,8 @@ export async function addProjectMember(projectId: string, email: string): Promis
     [projectId, user.id, userId]
   );
 
-  const { rows } = await db.query<{ created_at: string }>(
-    `select created_at from project_members where project_id = $1 and user_id = $2`,
+  const { rows } = await db.query<{ role: ProjectMemberRole; created_at: string }>(
+    `select role, created_at from project_members where project_id = $1 and user_id = $2`,
     [projectId, user.id]
   );
 
@@ -391,8 +401,43 @@ export async function addProjectMember(projectId: string, email: string): Promis
     name: user.name,
     email: user.email,
     image: user.image,
+    role: rows[0].role,
     created_at: rows[0].created_at,
   };
+}
+
+export class ProjectMemberNotFoundError extends Error {
+  constructor() {
+    super("This user is not a direct collaborator on this project");
+    this.name = "ProjectMemberNotFoundError";
+  }
+}
+
+/**
+ * Change le rôle d'un collaborateur ajouté directement (project_members).
+ * Réservé owner/admin du projet (workspace owner/admin, ou déjà "owner" du
+ * projet) — c'est ce qui permet à un admin de faire passer un collaborateur
+ * de "lecture" à "owner" (accès de gestion complet sur ce projet).
+ */
+export async function updateProjectMemberRole(
+  projectId: string,
+  memberUserId: string,
+  role: ProjectMemberRole
+): Promise<ProjectMember> {
+  const userId = await requireUserId();
+  await requireProjectAccess(projectId, userId);
+
+  const db = getDbPool();
+  const { rows } = await db.query<ProjectMember>(
+    `update project_members pm
+     set role = $3
+     from users u
+     where pm.project_id = $1 and pm.user_id = $2 and u.id = pm.user_id
+     returning pm.user_id, u.name, u.email, u.image, pm.role, pm.created_at`,
+    [projectId, memberUserId, role]
+  );
+  if (!rows[0]) throw new ProjectMemberNotFoundError();
+  return rows[0];
 }
 
 /** Retire un collaborateur ajouté directement. Réservé owner/admin du projet. */

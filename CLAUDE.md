@@ -16,11 +16,17 @@ V2 (multi-tenant) et V3 (Stripe) de la roadmap initiale sont livrées. La 2FA
   `UnauthenticatedError` → 401, `NotAuthorizedError` → 403, reste → 500 loggé
 - `lib/projects/repository.ts` — accès projets ; autorisation vérifiée dans le code
   (jointures `workspace_members`/`project_members`), pas de RLS. Deux niveaux :
-  `hasProjectManageAccess`/`requireProjectAccess` (owner/admin du workspace — seul
-  niveau habilité à modifier quoi que ce soit) et simple accès en lecture (owner/admin
-  OU ligne directe dans `project_members`, sans rôle de gestion — c'est le rôle
-  "collaborateur lecture seule" pour partager avec un client/stagiaire sans risque).
-  `getProjectWithAccess` combine les deux pour l'UI (`canManage`).
+  `hasProjectManageAccess`/`requireProjectAccess` (owner/admin du workspace, OU ligne
+  `project_members` avec `role = 'owner'` — seul niveau habilité à modifier quoi que ce
+  soit) et simple accès en lecture (owner/admin OU ligne directe dans `project_members`
+  avec `role = 'read'`, le défaut à l'ajout — c'est le rôle "collaborateur lecture
+  seule" pour partager avec un client/stagiaire sans risque). Un owner/admin du
+  workspace (ou un collaborateur déjà "owner" du projet) peut faire passer un
+  collaborateur direct de `read` à `owner` via `updateProjectMemberRole`
+  (`PATCH /api/projects/[id]/members/[userId]`, UI dans `ProjectMembers`) : ça lui
+  donne un accès de gestion complet sur CE projet uniquement (jamais sur les autres
+  projets du workspace, sa facturation, ou ses membres). `getProjectWithAccess`
+  combine les deux niveaux pour l'UI (`canManage`).
 - `lib/attribution/models.ts` — 6 modèles (last click, linéaire, croissant, en U,
   Markov par effet de suppression, Shapley : exact ≤12 canaux, Monte Carlo au-delà)
 - `lib/attribution/queue.ts` — file `nightly_jobs` (claim atomique SKIP LOCKED) :

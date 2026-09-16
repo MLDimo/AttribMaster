@@ -53,11 +53,19 @@ export type Account = {
   created_at: string;
 };
 
+/**
+ * "read" = accès en lecture seule (comportement historique). "owner" = accès
+ * de gestion complet sur CE projet (équivalent à un owner/admin de workspace,
+ * mais sans les droits au niveau workspace) — voir `hasProjectManageAccess`.
+ */
+export type ProjectMemberRole = "read" | "owner";
+
 export type ProjectMember = {
   user_id: string;
   name: string | null;
   email: string;
   image: string | null;
+  role: ProjectMemberRole;
   created_at: string;
 };
 
