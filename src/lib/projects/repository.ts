@@ -450,9 +450,9 @@ export async function addProjectMember(
             <strong>${inviterLabel}</strong> t'invite à collaborer sur le projet <strong>${projectName}</strong> sur AttribMaster.
           </p>
           <p style="margin:0 0 24px 0;">
-            Crée un compte avec cette adresse email (<strong>${escapeHtml(normalizedEmail)}</strong>) pour y accéder automatiquement, en lecture seule au dashboard d'attribution marketing du projet.
+            Crée un compte avec cette adresse email (<strong>${escapeHtml(normalizedEmail)}</strong>), ou connecte-toi avec Google en utilisant la même adresse, pour accéder automatiquement, en lecture seule, au dashboard d'attribution marketing du projet.
           </p>
-          <p style="margin:0 0 24px 0;">${renderEmailButton("Créer mon compte", signupUrl)}</p>
+          <p style="margin:0 0 24px 0;">${renderEmailButton("Accéder au projet", signupUrl)}</p>
           <p style="margin:0;color:#8a7967;font-size:13px;">Si tu ne connais pas cette personne, ignore cet email.</p>
         `,
         // Preheader : injecté dans le HTML (div cachée), donc les valeurs échappées — contrairement au sujet ci-dessus, qui est du texte brut.
