@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 
 import { getDbPool } from "@/lib/db/client";
 import { hasEmailSending, sendEmail, escapeHtml } from "@/lib/email/resend";
+import { renderEmailButton, renderEmailLayout } from "@/lib/email/template";
 
 const VERIFICATION_TOKEN_TTL_HOURS = 24;
 
@@ -61,12 +62,15 @@ export async function registerUser(
     await sendEmail(
       [normalizedEmail],
       "Confirme ton adresse email — AttribMaster",
-      `
-        <p>Bonjour${name ? ` ${escapeHtml(name.trim())}` : ""},</p>
-        <p>Bienvenue sur AttribMaster ! Clique sur le lien ci-dessous pour activer ton compte :</p>
-        <p><a href="${verifyUrl}">Confirmer mon adresse email</a></p>
-        <p style="color:#8a7967;font-size:13px">Ce lien expire dans ${VERIFICATION_TOKEN_TTL_HOURS} heures. Si tu n'es pas à l'origine de cette inscription, ignore cet email.</p>
-      `
+      renderEmailLayout(
+        `
+          <p style="margin:0 0 16px 0;">Bonjour${name ? ` ${escapeHtml(name.trim())}` : ""},</p>
+          <p style="margin:0 0 24px 0;">Bienvenue sur AttribMaster ! Clique sur le lien ci-dessous pour activer ton compte.</p>
+          <p style="margin:0 0 24px 0;">${renderEmailButton("Confirmer mon adresse email", verifyUrl)}</p>
+          <p style="margin:0;color:#8a7967;font-size:13px;">Ce lien expire dans ${VERIFICATION_TOKEN_TTL_HOURS} heures. Si tu n'es pas à l'origine de cette inscription, ignore cet email.</p>
+        `,
+        "Confirme ton adresse email pour activer ton compte AttribMaster"
+      )
     );
   }
 
