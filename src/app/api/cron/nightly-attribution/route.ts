@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { sendFailureAlerts } from "@/lib/alerts/failure-alerts";
 import { runNightlyAttributionForProject } from "@/lib/attribution/nightly-run";
-import { enqueueBackfillForAllProjects, processQueue } from "@/lib/attribution/queue";
+import {
+  enqueueBackfillForAllProjects,
+  enqueueZeroRowRetryForAllProjects,
+  processQueue,
+} from "@/lib/attribution/queue";
 import { runDemoGoogleSheetExport } from "@/lib/google-sheets/demo-export";
 
 // Sans ça, la fonction serverless est tuée au timeout par défaut du plan
@@ -28,6 +32,10 @@ export async function GET(request: NextRequest) {
 
   const targetDate = request.nextUrl.searchParams.get("date") ?? undefined;
   const projectId = request.nextUrl.searchParams.get("projectId") ?? undefined;
+  // Deuxième tick quotidien (~midi, voir vercel.json) : ne retente que les
+  // jours coincés à 0 ligne/en échec, sans retoucher aux jours déjà réussis —
+  // voir enqueueZeroRowRetryForAllProjects pour le raisonnement complet.
+  const isRetryTick = request.nextUrl.searchParams.get("mode") === "retry";
 
   try {
     // Override manuel (backfill ciblé) : run direct, hors file d'attente.
@@ -44,7 +52,9 @@ export async function GET(request: NextRequest) {
     // n'est perdu si le budget est dépassé : les jobs non traités restent
     // "pending" et seront repris au prochain appel (prochain tick de cron, ou
     // un refresh manuel sur un projet donné).
-    const enqueued = await enqueueBackfillForAllProjects();
+    const enqueued = isRetryTick
+      ? await enqueueZeroRowRetryForAllProjects()
+      : await enqueueBackfillForAllProjects();
     const deadline = Date.now() + (maxDuration - 20) * 1000;
     const { processed } = await processQueue(deadline);
     // Alerte les owners dont la mise à jour vient d'échouer (throttlé à un
@@ -53,15 +63,24 @@ export async function GET(request: NextRequest) {
 
     // Export démo vers un Google Sheet fixe (voir demo-export.ts) — best-
     // effort comme les autres étapes secondaires du tick quotidien, jamais
-    // bloquant pour les vrais projets.
+    // bloquant pour les vrais projets. Inutile de le refaire au tick de
+    // rattrapage de midi, qui ne vise que les jours en échec/0 ligne.
     let demoSheetExportedRows: number | null = null;
-    try {
-      demoSheetExportedRows = await runDemoGoogleSheetExport();
-    } catch (error) {
-      console.error("[cron/nightly-attribution] demo sheet export failed (non-blocking)", error);
+    if (!isRetryTick) {
+      try {
+        demoSheetExportedRows = await runDemoGoogleSheetExport();
+      } catch (error) {
+        console.error("[cron/nightly-attribution] demo sheet export failed (non-blocking)", error);
+      }
     }
 
-    return NextResponse.json({ enqueued: enqueued.length, processed, alerts, demoSheetExportedRows });
+    return NextResponse.json({
+      mode: isRetryTick ? "retry" : "full",
+      enqueued: enqueued.length,
+      processed,
+      alerts,
+      demoSheetExportedRows,
+    });
   } catch (error) {
     console.error("[cron/nightly-attribution]", error);
     return NextResponse.json(
