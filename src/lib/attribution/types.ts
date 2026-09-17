@@ -20,6 +20,7 @@ export type AttributionRow = {
 };
 
 export type AttributionModel =
+  | "first_click"
   | "last_click"
   | "linear"
   | "time_decay"

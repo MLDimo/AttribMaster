@@ -45,8 +45,9 @@ V2 (multi-tenant) et V3 (Stripe) de la roadmap initiale sont livrées. La 2FA
   `<style>`), palette "nude" du site en mode jour uniquement. `bodyHtml` est
   injecté SANS échappement — c'est à l'appelant d'échapper toute valeur non
   littérale avec `escapeHtml` (`lib/email/resend.ts`) avant construction.
-- `lib/attribution/models.ts` — 6 modèles (last click, linéaire, croissant, en U,
-  Markov par effet de suppression, Shapley : exact ≤12 canaux, Monte Carlo au-delà)
+- `lib/attribution/models.ts` — 7 modèles (first click, last click, linéaire,
+  croissant, en U, Markov par effet de suppression, Shapley : exact ≤12 canaux,
+  Monte Carlo au-delà)
 - `lib/attribution/queue.ts` — file `nightly_jobs` (claim atomique SKIP LOCKED) :
   cron nocturne avec fenêtre de rattrapage 3 jours (l'export GA4→BigQuery peut
   prendre 72h), refresh manuel, backfill historique complet à la connexion BigQuery.

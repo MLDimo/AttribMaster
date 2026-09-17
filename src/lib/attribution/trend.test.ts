@@ -110,7 +110,7 @@ describe("buildDailySourceTrend", () => {
         touchpoints: [tp("google", "cpc", "2026-07-11T00:00:00Z", 0)],
       }),
     ];
-    for (const model of ["last_click", "linear", "u_shape", "time_decay", "markov", "shapley"] as const) {
+    for (const model of ["first_click", "last_click", "linear", "u_shape", "time_decay", "markov", "shapley"] as const) {
       const { points } = buildDailySourceTrend(rows, "2026-07-10", "2026-07-11", model);
       for (const point of points) {
         const { date: _date, total, ...bySource } = point;

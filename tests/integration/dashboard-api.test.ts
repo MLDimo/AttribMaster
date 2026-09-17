@@ -84,7 +84,7 @@ describe("GET /api/overview (dashboard numbers)", () => {
   });
 
   it("sourceTrend: per-day channel breakdown reconciles with trend's daily revenue, for every model", async () => {
-    for (const model of ["last_click", "linear", "u_shape", "time_decay", "markov", "shapley", "custom"] as const) {
+    for (const model of ["first_click", "last_click", "linear", "u_shape", "time_decay", "markov", "shapley", "custom"] as const) {
       const res = await overviewGet(new NextRequest(overviewUrl({ model })));
       const json = await res.json();
 
@@ -140,7 +140,7 @@ describe("GET /api/overview (dashboard numbers)", () => {
   });
 
   it("returns the same total revenue regardless of attribution model", async () => {
-    const models = ["last_click", "linear", "time_decay", "u_shape", "markov", "shapley", "custom"] as const;
+    const models = ["first_click", "last_click", "linear", "time_decay", "u_shape", "markov", "shapley", "custom"] as const;
     const revenues: number[] = [];
     for (const model of models) {
       const res = await overviewGet(new NextRequest(overviewUrl({ model })));

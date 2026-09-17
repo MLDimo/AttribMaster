@@ -15,6 +15,12 @@ type ModelExplanation = {
 
 const MODEL_EXPLANATIONS: ModelExplanation[] = [
   {
+    id: "first_click",
+    label: "First Click",
+    calcul: "100 % du revenu est attribué au tout premier point de contact du parcours.",
+    utile: "Valoriser ce qui déclenche la découverte de la marque (haut de funnel, notoriété).",
+  },
+  {
     id: "last_click",
     label: "Last Click",
     calcul: "100 % du revenu est attribué au dernier point de contact avant l'achat.",

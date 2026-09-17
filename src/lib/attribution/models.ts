@@ -124,6 +124,9 @@ export function computeWeights(
   if (n === 1) return [1];
 
   switch (model) {
+    case "first_click":
+      return touchpoints.map((_, i) => (i === 0 ? 1 : 0));
+
     case "last_click":
       return touchpoints.map((_, i) => (i === n - 1 ? 1 : 0));
 
