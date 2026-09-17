@@ -31,6 +31,15 @@ function row(overrides: Partial<AttributionRow> & { touchpoints: Touchpoint[] })
 }
 
 describe("computeWeights", () => {
+  it("first_click gives 100% to the first touchpoint", () => {
+    const touchpoints = [
+      tp("google", "cpc", "t1", 0),
+      tp("direct", "none", "t2", 1),
+      tp("email", "newsletter", "t3", 2),
+    ];
+    expect(computeWeights(touchpoints, "first_click")).toEqual([1, 0, 0]);
+  });
+
   it("last_click gives 100% to the last touchpoint", () => {
     const touchpoints = [
       tp("google", "cpc", "t1", 0),
@@ -75,7 +84,7 @@ describe("computeWeights", () => {
 
   it("a single touchpoint always gets 100% regardless of model", () => {
     const touchpoints = [tp("solo", "m", "t1", 0)];
-    for (const model of ["last_click", "linear", "u_shape", "time_decay"] as const) {
+    for (const model of ["first_click", "last_click", "linear", "u_shape", "time_decay"] as const) {
       expect(computeWeights(touchpoints, model)).toEqual([1]);
     }
   });

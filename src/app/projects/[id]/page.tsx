@@ -31,6 +31,7 @@ import type { Project } from "@/lib/projects/types";
 import type { AttributionModel, CustomModelConfig } from "@/lib/attribution/types";
 
 const MODEL_LABELS: Record<AttributionModel, string> = {
+  first_click: "First Click",
   last_click: "Last Click",
   linear: "Linéaire",
   time_decay: "Croissant",

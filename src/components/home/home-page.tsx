@@ -60,13 +60,13 @@ const PROBLEMS = [
 const FEATURES = [
   {
     icon: Waypoints,
-    title: "6 modèles prêts à l'emploi",
+    title: "7 modèles prêts à l'emploi",
     description:
-      "Last Click, Linéaire, Croissant, En U, Chaînes de Markov, Valeur de Shapley. Compare deux périodes ou deux modèles côte à côte.",
+      "First Click, Last Click, Linéaire, Croissant, En U, Chaînes de Markov, Valeur de Shapley. Compare deux périodes ou deux modèles côte à côte.",
   },
   {
     icon: SlidersHorizontal,
-    title: "Et le tien, en 7ᵉ",
+    title: "Et le tien, en 8ᵉ",
     description:
       "Fixe toi-même les poids premier / milieu / dernier contact, et ajoute des règles : « si Google Ads est le premier contact, il prend 70 % ».",
   },
@@ -106,7 +106,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Puis-je changer de modèle d'attribution à tout moment ?",
-    a: "Oui, bascule entre les 6 modèles en un clic, à tout moment, inclus dans tous les plans.",
+    a: "Oui, bascule entre les 7 modèles en un clic, à tout moment, inclus dans tous les plans.",
   },
   {
     q: "Puis-je définir mon propre modèle d'attribution ?",
@@ -195,7 +195,7 @@ export function HomePage({ authenticated }: { authenticated: boolean }) {
           <FadeIn delay={0.1}>
             <p className="text-balance text-muted-foreground sm:text-lg">
               AttribMaster reconstruit le vrai parcours de conversion depuis BigQuery.
-              <br />6 modèles d&apos;attribution prêts à l&apos;emploi — ou le tien, calculés sur tes données
+              <br />7 modèles d&apos;attribution prêts à l&apos;emploi — ou le tien, calculés sur tes données
               réelles, sans échantillonnage.
             </p>
           </FadeIn>
@@ -246,7 +246,7 @@ export function HomePage({ authenticated }: { authenticated: boolean }) {
           <h2 className="text-2xl font-semibold">Le même mois, deux vérités différentes</h2>
           <p className="text-sm text-muted-foreground">Change juste de modèle d&apos;attribution.</p>
           <p className="text-sm text-muted-foreground">
-            6 modèles disponibles, plus celui que tu construis toi-même.
+            7 modèles disponibles, plus celui que tu construis toi-même.
           </p>
         </FadeIn>
         <FadeIn delay={0.1}>

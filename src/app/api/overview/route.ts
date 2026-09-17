@@ -18,7 +18,7 @@ const querySchema = z
     from: z.string().date().optional(),
     to: z.string().date().optional(),
     model: z
-      .enum(["last_click", "linear", "time_decay", "u_shape", "markov", "shapley", "custom"])
+      .enum(["first_click", "last_click", "linear", "time_decay", "u_shape", "markov", "shapley", "custom"])
       .default("linear"),
     comparison: z
       .enum(["previous_period", "last_week", "last_month", "previous_year"])
