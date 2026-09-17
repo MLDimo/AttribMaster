@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, FileSpreadsheet, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
@@ -38,6 +38,31 @@ function loadPicker(): Promise<void> {
 }
 
 /**
+ * Ferme le Picker sur un clic HORS du dialogue — Google ne le fait pas par
+ * défaut (vérifié en ouvrant un vrai Picker et en inspectant son DOM :
+ * `.picker-dialog-bg` reçoit bien les clics — `pointer-events: auto` — mais
+ * rien n'y est branché). `instance.dispose()` est la SEULE façon qui marche
+ * réellement : `setVisible(false)` laisse le DOM en place, et simuler un
+ * clic sur le bouton natif "Close" via `.click()` ne fait rien non plus —
+ * Google semble ignorer les clics synthétiques sur ce bouton précis (même
+ * verrouillage que pour l'apparence : rien qui permette à la page hôte de
+ * piloter ce dialogue par un événement DOM fabriqué). Délégation sur
+ * `document` en phase de capture, pas un listener direct sur l'élément :
+ * Google recrée ce fond après le chargement initial, un listener attaché
+ * trop tôt à l'ancien nœud ne survivrait pas.
+ */
+function attachOutsideClickToClose(instance: PickerInstance): () => void {
+  function handler(event: MouseEvent) {
+    const target = event.target as HTMLElement | null;
+    if (target?.tagName === "DIV" && target.classList.contains("picker-dialog-bg") && !instance.isDisposed()) {
+      instance.dispose();
+    }
+  }
+  document.addEventListener("click", handler, true);
+  return () => document.removeEventListener("click", handler, true);
+}
+
+/**
  * Choix d'une feuille Google Sheets via le sélecteur natif de Google (Picker),
  * seule façon d'accorder l'accès à un fichier existant sous le scope
  * `drive.file` — coller une URL ne suffit plus (voir gcp-oauth/client.ts).
@@ -54,6 +79,11 @@ export function GoogleSheetPickerButton({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY;
+  const detachOutsideClickRef = useRef<(() => void) | null>(null);
+
+  // Enlève le listener de la session précédente si le composant disparaît
+  // pendant qu'un Picker est ouvert (navigation ailleurs, etc.).
+  useEffect(() => () => detachOutsideClickRef.current?.(), []);
 
   if (!apiKey) {
     return (
@@ -67,6 +97,9 @@ export function GoogleSheetPickerButton({
   async function handleClick() {
     setLoading(true);
     setError(null);
+    // Au cas où une session précédente n'a pas été fermée proprement (rare,
+    // mais évite d'empiler des listeners si le bouton est recliqué).
+    detachOutsideClickRef.current?.();
     try {
       const [, tokenRes] = await Promise.all([
         loadPicker(),
@@ -107,11 +140,13 @@ export function GoogleSheetPickerButton({
       const instance = builder
         .setCallback((data: { action: string; docs?: { url: string }[] }) => {
           if (data.action === picker.Action.PICKED && data.docs?.[0]?.url) {
+            detachOutsideClickRef.current?.();
             onPicked(data.docs[0].url);
           }
         })
         .build();
       instance.setVisible(true);
+      detachOutsideClickRef.current = attachOutsideClickToClose(instance);
     } catch {
       setError("Le sélecteur Google n'a pas pu s'ouvrir — réessaie dans un instant.");
     } finally {
@@ -136,6 +171,10 @@ interface PickerDocsView {
 
 interface PickerInstance {
   setVisible: (visible: boolean) => void;
+  // setVisible(false) laisse le DOM en place ; dispose() est la seule
+  // méthode qui le retire réellement (voir attachOutsideClickToClose).
+  dispose: () => void;
+  isDisposed: () => boolean;
 }
 
 interface PickerBuilderInstance {
