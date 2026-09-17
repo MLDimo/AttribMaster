@@ -80,6 +80,31 @@ export async function enqueueBackfillForAllProjects(): Promise<NightlyJob[]> {
 }
 
 /**
+ * Deuxième tick quotidien (~midi, voir vercel.json) : ne retente que les
+ * jours de la fenêtre de rattrapage bloqués à 0 ligne ou en échec — jamais
+ * les jours déjà réussis avec des données, pour ne pas doubler le coût
+ * BigQuery de tous les projets chaque jour (ce que ferait un simple second
+ * appel à enqueueBackfillForAllProjects). Corrige un cas observé en prod :
+ * l'export GA4 -> BigQuery pas encore fini au tick de nuit (02h) laisse un
+ * jour à 0 ligne, qui restait alors coincé jusqu'au tick de nuit SUIVANT
+ * (jusqu'à 24h de données manquantes en plus côté client) faute d'un second
+ * passage dans la même journée.
+ */
+export async function enqueueZeroRowRetryForAllProjects(): Promise<NightlyJob[]> {
+  const db = getDbPool();
+  const cutoff = daysAgoDateOnly(BACKFILL_DAYS);
+  const { rows } = await db.query<{ project_id: string; target_date: string }>(
+    `select project_id, target_date::text as target_date
+     from nightly_jobs
+     where target_date >= $1::date
+       and project_id != $2
+       and (status = 'failed' or (status = 'done' and rows_inserted = 0))`,
+    [cutoff, MOCK_PROJECT_ID]
+  );
+  return Promise.all(rows.map((r) => enqueueJob(r.project_id, r.target_date, "cron")));
+}
+
+/**
  * Enfile un job par jour entre startDate et endDate (inclus) pour un projet,
  * en un seul aller-retour (generate_series côté SQL) : utilisé une fois à la
  * connexion BigQuery pour rattraper tout l'historique GA4 disponible, ce qui

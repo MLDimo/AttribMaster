@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/nightly-attribution",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/nightly-attribution?mode=retry",
+      "schedule": "0 12 * * *"
     }
   ]
 }

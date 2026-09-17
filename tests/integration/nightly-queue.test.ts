@@ -6,9 +6,11 @@ import {
   enqueueHistoricalBackfill,
   enqueueJob,
   enqueueManualRefresh,
+  enqueueZeroRowRetryForAllProjects,
   getLatestJobForProject,
   processQueue,
 } from "@/lib/attribution/queue";
+import { daysAgoDateOnly } from "@/lib/attribution/nightly-run";
 import { encryptSecret } from "@/lib/crypto/secrets";
 import { getDbPool } from "@/lib/db/client";
 
@@ -143,6 +145,84 @@ describe("nightly attribution job queue", () => {
     } finally {
       const pool = getDbPool();
       await pool.query(`delete from nightly_jobs where id = any($1)`, [jobs.filter(Boolean).map((j) => j.id)]);
+    }
+  });
+
+  it("enqueueZeroRowRetryForAllProjects retries a day stuck at 0 rows or failed within the backfill window, but leaves a successful day untouched", async () => {
+    const pool = getDbPool();
+    const zeroRowDay = daysAgoDateOnly(1);
+    const failedDay = daysAgoDateOnly(2);
+    const successDay = daysAgoDateOnly(3);
+    const tooOldDay = daysAgoDateOnly(4);
+
+    const zeroRowJob = await enqueueJob(projectId, zeroRowDay, "cron");
+    const failedJob = await enqueueJob(projectId, failedDay, "cron");
+    const successJob = await enqueueJob(projectId, successDay, "cron");
+    const tooOldJob = await enqueueJob(projectId, tooOldDay, "cron");
+    await pool.query(
+      `update nightly_jobs set status = 'done', rows_inserted = 0, finished_at = now() where id = $1`,
+      [zeroRowJob.id]
+    );
+    await pool.query(
+      `update nightly_jobs set status = 'failed', error = 'boom', finished_at = now() where id = $1`,
+      [failedJob.id]
+    );
+    await pool.query(
+      `update nightly_jobs set status = 'done', rows_inserted = 12, finished_at = now() where id = $1`,
+      [successJob.id]
+    );
+    // En dehors de la fenêtre de rattrapage (BACKFILL_DAYS=3) : même coincé à
+    // 0 ligne, un jour trop ancien n'est plus de la responsabilité de ce tick.
+    await pool.query(
+      `update nightly_jobs set status = 'done', rows_inserted = 0, finished_at = now() where id = $1`,
+      [tooOldJob.id]
+    );
+
+    const retried = await enqueueZeroRowRetryForAllProjects();
+    const ownRetriedIds = retried.filter((j) => j.project_id === projectId).map((j) => j.id);
+    expect(ownRetriedIds.sort()).toEqual([zeroRowJob.id, failedJob.id].sort());
+
+    // Comparaison via un cast SQL explicite en texte plutôt que sur
+    // `NightlyJob.target_date` : la colonne `date` revient du driver Postgres
+    // comme un objet JS Date en fuseau LOCAL (pas une string), ce qui décale
+    // le jour d'un cran dès que la machine n'est pas en UTC (Europe/Paris ici).
+    const { rows: retriedRows } = await pool.query<{ target_date: string; status: string }>(
+      `select target_date::text, status from nightly_jobs where id = any($1)`,
+      [ownRetriedIds]
+    );
+    expect(new Set(retriedRows.map((r) => r.target_date))).toEqual(new Set([zeroRowDay, failedDay]));
+    for (const row of retriedRows) {
+      expect(row.status).toBe("pending");
+    }
+
+    const { rows } = await pool.query<{ target_date: string; status: string; rows_inserted: number | null }>(
+      `select target_date::text, status, rows_inserted from nightly_jobs where id = any($1)`,
+      [[successJob.id, tooOldJob.id]]
+    );
+    const bySuccess = rows.find((r) => r.target_date === successDay)!;
+    const byTooOld = rows.find((r) => r.target_date === tooOldDay)!;
+    expect(bySuccess.status).toBe("done"); // pas retouché : déjà réussi avec des données
+    expect(bySuccess.rows_inserted).toBe(12);
+    expect(byTooOld.status).toBe("done"); // pas retouché : hors fenêtre de rattrapage
+  });
+
+  it("enqueueZeroRowRetryForAllProjects never touches the demo project", async () => {
+    const pool = getDbPool();
+    const day = daysAgoDateOnly(1);
+    await pool.query(
+      `insert into nightly_jobs (project_id, target_date, status, trigger_source, rows_inserted)
+       values ($1, $2, 'done', 'cron', 0)
+       on conflict (project_id, target_date) do update set status = 'done', rows_inserted = 0`,
+      [MOCK_PROJECT_ID, day]
+    );
+    try {
+      const retried = await enqueueZeroRowRetryForAllProjects();
+      expect(retried.some((j) => j.project_id === MOCK_PROJECT_ID)).toBe(false);
+    } finally {
+      await pool.query(`delete from nightly_jobs where project_id = $1 and target_date = $2`, [
+        MOCK_PROJECT_ID,
+        day,
+      ]);
     }
   });
 
