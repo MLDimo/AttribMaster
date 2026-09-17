@@ -2,17 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { apiErrorResponse } from "@/lib/auth/errors";
-import {
-  addProjectMember,
-  listProjectMembers,
-  ProjectMemberUserNotFoundError,
-} from "@/lib/projects/repository";
+import { addProjectMember, listPendingProjectMemberInvites, listProjectMembers } from "@/lib/projects/repository";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {
-    const members = await listProjectMembers(id);
-    return NextResponse.json({ members });
+    const [members, invites] = await Promise.all([listProjectMembers(id), listPendingProjectMemberInvites(id)]);
+    return NextResponse.json({ members, invites });
   } catch (error) {
     return apiErrorResponse(error, "[api/projects/[id]/members GET]", "Failed to load members");
   }
@@ -31,15 +27,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   try {
-    const member = await addProjectMember(id, parsed.data.email);
-    return NextResponse.json({ member });
-  } catch (error) {
-    if (error instanceof ProjectMemberUserNotFoundError) {
-      return NextResponse.json(
-        { error: "Aucun compte AttribMaster n'existe avec cet email." },
-        { status: 404 }
-      );
+    const result = await addProjectMember(id, parsed.data.email, request.nextUrl.origin);
+    if (result.kind === "invited") {
+      // 202 : pas d'accès accordé tout de suite, juste une invitation envoyée par email.
+      return NextResponse.json({ invite: result.invite }, { status: 202 });
     }
+    return NextResponse.json({ member: result.member });
+  } catch (error) {
     return apiErrorResponse(error, "[api/projects/[id]/members POST]", "Failed to add member");
   }
 }

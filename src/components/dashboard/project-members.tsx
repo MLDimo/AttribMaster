@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Crown, Eye, Loader2, UserPlus, X } from "lucide-react";
+import { ChevronRight, Clock, Crown, Eye, Loader2, Mail, UserPlus, X } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { StaggerContainer, StaggerItem } from "@/components/effects/motion";
-import type { ProjectMember, ProjectMemberRole } from "@/lib/projects/types";
+import type { ProjectMember, ProjectMemberInvite, ProjectMemberRole } from "@/lib/projects/types";
 
 const AVATAR_TINTS = [
   "bg-chart-1/70",
@@ -62,18 +62,24 @@ const MAX_STACK = 3;
 
 export function ProjectMembers({ projectId }: { projectId: string }) {
   const [members, setMembers] = useState<ProjectMember[] | null>(null);
+  const [invites, setInvites] = useState<ProjectMemberInvite[]>([]);
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [invitedEmail, setInvitedEmail] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
+  const [cancelingInvite, setCancelingInvite] = useState<string | null>(null);
 
   function load() {
     fetch(`/api/projects/${projectId}/members`)
       .then((res) => (res.ok ? res.json() : null))
-      .then((json: { members: ProjectMember[] } | null) => {
-        if (json) setMembers(json.members);
+      .then((json: { members: ProjectMember[]; invites: ProjectMemberInvite[] } | null) => {
+        if (json) {
+          setMembers(json.members);
+          setInvites(json.invites);
+        }
       });
   }
 
@@ -82,6 +88,7 @@ export function ProjectMembers({ projectId }: { projectId: string }) {
   async function handleAdd(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
+    setInvitedEmail(null);
     setAdding(true);
     try {
       const res = await fetch(`/api/projects/${projectId}/members`, {
@@ -94,6 +101,9 @@ export function ProjectMembers({ projectId }: { projectId: string }) {
         setError(json.error ?? "Impossible d'ajouter ce collaborateur.");
         return;
       }
+      // 202 : pas encore de compte AttribMaster avec cet email — une invitation
+      // vient d'être envoyée, elle apparaîtra "en attente" dans la liste.
+      if (res.status === 202) setInvitedEmail(email);
       setEmail("");
       load();
     } finally {
@@ -108,6 +118,18 @@ export function ProjectMembers({ projectId }: { projectId: string }) {
       if (res.ok) setMembers((prev) => prev?.filter((m) => m.user_id !== userId) ?? prev);
     } finally {
       setRemovingId(null);
+    }
+  }
+
+  async function handleCancelInvite(inviteEmail: string) {
+    setCancelingInvite(inviteEmail);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/invites/${encodeURIComponent(inviteEmail)}`, {
+        method: "DELETE",
+      });
+      if (res.ok) setInvites((prev) => prev.filter((i) => i.email !== inviteEmail));
+    } finally {
+      setCancelingInvite(null);
     }
   }
 
@@ -178,6 +200,12 @@ export function ProjectMembers({ projectId }: { projectId: string }) {
               disabled={adding}
             />
             {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}
+            {invitedEmail && !error && (
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                {invitedEmail} n&apos;a pas encore de compte AttribMaster : une invitation par email
+                vient de lui être envoyée.
+              </p>
+            )}
           </div>
           <Button type="submit" disabled={adding}>
             {adding ? <Loader2 className="size-4 animate-spin" /> : "Ajouter"}
@@ -187,13 +215,42 @@ export function ProjectMembers({ projectId }: { projectId: string }) {
         <div className="flex max-h-72 flex-col gap-1 overflow-y-auto">
           {members === null ? (
             <p className="py-4 text-center text-sm text-muted-foreground">Chargement…</p>
-          ) : members.length === 0 ? (
+          ) : members.length === 0 && invites.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">
               Aucun collaborateur pour l&apos;instant.
             </p>
           ) : (
             <StaggerContainer className="flex flex-col gap-1">
-              {members.map((member) => (
+              {invites.map((invite) => (
+                <StaggerItem key={`invite-${invite.email}`}>
+                  <div className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-accent">
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground ring-2 ring-card">
+                      <Mail className="size-3.5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{invite.email}</p>
+                      <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                        <Clock className="size-3" />
+                        Invitation envoyée, en attente d&apos;inscription
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label={`Annuler l'invitation de ${invite.email}`}
+                      onClick={() => handleCancelInvite(invite.email)}
+                      disabled={cancelingInvite === invite.email}
+                      className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      {cancelingInvite === invite.email ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <X className="size-3.5" />
+                      )}
+                    </button>
+                  </div>
+                </StaggerItem>
+              ))}
+              {members?.map((member) => (
                 <StaggerItem key={member.user_id}>
                   <div className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-accent">
                     <Avatar member={member} className="ring-0" />

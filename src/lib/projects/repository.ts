@@ -4,8 +4,9 @@ import type { CustomModelConfig } from "@/lib/attribution/types";
 import { NotAuthorizedError, UnauthenticatedError } from "@/lib/auth/errors";
 import { decryptSecret, encryptSecret } from "@/lib/crypto/secrets";
 import { getDbPool } from "@/lib/db/client";
+import { escapeHtml, hasEmailSending, sendEmail } from "@/lib/email/resend";
 import { cancelStripeSubscription } from "@/lib/stripe/cancel-subscription";
-import type { Account, Project, ProjectMember, ProjectMemberRole } from "./types";
+import type { Account, Project, ProjectMember, ProjectMemberInvite, ProjectMemberRole } from "./types";
 
 export async function requireUserId(): Promise<string> {
   const session = await auth();
@@ -362,15 +363,24 @@ export async function listProjectMembers(projectId: string): Promise<ProjectMemb
   return rows;
 }
 
-export class ProjectMemberUserNotFoundError extends Error {
-  constructor() {
-    super("No user with this email");
-    this.name = "ProjectMemberUserNotFoundError";
-  }
-}
+export type AddProjectMemberResult =
+  | { kind: "member"; member: ProjectMember }
+  | { kind: "invited"; invite: ProjectMemberInvite };
 
-/** Ajoute un collaborateur par email : doit déjà avoir un compte AttribMaster. Réservé owner/admin du projet. */
-export async function addProjectMember(projectId: string, email: string): Promise<ProjectMember> {
+/**
+ * Ajoute un collaborateur par email. S'il a déjà un compte AttribMaster,
+ * accès immédiat (project_members, rôle "read" par défaut). Sinon, une
+ * invitation est mémorisée (`project_member_invites`) et un email est
+ * envoyé : elle se transforme en accès réel automatiquement dès qu'un
+ * compte est créé avec cet email (trigger `handle_new_user`, quel que soit
+ * le moyen d'inscription — email/mot de passe ou Google). Réservé
+ * owner/admin du projet.
+ */
+export async function addProjectMember(
+  projectId: string,
+  email: string,
+  origin: string
+): Promise<AddProjectMemberResult> {
   const userId = await requireUserId();
   await requireProjectAccess(projectId, userId);
 
@@ -382,28 +392,90 @@ export async function addProjectMember(projectId: string, email: string): Promis
     image: string | null;
   }>(`select id, name, email, image from users where lower(email) = lower($1)`, [email]);
   const user = userRows[0];
-  if (!user) throw new ProjectMemberUserNotFoundError();
 
-  await db.query(
-    `insert into project_members (project_id, user_id, added_by)
+  if (user) {
+    await db.query(
+      `insert into project_members (project_id, user_id, added_by)
+       values ($1, $2, $3)
+       on conflict (project_id, user_id) do nothing`,
+      [projectId, user.id, userId]
+    );
+
+    const { rows } = await db.query<{ role: ProjectMemberRole; created_at: string }>(
+      `select role, created_at from project_members where project_id = $1 and user_id = $2`,
+      [projectId, user.id]
+    );
+
+    return {
+      kind: "member",
+      member: {
+        user_id: user.id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+        role: rows[0].role,
+        created_at: rows[0].created_at,
+      },
+    };
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const { rows: inviteRows } = await db.query<{ role: ProjectMemberRole; created_at: string }>(
+    `insert into project_member_invites (project_id, email, invited_by)
      values ($1, $2, $3)
-     on conflict (project_id, user_id) do nothing`,
-    [projectId, user.id, userId]
+     on conflict (project_id, email) do update set invited_by = excluded.invited_by
+     returning role, created_at`,
+    [projectId, normalizedEmail, userId]
   );
 
-  const { rows } = await db.query<{ role: ProjectMemberRole; created_at: string }>(
-    `select role, created_at from project_members where project_id = $1 and user_id = $2`,
-    [projectId, user.id]
-  );
+  if (hasEmailSending()) {
+    const [{ rows: projectRows }, { rows: inviterRows }] = await Promise.all([
+      db.query<{ name: string }>(`select name from projects where id = $1`, [projectId]),
+      db.query<{ name: string | null; email: string }>(`select name, email from users where id = $1`, [userId]),
+    ]);
+    const rawProjectName = projectRows[0]?.name ?? "un projet";
+    const rawInviterLabel = inviterRows[0]?.name?.trim() || inviterRows[0]?.email || "Quelqu'un";
+    const signupUrl = `${origin}/signup?email=${encodeURIComponent(normalizedEmail)}`;
+    await sendEmail(
+      [normalizedEmail],
+      // Sujet en texte brut (pas de HTML) : valeurs non échappées, comme les autres emails du projet (cf. failure-alerts.ts).
+      `${rawInviterLabel} t'invite à rejoindre "${rawProjectName}" sur AttribMaster`,
+      `
+        <p>Bonjour,</p>
+        <p>${escapeHtml(rawInviterLabel)} t'invite à collaborer sur le projet <strong>${escapeHtml(rawProjectName)}</strong> sur AttribMaster.</p>
+        <p>Crée un compte avec cette adresse email (${escapeHtml(normalizedEmail)}) pour y accéder automatiquement :</p>
+        <p><a href="${signupUrl}">Créer mon compte</a></p>
+        <p style="color:#8a7967;font-size:13px">Si tu ne connais pas cette personne, ignore cet email.</p>
+      `
+    );
+  }
 
-  return {
-    user_id: user.id,
-    name: user.name,
-    email: user.email,
-    image: user.image,
-    role: rows[0].role,
-    created_at: rows[0].created_at,
-  };
+  return { kind: "invited", invite: { email: normalizedEmail, role: inviteRows[0].role, created_at: inviteRows[0].created_at } };
+}
+
+/** Invitations en attente (pas encore de compte AttribMaster) pour ce projet. Visible par quiconque a accès au projet. */
+export async function listPendingProjectMemberInvites(projectId: string): Promise<ProjectMemberInvite[]> {
+  const project = await getProject(projectId);
+  if (!project) throw new Error("Project not found or not accessible");
+
+  const db = getDbPool();
+  const { rows } = await db.query<ProjectMemberInvite>(
+    `select email, role, created_at from project_member_invites where project_id = $1 order by created_at asc`,
+    [projectId]
+  );
+  return rows;
+}
+
+/** Annule une invitation en attente. Réservé owner/admin du projet. */
+export async function cancelProjectMemberInvite(projectId: string, email: string): Promise<void> {
+  const userId = await requireUserId();
+  await requireProjectAccess(projectId, userId);
+
+  const db = getDbPool();
+  await db.query(`delete from project_member_invites where project_id = $1 and lower(email) = lower($2)`, [
+    projectId,
+    email,
+  ]);
 }
 
 export class ProjectMemberNotFoundError extends Error {

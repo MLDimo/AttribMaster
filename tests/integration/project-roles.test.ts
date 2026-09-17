@@ -22,6 +22,8 @@ import {
 
 import { GET as getProjectRoute, PATCH as patchProjectRoute, DELETE as deleteProjectRoute } from "@/app/api/projects/[id]/route";
 import { PATCH as patchMemberRoleRoute } from "@/app/api/projects/[id]/members/[userId]/route";
+import { GET as getMembersRoute, POST as postMemberRoute } from "@/app/api/projects/[id]/members/route";
+import { DELETE as deleteInviteRoute } from "@/app/api/projects/[id]/invites/[email]/route";
 import { POST as refreshPost } from "@/app/api/projects/[id]/refresh/route";
 import { POST as connectBigQueryPost } from "@/app/api/projects/[id]/connect-bigquery/route";
 import { GET as gcpProjectsGet } from "@/app/api/projects/[id]/gcp-projects/route";
@@ -49,6 +51,18 @@ function params(id: string) {
 
 function memberParams(id: string, userId: string) {
   return { params: Promise.resolve({ id, userId }) };
+}
+
+function inviteParams(id: string, email: string) {
+  return { params: Promise.resolve({ id, email }) };
+}
+
+function postAddMemberRequest(email: string) {
+  return new NextRequest("http://localhost", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
 }
 
 function patchRoleRequest(role: string) {
@@ -84,7 +98,7 @@ describe("project roles: read-only collaborator (project_members) vs workspace o
 
     mockUserId = ownerId;
     const project = await createProject({ name: "Role test project", accountId: workspaceId });
-    await addProjectMember(project.id, VIEWER_EMAIL);
+    await addProjectMember(project.id, VIEWER_EMAIL, "http://localhost");
 
     const ownerAccess = await getProjectWithAccess(project.id);
     expect(ownerAccess?.canManage).toBe(true);
@@ -116,7 +130,7 @@ describe("project roles: read-only collaborator (project_members) vs workspace o
 
     mockUserId = ownerId;
     const project = await createProject({ name: "Role test project 2", accountId: workspaceId });
-    await addProjectMember(project.id, viewerEmail);
+    await addProjectMember(project.id, viewerEmail, "http://localhost");
 
     // Le owner garde un accès de gestion complet (contrôle négatif : ces
     // routes ne doivent pas être cassées pour qui a réellement le droit).
@@ -362,9 +376,10 @@ describe("project roles: read-only collaborator (project_members) vs workspace o
 
     mockUserId = ownerId;
     const project = await createProject({ name: "Role test project 5", accountId: workspaceId });
-    const added = await addProjectMember(project.id, collabEmail);
-    // Nouveau collaborateur : toujours "read" par défaut (comportement historique inchangé).
-    expect(added.role).toBe("read");
+    const added = await addProjectMember(project.id, collabEmail, "http://localhost");
+    // Compte déjà existant (collabEmail vient de registerUser juste avant) : accès direct, rôle "read" par défaut.
+    if (added.kind !== "member") throw new Error("expected an existing account to be added directly");
+    expect(added.member.role).toBe("read");
     expect(await hasProjectManageAccess(project.id, collabId)).toBe(false);
 
     // L'admin (owner du workspace) promeut le collaborateur en "owner" du projet.
@@ -417,7 +432,7 @@ describe("project roles: read-only collaborator (project_members) vs workspace o
 
     mockUserId = ownerId;
     const project = await createProject({ name: "Role test project 6", accountId: workspaceId });
-    await addProjectMember(project.id, collabEmail);
+    await addProjectMember(project.id, collabEmail, "http://localhost");
 
     // Un collaborateur en lecture seule n'a pas le droit de se promouvoir lui-même.
     mockUserId = collabId;
@@ -440,5 +455,128 @@ describe("project roles: read-only collaborator (project_members) vs workspace o
     await db.query(`delete from projects where id = $1`, [project.id]);
     await db.query(`delete from workspaces where id = $1`, [workspaceId]);
     await db.query(`delete from users where email in ($1, $2, $3)`, [ownerEmail, collabEmail, strangerEmail]);
+  });
+
+  it("inviting an email with no AttribMaster account: 202 + pending invite, converted to real access once that email signs up", async () => {
+    const db = getDbPool();
+    const ownerEmail = `role-test-owner7-${RUN_ID}@attribmaster.dev`;
+    const inviteeEmail = `role-test-invitee7-${RUN_ID}@attribmaster.dev`;
+    const { userId: ownerId } = await registerUser("Owner7", ownerEmail, "a-strong-password-123", "http://localhost");
+    const { rows: workspaceRows } = await db.query<{ workspace_id: string }>(
+      `select workspace_id from workspace_members where user_id = $1 and role = 'owner'`,
+      [ownerId]
+    );
+    const workspaceId = workspaceRows[0].workspace_id;
+
+    mockUserId = ownerId;
+    const project = await createProject({ name: "Role test project 7", accountId: workspaceId });
+
+    // Personne n'a de compte avec cet email : pas d'échec, une invitation est créée (202).
+    const inviteRes = await postMemberRoute(postAddMemberRequest(inviteeEmail), params(project.id));
+    expect(inviteRes.status).toBe(202);
+    const inviteJson = await inviteRes.json();
+    expect(inviteJson.invite).toEqual({ email: inviteeEmail, role: "read", created_at: expect.any(String) });
+
+    // Elle apparaît dans "invites", jamais dans "members" (pas encore de compte).
+    const listRes = await getMembersRoute(new NextRequest("http://localhost"), params(project.id));
+    const listJson = await listRes.json();
+    expect(listJson.members).toEqual([]);
+    expect(listJson.invites).toHaveLength(1);
+    expect(listJson.invites[0].email).toBe(inviteeEmail);
+
+    // Ré-inviter la même adresse ne duplique pas la ligne (on conflict do update).
+    await postMemberRoute(postAddMemberRequest(inviteeEmail), params(project.id));
+    const inviteCountRows = (
+      await db.query(`select 1 from project_member_invites where project_id = $1 and email = $2`, [
+        project.id,
+        inviteeEmail,
+      ])
+    ).rows;
+    expect(inviteCountRows).toHaveLength(1);
+
+    // L'invitée crée son compte avec la même adresse : le trigger handle_new_user
+    // convertit l'invitation en accès réel, sans aucune action de l'admin.
+    mockUserId = null;
+    const { userId: inviteeId } = await registerUser(
+      "Invitee7",
+      inviteeEmail,
+      "a-strong-password-123",
+      "http://localhost"
+    );
+    expect(await hasProjectManageAccess(project.id, inviteeId)).toBe(false); // rôle "read" par défaut
+    const membersAfterSignup = await db.query<{ role: string }>(
+      `select role from project_members where project_id = $1 and user_id = $2`,
+      [project.id, inviteeId]
+    );
+    expect(membersAfterSignup.rows).toEqual([{ role: "read" }]);
+    const invitesAfterSignup = await db.query(
+      `select 1 from project_member_invites where project_id = $1 and email = $2`,
+      [project.id, inviteeEmail]
+    );
+    expect(invitesAfterSignup.rows).toEqual([]); // consommée, plus "en attente"
+
+    mockUserId = ownerId;
+    await db.query(`delete from projects where id = $1`, [project.id]);
+    await db.query(`delete from workspaces where id = $1`, [workspaceId]);
+    mockUserId = null;
+    const { rows: inviteeWorkspaceRows } = await db.query<{ workspace_id: string }>(
+      `select workspace_id from workspace_members where user_id = $1 and role = 'owner'`,
+      [inviteeId]
+    );
+    if (inviteeWorkspaceRows[0]) {
+      await db.query(`delete from workspaces where id = $1`, [inviteeWorkspaceRows[0].workspace_id]);
+    }
+    await db.query(`delete from users where email in ($1, $2)`, [ownerEmail, inviteeEmail]);
+  });
+
+  it("a canceled invite grants no access, even if that email later signs up", async () => {
+    const db = getDbPool();
+    const ownerEmail = `role-test-owner8-${RUN_ID}@attribmaster.dev`;
+    const inviteeEmail = `role-test-invitee8-${RUN_ID}@attribmaster.dev`;
+    const { userId: ownerId } = await registerUser("Owner8", ownerEmail, "a-strong-password-123", "http://localhost");
+    const { rows: workspaceRows } = await db.query<{ workspace_id: string }>(
+      `select workspace_id from workspace_members where user_id = $1 and role = 'owner'`,
+      [ownerId]
+    );
+    const workspaceId = workspaceRows[0].workspace_id;
+
+    mockUserId = ownerId;
+    const project = await createProject({ name: "Role test project 8", accountId: workspaceId });
+    await postMemberRoute(postAddMemberRequest(inviteeEmail), params(project.id));
+
+    const cancelRes = await deleteInviteRoute(
+      new NextRequest("http://localhost", { method: "DELETE" }),
+      inviteParams(project.id, inviteeEmail)
+    );
+    expect(cancelRes.status).toBe(200);
+
+    const listAfterCancel = await getMembersRoute(new NextRequest("http://localhost"), params(project.id));
+    expect((await listAfterCancel.json()).invites).toEqual([]);
+
+    mockUserId = null;
+    const { userId: inviteeId } = await registerUser(
+      "Invitee8",
+      inviteeEmail,
+      "a-strong-password-123",
+      "http://localhost"
+    );
+    const membersAfterSignup = await db.query(
+      `select 1 from project_members where project_id = $1 and user_id = $2`,
+      [project.id, inviteeId]
+    );
+    expect(membersAfterSignup.rows).toEqual([]); // invitation annulée : aucun accès accordé
+
+    mockUserId = ownerId;
+    await db.query(`delete from projects where id = $1`, [project.id]);
+    await db.query(`delete from workspaces where id = $1`, [workspaceId]);
+    mockUserId = null;
+    const { rows: inviteeWorkspaceRows } = await db.query<{ workspace_id: string }>(
+      `select workspace_id from workspace_members where user_id = $1 and role = 'owner'`,
+      [inviteeId]
+    );
+    if (inviteeWorkspaceRows[0]) {
+      await db.query(`delete from workspaces where id = $1`, [inviteeWorkspaceRows[0].workspace_id]);
+    }
+    await db.query(`delete from users where email in ($1, $2)`, [ownerEmail, inviteeEmail]);
   });
 });

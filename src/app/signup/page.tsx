@@ -3,7 +3,8 @@
 import { motion } from "framer-motion";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,10 +15,14 @@ import { ParticleThreads } from "@/components/effects/particle-threads";
 import { ThemeToggle } from "@/components/effects/theme-toggle";
 import { TiltCard } from "@/components/effects/tilt-card";
 
-export default function SignupPage() {
+function SignupPageInner() {
+  // Préremplie quand on arrive depuis un lien d'invitation collaborateur
+  // (?email=...) : accès automatique au projet dès l'inscription complétée
+  // avec cette même adresse (voir addProjectMember / handle_new_user).
+  const invitedEmail = useSearchParams().get("email") ?? "";
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(invitedEmail);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [awaitingVerification, setAwaitingVerification] = useState(false);
@@ -177,5 +182,14 @@ export default function SignupPage() {
         </TiltCard>
       </motion.div>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  // useSearchParams impose une frontière Suspense sur une page pré-rendue.
+  return (
+    <Suspense>
+      <SignupPageInner />
+    </Suspense>
   );
 }
