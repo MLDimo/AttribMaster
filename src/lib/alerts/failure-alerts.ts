@@ -1,6 +1,7 @@
 import { MOCK_PROJECT_ID } from "@/lib/attribution/mock-data";
 import { classifyNightlyFailure, type NightlyFailureKind } from "@/lib/attribution/queue";
 import { escapeHtml, hasEmailSending, sendEmail } from "@/lib/email/resend";
+import { renderEmailButton, renderEmailLayout } from "@/lib/email/template";
 import { getDbPool } from "@/lib/db/client";
 
 /**
@@ -102,17 +103,21 @@ async function markAlerted(projectId: string, kind: NightlyFailureKind): Promise
 }
 
 function buildAlertHtml(candidate: FailureAlertCandidate): string {
+  const projectName = escapeHtml(candidate.project_name);
   const staleness = candidate.last_success_at
     ? `Les chiffres de ton dashboard datent du ${new Date(candidate.last_success_at).toLocaleDateString("fr-FR")}.`
     : "Aucune donnée n'a encore pu être importée pour ce projet.";
-  return `
-    <p>Bonjour,</p>
-    <p>La mise à jour automatique des données du projet <strong>${escapeHtml(candidate.project_name)}</strong> a échoué cette nuit.</p>
-    <p>${staleness}</p>
-    <p>Le plus souvent, il suffit de reconnecter BigQuery (l'accès Google a pu être révoqué) :</p>
-    <p><a href="https://attribmaster.com/projects/${candidate.project_id}/manage">Gérer le projet</a></p>
-    <p style="color:#8a7967;font-size:13px">Erreur technique : ${escapeHtml(candidate.error ?? "inconnue")}</p>
-  `;
+  return renderEmailLayout(
+    `
+      <p style="margin:0 0 16px 0;">Bonjour,</p>
+      <p style="margin:0 0 16px 0;">La mise à jour automatique des données du projet <strong>${projectName}</strong> a échoué cette nuit.</p>
+      <p style="margin:0 0 16px 0;">${staleness}</p>
+      <p style="margin:0 0 24px 0;">Le plus souvent, il suffit de reconnecter BigQuery (l'accès Google a pu être révoqué).</p>
+      <p style="margin:0 0 24px 0;">${renderEmailButton("Gérer le projet", `https://attribmaster.com/projects/${candidate.project_id}/manage`)}</p>
+      <p style="margin:0;color:#8a7967;font-size:13px;">Erreur technique : ${escapeHtml(candidate.error ?? "inconnue")}</p>
+    `,
+    `La mise à jour de "${projectName}" a échoué cette nuit`
+  );
 }
 
 /**
@@ -124,26 +129,36 @@ function buildAlertHtml(candidate: FailureAlertCandidate): string {
  * projet Google Cloud précisément agir.
  */
 function buildBillingAlertHtml(candidate: FailureAlertCandidate): string {
+  const projectName = escapeHtml(candidate.project_name);
   const staleness = candidate.last_success_at
     ? `Les chiffres de ton dashboard datent du ${new Date(candidate.last_success_at).toLocaleDateString("fr-FR")} et n'évolueront plus tant que ce n'est pas réglé.`
     : "Aucune donnée n'a encore pu être importée pour ce projet.";
   const billingUrl = candidate.gcp_project_id
     ? `https://console.cloud.google.com/billing/linkedaccount?project=${encodeURIComponent(candidate.gcp_project_id)}`
     : "https://console.cloud.google.com/billing";
-  return `
-    <p>Bonjour,</p>
-    <p>La mise à jour automatique du projet <strong>${escapeHtml(candidate.project_name)}</strong> est bloquée : le projet
-       Google Cloud <strong>${escapeHtml(candidate.gcp_project_id ?? "associé")}</strong> n'a plus de compte de facturation actif.</p>
-    <p>Sans facturation, BigQuery repasse en mode « bac à sable » : la lecture fonctionne toujours, mais toute
-       écriture est refusée — AttribMaster ne peut donc plus enregistrer tes résultats d'attribution.
-       <strong>Ta connexion BigQuery, elle, n'est pas en cause.</strong></p>
-    <p>${staleness}</p>
-    <p><strong>Réactiver la facturation ne te fera pas payer :</strong> le palier gratuit de BigQuery
-       (1 To de requêtes par mois) continue de s'appliquer. La carte sert uniquement à sortir du mode bac à sable.</p>
-    <p><a href="${billingUrl}">Réactiver la facturation du projet</a></p>
-    <p style="color:#8a7967;font-size:13px">Tu ne recevras pas de relance pour cette panne : dès qu'une mise à jour
-       repasse, tout redémarre automatiquement.</p>
-  `;
+  return renderEmailLayout(
+    `
+      <p style="margin:0 0 16px 0;">Bonjour,</p>
+      <p style="margin:0 0 16px 0;">
+        La mise à jour automatique du projet <strong>${projectName}</strong> est bloquée : le projet
+        Google Cloud <strong>${escapeHtml(candidate.gcp_project_id ?? "associé")}</strong> n'a plus de compte de facturation actif.
+      </p>
+      <p style="margin:0 0 16px 0;">
+        Sans facturation, BigQuery repasse en mode « bac à sable » : la lecture fonctionne toujours, mais toute
+        écriture est refusée — AttribMaster ne peut donc plus enregistrer tes résultats d'attribution.
+        <strong>Ta connexion BigQuery, elle, n'est pas en cause.</strong>
+      </p>
+      <p style="margin:0 0 16px 0;">${staleness}</p>
+      <p style="margin:0 0 16px 0;">
+        <strong>Réactiver la facturation ne te fera pas payer :</strong> le palier gratuit de BigQuery
+        (1 To de requêtes par mois) continue de s'appliquer. La carte sert uniquement à sortir du mode bac à sable.
+      </p>
+      <p style="margin:0 0 24px 0;">${renderEmailButton("Réactiver la facturation du projet", billingUrl)}</p>
+      <p style="margin:0;color:#8a7967;font-size:13px;">Tu ne recevras pas de relance pour cette panne : dès qu'une mise à jour
+        repasse, tout redémarre automatiquement.</p>
+    `,
+    `Facturation Google Cloud à réactiver pour "${projectName}"`
+  );
 }
 
 export type FailureAlertsResult = {

@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { clearLoginFailures } from "@/lib/auth/login-throttle";
 import { getDbPool } from "@/lib/db/client";
 import { hasEmailSending, sendEmail } from "@/lib/email/resend";
+import { renderEmailButton, renderEmailLayout } from "@/lib/email/template";
 
 /**
  * Réinitialisation de mot de passe par email. Les tokens vivent dans la table
@@ -56,12 +57,15 @@ export async function requestPasswordReset(email: string, origin: string): Promi
   await sendEmail(
     [normalizedEmail],
     "Réinitialise ton mot de passe — AttribMaster",
-    `
-      <p>Bonjour,</p>
-      <p>Une réinitialisation de mot de passe a été demandée pour ton compte AttribMaster.</p>
-      <p><a href="${resetUrl}">Choisir un nouveau mot de passe</a></p>
-      <p style="color:#8a7967;font-size:13px">Ce lien expire dans 1 heure. Si tu n'es pas à l'origine de cette demande, ignore cet email — ton mot de passe reste inchangé.</p>
-    `
+    renderEmailLayout(
+      `
+        <p style="margin:0 0 16px 0;">Bonjour,</p>
+        <p style="margin:0 0 24px 0;">Une réinitialisation de mot de passe a été demandée pour ton compte AttribMaster.</p>
+        <p style="margin:0 0 24px 0;">${renderEmailButton("Choisir un nouveau mot de passe", resetUrl)}</p>
+        <p style="margin:0;color:#8a7967;font-size:13px;">Ce lien expire dans 1 heure. Si tu n'es pas à l'origine de cette demande, ignore cet email — ton mot de passe reste inchangé.</p>
+      `,
+      "Réinitialise ton mot de passe AttribMaster"
+    )
   );
 }
 

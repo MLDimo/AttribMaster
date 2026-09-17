@@ -38,6 +38,13 @@ V2 (multi-tenant) et V3 (Stripe) de la roadmap initiale sont livrées. La 2FA
   la logique. Annulable tant qu'elle est en attente (`DELETE
   /api/projects/[id]/invites/[email]`) ; visible dans `ProjectMembers` à côté des
   vrais collaborateurs, avec un badge "en attente" distinct.
+- `lib/email/template.ts` (`renderEmailLayout`, `renderEmailButton`) — habillage
+  HTML/CSS commun, repris tel quel par TOUS les emails transactionnels (invitation,
+  reset mot de passe, vérification d'inscription, alertes d'échec nocturne y
+  compris facturation) : styles 100% inline (les webmails ignorent souvent
+  `<style>`), palette "nude" du site en mode jour uniquement. `bodyHtml` est
+  injecté SANS échappement — c'est à l'appelant d'échapper toute valeur non
+  littérale avec `escapeHtml` (`lib/email/resend.ts`) avant construction.
 - `lib/attribution/models.ts` — 6 modèles (last click, linéaire, croissant, en U,
   Markov par effet de suppression, Shapley : exact ≤12 canaux, Monte Carlo au-delà)
 - `lib/attribution/queue.ts` — file `nightly_jobs` (claim atomique SKIP LOCKED) :
