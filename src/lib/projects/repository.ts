@@ -5,6 +5,7 @@ import { NotAuthorizedError, UnauthenticatedError } from "@/lib/auth/errors";
 import { decryptSecret, encryptSecret } from "@/lib/crypto/secrets";
 import { getDbPool } from "@/lib/db/client";
 import { escapeHtml, hasEmailSending, sendEmail } from "@/lib/email/resend";
+import { renderEmailButton, renderEmailLayout } from "@/lib/email/template";
 import { cancelStripeSubscription } from "@/lib/stripe/cancel-subscription";
 import type { Account, Project, ProjectMember, ProjectMemberInvite, ProjectMemberRole } from "./types";
 
@@ -436,17 +437,27 @@ export async function addProjectMember(
     const rawProjectName = projectRows[0]?.name ?? "un projet";
     const rawInviterLabel = inviterRows[0]?.name?.trim() || inviterRows[0]?.email || "Quelqu'un";
     const signupUrl = `${origin}/signup?email=${encodeURIComponent(normalizedEmail)}`;
+    const projectName = escapeHtml(rawProjectName);
+    const inviterLabel = escapeHtml(rawInviterLabel);
     await sendEmail(
       [normalizedEmail],
       // Sujet en texte brut (pas de HTML) : valeurs non échappées, comme les autres emails du projet (cf. failure-alerts.ts).
       `${rawInviterLabel} t'invite à rejoindre "${rawProjectName}" sur AttribMaster`,
-      `
-        <p>Bonjour,</p>
-        <p>${escapeHtml(rawInviterLabel)} t'invite à collaborer sur le projet <strong>${escapeHtml(rawProjectName)}</strong> sur AttribMaster.</p>
-        <p>Crée un compte avec cette adresse email (${escapeHtml(normalizedEmail)}) pour y accéder automatiquement :</p>
-        <p><a href="${signupUrl}">Créer mon compte</a></p>
-        <p style="color:#8a7967;font-size:13px">Si tu ne connais pas cette personne, ignore cet email.</p>
-      `
+      renderEmailLayout(
+        `
+          <p style="margin:0 0 16px 0;">Bonjour,</p>
+          <p style="margin:0 0 16px 0;">
+            <strong>${inviterLabel}</strong> t'invite à collaborer sur le projet <strong>${projectName}</strong> sur AttribMaster.
+          </p>
+          <p style="margin:0 0 24px 0;">
+            Crée un compte avec cette adresse email (<strong>${escapeHtml(normalizedEmail)}</strong>), ou connecte-toi avec Google en utilisant la même adresse, pour accéder automatiquement, au dashboard d'attribution marketing du projet.
+          </p>
+          <p style="margin:0 0 24px 0;">${renderEmailButton("Accéder au projet", signupUrl)}</p>
+          <p style="margin:0;color:#8a7967;font-size:13px;">Si tu ne connais pas cette personne, ignore cet email.</p>
+        `,
+        // Preheader : injecté dans le HTML (div cachée), donc les valeurs échappées — contrairement au sujet ci-dessus, qui est du texte brut.
+        `${inviterLabel} t'invite à rejoindre "${projectName}" sur AttribMaster`
+      )
     );
   }
 
