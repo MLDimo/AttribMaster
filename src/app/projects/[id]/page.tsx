@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatePresence, motion } from "framer-motion";
 import { Calendar, ChartPie, Check, ChevronDown, Eye, GitCompare, Layers, Pencil, Percent, Receipt, Settings2, SlidersHorizontal, Sparkles, TrendingUp, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -9,7 +10,6 @@ import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppShell } from "@/components/layout/app-shell";
 import { AttributionChart } from "@/components/dashboard/attribution-chart";
@@ -261,50 +261,73 @@ function StickyFiltersToggle({
     setOpen(false);
   }
 
+  // Fermeture au clic en dehors / touche Échap : plus de Popover Radix pour
+  // porter ce comportement gratuitement (voir plus bas pourquoi), donc
+  // ré-implémenté à la main.
+  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    function handlePointerDown(e: PointerEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
   if (hidden || !hasMounted || !rect) return null;
 
   return createPortal(
     // Collée en haut (top-0, pas de header sticky pour lui faire de la
     // place) et alignée exactement sur la colonne de droite (`left`/`width`
-    // mesurés), jamais centrée sur la page entière.
-    <div className="fixed top-0 z-30" style={{ left: rect.left, width: rect.width }}>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          {/* Juste la "bordure basse" du cadre complet : une fine bande, la
-              flèche posée directement dedans (rien autour d'elle) — c'est la
-              bande entière qui porte le halo néon et qu'on doit avoir envie
-              de cliquer. */}
-          <button
-            aria-label={open ? "Réduire les filtres" : "Afficher les filtres"}
-            // `flex` (pas le défaut navigateur `inline-block` d'un
-            // <button>) : sans un display block/flex, le bouton entre dans
-            // un bloc de ligne anonyme soumis au line-height/alignement de
-            // base, ce qui ajoutait un espace fantôme au-dessus (bug
-            // constaté : la bande mesurait 9px sous le haut de son
-            // conteneur au lieu de 0).
-            // Fond OPAQUE (pas de /90 + backdrop-blur) : sur un fond de page
-            // en dégradé (voir globals.css), une bande semi-transparente
-            // aussi fine laissait voir le dégradé au travers de façon
-            // inégale — bicolore et sale à une largeur d'écran large, pas un
-            // effet voulu. Un fond plein (bg-card, même que les Card du site)
-            // reste net quelle que soit la largeur.
-            className={`group flex h-5 w-full items-center justify-center rounded-b-2xl border-b-2 border-brand-accent/50 bg-card text-muted-foreground shadow-sm ${open ? "" : "shine-glow"}`}
+    // mesurés), jamais centrée sur la page entière. Un seul bloc qui
+    // s'ALLONGE vers le bas au clic (pas un Popover flottant séparé qui
+    // ferait apparaître un second cadre disjoint) : le bandeau ET les
+    // filtres partagent le même fond/bordure/coins, la flèche ouvre le même
+    // cadre plutôt que d'en faire surgir un autre à côté.
+    <div
+      ref={containerRef}
+      className="fixed top-0 z-30 overflow-hidden rounded-b-2xl border-2 border-t-0 border-brand-accent/50 bg-card shadow-sm"
+      style={{ left: rect.left, width: rect.width }}
+    >
+      {/* Juste la "bordure basse" du cadre complet : une fine bande, la
+          flèche posée directement dedans (rien autour d'elle) — c'est le
+          bandeau entier qui porte le halo néon et qu'on doit avoir envie de
+          cliquer. */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-label={open ? "Réduire les filtres" : "Afficher les filtres"}
+        // `flex` (pas le défaut navigateur `inline-block` d'un <button>) :
+        // sans un display block/flex, le bouton entre dans un bloc de ligne
+        // anonyme soumis au line-height/alignement de base, ce qui ajoutait
+        // un espace fantôme au-dessus (bug constaté : la bande mesurait 9px
+        // sous le haut de son conteneur au lieu de 0).
+        className={`flex h-5 w-full items-center justify-center text-muted-foreground ${open ? "" : "shine-glow"}`}
+      >
+        <ChevronDown
+          className={`size-6 translate-y-px transition-transform duration-200 ${open ? "rotate-180" : "animate-bounce"}`}
+        />
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            className="overflow-hidden"
           >
-            <ChevronDown
-              className={`size-6 translate-y-px transition-transform duration-200 ${open ? "rotate-180" : "animate-bounce"}`}
-            />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent
-          side="bottom"
-          align="center"
-          sideOffset={18}
-          style={{ width: rect.width }}
-          className="rounded-2xl p-4 shadow-xl"
-        >
-          {children}
-        </PopoverContent>
-      </Popover>
+            <div className="p-4">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>,
     document.body
   );
