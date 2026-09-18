@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatePresence, motion } from "framer-motion";
 import { Calendar, ChartPie, Check, ChevronDown, Eye, GitCompare, Layers, Pencil, Percent, Receipt, Settings2, SlidersHorizontal, Sparkles, TrendingUp, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -9,7 +10,6 @@ import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppShell } from "@/components/layout/app-shell";
 import { AttributionChart } from "@/components/dashboard/attribution-chart";
@@ -215,20 +215,40 @@ function StickyFiltersToggle({
 }) {
   const [hidden, setHidden] = useState(true);
   const [open, setOpen] = useState(false);
+  // Position ET largeur de la carte d'origine (colonne de droite, jamais la
+  // page entière — variable selon la présence de la sidebar), pas juste sa
+  // largeur : sans le `left` mesuré, un centrage sur le viewport entier
+  // désaligne la bande de la colonne qu'elle est censée représenter.
+  const [rect, setRect] = useState<{ left: number; width: number } | null>(null);
   const hasMounted = useHasMounted();
 
   useEffect(() => {
     const el = anchorRef.current;
     if (!el) return;
-    const observer = new IntersectionObserver(([entry]) => setHidden(entry.isIntersecting), {
-      // Décalage ~hauteur du header sticky : la carte d'origine ne compte
-      // comme "cachée" qu'une fois entièrement passée dessous, pas dès
-      // qu'elle touche le tout haut du viewport.
-      rootMargin: "-80px 0px 0px 0px",
-      threshold: 0,
-    });
+
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      setRect({ left: r.left, width: r.width });
+    };
+
+    // La bande n'apparaît qu'une fois la carte d'origine entièrement sortie
+    // du haut du viewport (pas de header sticky au-dessus d'elle à prendre
+    // en compte : voir app-shell.tsx, volontairement pas touché ici).
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setHidden(entry.isIntersecting);
+        measure();
+      },
+      { threshold: 0 }
+    );
     observer.observe(el);
-    return () => observer.disconnect();
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
   }, [anchorRef]);
 
   // Referme à chaque bascule caché/visible (ajustement pendant le rendu
@@ -241,29 +261,73 @@ function StickyFiltersToggle({
     setOpen(false);
   }
 
-  if (hidden || !hasMounted) return null;
+  // Fermeture au clic en dehors / touche Échap : plus de Popover Radix pour
+  // porter ce comportement gratuitement (voir plus bas pourquoi), donc
+  // ré-implémenté à la main.
+  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    function handlePointerDown(e: PointerEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  if (hidden || !hasMounted || !rect) return null;
 
   return createPortal(
-    <div className="fixed top-20 left-1/2 z-30 -translate-x-1/2">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label={open ? "Réduire les filtres" : "Afficher les filtres"}
-            className="gap-2 rounded-full border-border bg-background/90 shadow-lg backdrop-blur-md hover:bg-accent"
+    // Collée en haut (top-0, pas de header sticky pour lui faire de la
+    // place) et alignée exactement sur la colonne de droite (`left`/`width`
+    // mesurés), jamais centrée sur la page entière. Un seul bloc qui
+    // s'ALLONGE vers le bas au clic (pas un Popover flottant séparé qui
+    // ferait apparaître un second cadre disjoint) : le bandeau ET les
+    // filtres partagent le même fond/bordure/coins, la flèche ouvre le même
+    // cadre plutôt que d'en faire surgir un autre à côté.
+    <div
+      ref={containerRef}
+      className="fixed top-0 z-30 overflow-hidden rounded-b-2xl border-2 border-t-0 border-brand-accent/50 bg-card shadow-sm"
+      style={{ left: rect.left, width: rect.width }}
+    >
+      {/* Juste la "bordure basse" du cadre complet : une fine bande, la
+          flèche posée directement dedans (rien autour d'elle) — c'est le
+          bandeau entier qui porte le halo néon et qu'on doit avoir envie de
+          cliquer. */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-label={open ? "Réduire les filtres" : "Afficher les filtres"}
+        // `flex` (pas le défaut navigateur `inline-block` d'un <button>) :
+        // sans un display block/flex, le bouton entre dans un bloc de ligne
+        // anonyme soumis au line-height/alignement de base, ce qui ajoutait
+        // un espace fantôme au-dessus (bug constaté : la bande mesurait 9px
+        // sous le haut de son conteneur au lieu de 0).
+        className={`flex h-5 w-full items-center justify-center text-muted-foreground ${open ? "" : "shine-glow"}`}
+      >
+        <ChevronDown
+          className={`size-6 translate-y-px transition-transform duration-200 ${open ? "rotate-180" : "animate-bounce"}`}
+        />
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            className="overflow-hidden"
           >
-            <SlidersHorizontal className="size-3.5 text-muted-foreground" />
-            Filtres
-            <ChevronDown
-              className={`size-3.5 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-            />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent align="center" sideOffset={10} className="w-[min(92vw,640px)] rounded-2xl p-4 shadow-xl">
-          {children}
-        </PopoverContent>
-      </Popover>
+            <div className="p-4">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>,
     document.body
   );

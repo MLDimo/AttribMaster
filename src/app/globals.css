@@ -175,6 +175,33 @@
     -webkit-backdrop-filter: blur(3px) saturate(1.05);
     background: color-mix(in oklch, var(--background) 32%, transparent);
   }
+
+  /* Poignée ronde de la bande de filtres repliée (StickyFiltersToggle) :
+     halo doré qui respire directement dans le box-shadow, pour donner envie
+     de cliquer sans jurer avec la palette nude — jamais un néon criard, une
+     brillance discrète façon bijouterie. */
+  .shine-glow {
+    animation: shine-glow-pulse 2.2s ease-in-out infinite;
+  }
+  @keyframes shine-glow-pulse {
+    0%,
+    100% {
+      box-shadow:
+        0 2px 8px -2px color-mix(in oklch, var(--foreground) 20%, transparent),
+        0 0 0 0 color-mix(in oklch, var(--brand-accent) 55%, transparent);
+    }
+    50% {
+      box-shadow:
+        0 2px 8px -2px color-mix(in oklch, var(--foreground) 20%, transparent),
+        0 0 0 4px color-mix(in oklch, var(--brand-accent) 22%, transparent),
+        0 0 16px 4px color-mix(in oklch, var(--brand-accent) 60%, transparent);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .shine-glow {
+      animation: none;
+    }
+  }
 }
 
 /* Recharts rend les secteurs cliquables focusables pour l'accessibilité clavier,
