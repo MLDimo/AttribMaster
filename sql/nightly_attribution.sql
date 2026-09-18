@@ -22,11 +22,12 @@ WHERE event_date = @target_date;
 INSERT INTO `@project.@dataset.attributions_resumees`
 (transaction_id, user_pseudo_id, event_date, event_timestamp, purchase_revenue, currency, source_path, touchpoints)
 
-WITH sessions AS (
+WITH sessions_raw AS (
   SELECT
     user_pseudo_id,
     (SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'ga_session_id') AS session_id,
     MIN(event_timestamp) AS session_start_timestamp,
+    LOGICAL_OR(collected_traffic_source.gclid IS NOT NULL) AS is_google_ads_click,
     ANY_VALUE(COALESCE(
       NULLIF(collected_traffic_source.manual_source, ''),
       (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'source'),
@@ -45,6 +46,27 @@ WITH sessions AS (
   WHERE _TABLE_SUFFIX BETWEEN lookback_start_suffix AND target_date_suffix
     AND event_name = 'session_start'
   GROUP BY user_pseudo_id, session_id
+),
+
+-- Un gclid prouve un clic Google Ads réel, quel que soit ce que GA4 a classé
+-- par ailleurs : sans le lien Google Ads <-> GA4 (Admin > Product Links), GA4
+-- retombe sur "google / organic" malgré l'auto-tagging actif — cas vécu en
+-- prod (Maison de la détection : 2452 sessions avec un gclid, 0 classées
+-- "google / cpc" par GA4). La vraie campagne n'est alors jamais remontée par
+-- GA4 : NULL plutôt que reprendre celle de la classification organique,
+-- trompeuse une fois associée à "google / cpc". Pas de gbraid/wbraid (mêmes
+-- clics côté app/iOS) : ces champs n'existent pas dans le schéma d'export de
+-- tous les clients (constaté en prod), et une référence à un champ STRUCT
+-- absent est une erreur BigQuery dure, pas un NULL silencieux.
+sessions AS (
+  SELECT
+    user_pseudo_id,
+    session_id,
+    session_start_timestamp,
+    IF(is_google_ads_click, 'google', source) AS source,
+    IF(is_google_ads_click, 'cpc', medium) AS medium,
+    IF(is_google_ads_click, NULL, campaign) AS campaign
+  FROM sessions_raw
 ),
 
 -- Page d'atterrissage de chaque session (le "lien d'entrée" affiché par

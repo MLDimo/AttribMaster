@@ -76,7 +76,20 @@ V2 (multi-tenant) et V3 (Stripe) de la roadmap initiale sont livrées. La 2FA
   l'auth : accessible en lecture seule à tout utilisateur connecté (bouton "Explorer
   une démo" sur `/projects`), jamais aux visiteurs anonymes. `getProject` le
   reconnaît par égalité d'ID et renvoie des métadonnées virtuelles sans lecture DB.
-- `sql/nightly_attribution.sql` — script BigQuery idempotent (DELETE+INSERT par jour)
+- `sql/nightly_attribution.sql` — script BigQuery idempotent (DELETE+INSERT par jour).
+  Reclasse en `google / cpc` (campagne NULL) toute session portant un `gclid`,
+  même quand GA4 l'a classée `google / organic` — cas fréquent quand le compte
+  Google Ads du client n'est pas lié à GA4 (Admin > Product Links) : l'auto-tagging
+  pose bien le `gclid` mais GA4 retombe sur "organic" par défaut sans ce lien (cas
+  vécu en prod : Maison de la détection, 2452 sessions avec un `gclid`, 0 classées
+  `google / cpc` par GA4 lui-même). Pas de `gbraid`/`wbraid` (équivalents app/iOS) :
+  absents du schéma d'export de certains clients, et une référence à un champ
+  STRUCT absent fait échouer toute la requête (erreur dure, pas NULL). Même
+  correctif dans `sql/nightly_channel_sessions.sql` (sessions_par_canal), sans quoi
+  le taux de conversion de "google / cpc" et "google / organic" serait faussé
+  (numérateur reclassé, dénominateur resté sous l'ancienne classification).
+  Ne s'applique qu'aux nouveaux runs (DELETE+INSERT par jour) — pas de backfill
+  automatique de l'historique déjà calculé.
 - `lib/attribution/channel-performance.ts` — taux de conversion + panier moyen par
   canal (indépendants du modèle d'attribution). Dénominateur (sessions, TOUTES,
   pas seulement celles qui achètent) alimenté par `sql/nightly_channel_sessions.sql`
