@@ -291,7 +291,7 @@ function StickyFiltersToggle({
             className={`group flex h-5 w-full items-center justify-center rounded-b-2xl border-b-2 border-brand-accent/50 bg-card text-muted-foreground shadow-sm ${open ? "" : "shine-glow"}`}
           >
             <ChevronDown
-              className={`size-6 transition-transform duration-200 ${open ? "rotate-180" : "animate-bounce"}`}
+              className={`size-6 translate-y-px transition-transform duration-200 ${open ? "rotate-180" : "animate-bounce"}`}
             />
           </button>
         </PopoverTrigger>
