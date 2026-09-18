@@ -251,12 +251,14 @@ function StickyFiltersToggle({
             variant="outline"
             size="sm"
             aria-label={open ? "Réduire les filtres" : "Afficher les filtres"}
-            className="gap-2 rounded-full border-border bg-background/90 shadow-lg backdrop-blur-md hover:bg-accent"
+            // Le halo/reflet n'anime que replié : une fois ouvert, l'attention
+            // est déjà captée, plus besoin d'inciter au clic.
+            className={`group gap-2 rounded-full border-brand-accent/40 bg-background/90 backdrop-blur-md hover:border-brand-accent/70 hover:bg-accent ${open ? "shadow-lg" : "shine-pill"}`}
           >
             <SlidersHorizontal className="size-3.5 text-muted-foreground" />
             Filtres
             <ChevronDown
-              className={`size-3.5 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+              className={`size-3.5 text-muted-foreground transition-transform duration-200 group-hover:scale-125 ${open ? "rotate-180" : ""}`}
             />
           </Button>
         </PopoverTrigger>
