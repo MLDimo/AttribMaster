@@ -270,36 +270,29 @@ function StickyFiltersToggle({
     <div className="fixed top-0 z-30" style={{ left: rect.left, width: rect.width }}>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          {/* Juste la "bordure basse" du cadre complet : une fine bande, pas
-              une pastille — avec une poignée ronde qui déborde dessous,
-              seule à porter le halo néon (c'est elle qu'on doit avoir envie
-              de cliquer). */}
+          {/* Juste la "bordure basse" du cadre complet : une fine bande, la
+              flèche posée directement dedans (rien autour d'elle) — c'est la
+              bande entière qui porte le halo néon et qu'on doit avoir envie
+              de cliquer. */}
           <button
             aria-label={open ? "Réduire les filtres" : "Afficher les filtres"}
+            // `flex` (pas le défaut navigateur `inline-block` d'un
+            // <button>) : sans un display block/flex, le bouton entre dans
+            // un bloc de ligne anonyme soumis au line-height/alignement de
+            // base, ce qui ajoutait un espace fantôme au-dessus (bug
+            // constaté : la bande mesurait 9px sous le haut de son
+            // conteneur au lieu de 0).
             // Fond OPAQUE (pas de /90 + backdrop-blur) : sur un fond de page
             // en dégradé (voir globals.css), une bande semi-transparente
             // aussi fine laissait voir le dégradé au travers de façon
             // inégale — bicolore et sale à une largeur d'écran large, pas un
             // effet voulu. Un fond plein (bg-card, même que les Card du site)
             // reste net quelle que soit la largeur.
-            // `block` (pas le défaut navigateur `inline-block` d'un
-            // <button>) : sans ça le bouton entre dans un bloc de ligne
-            // anonyme soumis au line-height/alignement de base, ce qui
-            // ajoutait un espace fantôme au-dessus (bug constaté : la bande
-            // measurait 9px sous le haut de son conteneur au lieu de 0).
-            className="group relative block h-5 w-full rounded-b-2xl border-b-2 border-brand-accent/50 bg-card shadow-sm"
+            className={`group flex h-5 w-full items-center justify-center rounded-b-2xl border-b-2 border-brand-accent/50 bg-card text-muted-foreground shadow-sm ${open ? "" : "shine-glow"}`}
           >
-            <span
-              // Élément en `absolute` : `justify-center` du parent flex n'a
-              // aucun effet dessus (sorti du flux), il faut le recentrer
-              // explicitement en X. En Y, suspendue SOUS la bande
-              // (`top-full`, pas centrée dessus) : la bande étant collée à
-              // `top-0`, centrer la poignée dessus la ferait déborder du
-              // haut du viewport et se faire couper.
-              className={`absolute top-full left-1/2 -mt-1.5 flex h-6 w-11 -translate-x-1/2 items-center justify-center rounded-lg border border-brand-accent/50 bg-background text-muted-foreground backdrop-blur-md transition-transform duration-200 group-hover:scale-125 ${open ? "shadow-lg" : "shine-glow"}`}
-            >
-              <ChevronDown className={`size-4 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
-            </span>
+            <ChevronDown
+              className={`size-4 transition-transform duration-200 ${open ? "rotate-180" : "animate-bounce"}`}
+            />
           </button>
         </PopoverTrigger>
         <PopoverContent
