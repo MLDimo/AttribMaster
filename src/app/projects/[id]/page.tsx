@@ -287,7 +287,7 @@ function StickyFiltersToggle({
             // anonyme soumis au line-height/alignement de base, ce qui
             // ajoutait un espace fantôme au-dessus (bug constaté : la bande
             // measurait 9px sous le haut de son conteneur au lieu de 0).
-            className="group relative block h-2.5 w-full rounded-b-full border-b-2 border-brand-accent/50 bg-card shadow-sm"
+            className="group relative block h-5 w-full rounded-b-2xl border-b-2 border-brand-accent/50 bg-card shadow-sm"
           >
             <span
               // Élément en `absolute` : `justify-center` du parent flex n'a
@@ -296,7 +296,7 @@ function StickyFiltersToggle({
               // (`top-full`, pas centrée dessus) : la bande étant collée à
               // `top-0`, centrer la poignée dessus la ferait déborder du
               // haut du viewport et se faire couper.
-              className={`absolute top-full left-1/2 -mt-1 flex size-9 -translate-x-1/2 items-center justify-center rounded-full border border-brand-accent/50 bg-background text-muted-foreground backdrop-blur-md transition-transform duration-200 group-hover:scale-125 ${open ? "shadow-lg" : "shine-glow"}`}
+              className={`absolute top-full left-1/2 -mt-1.5 flex h-6 w-11 -translate-x-1/2 items-center justify-center rounded-lg border border-brand-accent/50 bg-background text-muted-foreground backdrop-blur-md transition-transform duration-200 group-hover:scale-125 ${open ? "shadow-lg" : "shine-glow"}`}
             >
               <ChevronDown className={`size-4 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
             </span>
