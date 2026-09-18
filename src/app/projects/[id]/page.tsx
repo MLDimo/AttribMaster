@@ -1,13 +1,14 @@
 "use client";
 
-import { Calendar, ChartPie, Check, Eye, GitCompare, Layers, Pencil, Percent, Receipt, Settings2, SlidersHorizontal, Sparkles, TrendingUp, UsersRound } from "lucide-react";
+import { Calendar, ChartPie, Check, ChevronDown, Eye, GitCompare, Layers, Pencil, Percent, Receipt, Settings2, SlidersHorizontal, Sparkles, TrendingUp, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppShell } from "@/components/layout/app-shell";
 import { AttributionChart } from "@/components/dashboard/attribution-chart";
@@ -77,6 +78,177 @@ function Field({
         {label}
       </label>
       {children}
+    </div>
+  );
+}
+
+/**
+ * Extrait du contenu de la carte de filtres, réutilisé tel quel dans le
+ * panneau flottant de `StickyFiltersToggle` — mêmes props contrôlées par le
+ * parent, donc les deux affichages restent toujours en phase sans dupliquer
+ * l'état.
+ */
+function DashboardFilterFields({
+  from,
+  to,
+  onRangeChange,
+  comparison,
+  onComparisonChange,
+  model,
+  onModelChange,
+  compareModel,
+  onCompareModelChange,
+  dimension,
+  onDimensionChange,
+}: {
+  from: string;
+  to: string;
+  onRangeChange: (from: string, to: string) => void;
+  comparison: ComparisonMode;
+  onComparisonChange: (value: ComparisonMode) => void;
+  model: AttributionModel;
+  onModelChange: (value: AttributionModel) => void;
+  compareModel: AttributionModel | "none";
+  onCompareModelChange: (value: AttributionModel | "none") => void;
+  dimension: AttributionDimension;
+  onDimensionChange: (value: AttributionDimension) => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="flex flex-col gap-4">
+        <Field label="Période" icon={<Calendar className="size-3.5" />}>
+          <DateRangePicker from={from} to={to} onChange={onRangeChange} />
+        </Field>
+        <Field label="Comparer à" icon={<GitCompare className="size-3.5" />}>
+          <select
+            className="h-9 w-full cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
+            value={comparison}
+            onChange={(e) => onComparisonChange(e.target.value as ComparisonMode)}
+          >
+            {Object.entries(COMPARISON_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+      <div className="flex flex-col gap-4">
+        <Field label="Modèle d'attribution" icon={<SlidersHorizontal className="size-3.5" />}>
+          <select
+            className="h-9 w-full cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
+            value={model}
+            onChange={(e) => onModelChange(e.target.value as AttributionModel)}
+          >
+            {Object.entries(MODEL_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Moodèle de comparaison" icon={<ChartPie className="size-3.5" />}>
+          <select
+            className="h-9 w-full cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
+            value={compareModel}
+            onChange={(e) => onCompareModelChange(e.target.value as AttributionModel | "none")}
+          >
+            <option value="none">Aucun</option>
+            {Object.entries(MODEL_LABELS)
+              .filter(([value]) => value !== model)
+              .map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+          </select>
+        </Field>
+      </div>
+      <div className="flex flex-col gap-4">
+        <Field label="Regrouper par" icon={<Layers className="size-3.5" />}>
+          <select
+            className="h-9 w-full cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
+            value={dimension}
+            onChange={(e) => onDimensionChange(e.target.value as AttributionDimension)}
+          >
+            {Object.entries(DIMENSION_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Pastille flottante qui prend le relais de la carte de filtres une fois
+ * qu'elle sort de l'écran (IntersectionObserver sur `anchorRef`, décalé de la
+ * hauteur du header sticky — voir app-shell.tsx) : repliée par défaut, la
+ * flèche l'ouvre/la referme sur les mêmes champs (`DashboardFilterFields`,
+ * mêmes props contrôlées). Redevient invisible dès que la carte d'origine
+ * revient à l'écran — elle "reste à sa place" en haut de page, jamais de
+ * flottant redondant avec l'original visible.
+ */
+function StickyFiltersToggle({
+  anchorRef,
+  children,
+}: {
+  anchorRef: React.RefObject<HTMLElement | null>;
+  children: React.ReactNode;
+}) {
+  const [hidden, setHidden] = useState(true);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const el = anchorRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => setHidden(entry.isIntersecting), {
+      // Décalage ~hauteur du header sticky : la carte d'origine ne compte
+      // comme "cachée" qu'une fois entièrement passée dessous, pas dès
+      // qu'elle touche le tout haut du viewport.
+      rootMargin: "-80px 0px 0px 0px",
+      threshold: 0,
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [anchorRef]);
+
+  // Referme à chaque bascule caché/visible (ajustement pendant le rendu
+  // plutôt qu'un setState synchrone dans un effet — même idiome que
+  // app-shell.tsx pour fermer le menu mobile au changement de route) :
+  // resurgir déjà ouvert après un aller-retour de scroll serait surprenant.
+  const [prevHidden, setPrevHidden] = useState(hidden);
+  if (prevHidden !== hidden) {
+    setPrevHidden(hidden);
+    setOpen(false);
+  }
+
+  if (hidden) return null;
+
+  return (
+    <div className="fixed top-20 left-1/2 z-30 -translate-x-1/2">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label={open ? "Réduire les filtres" : "Afficher les filtres"}
+            className="gap-2 rounded-full border-border bg-background/90 shadow-lg backdrop-blur-md hover:bg-accent"
+          >
+            <SlidersHorizontal className="size-3.5 text-muted-foreground" />
+            Filtres
+            <ChevronDown
+              className={`size-3.5 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+            />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="center" sideOffset={10} className="w-[min(92vw,640px)] rounded-2xl p-4 shadow-xl">
+          {children}
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
@@ -214,6 +386,7 @@ export default function ProjectPage() {
   const [compareModel, setCompareModel] = useState<AttributionModel | "none">("none");
   const [compareOverview, setCompareOverview] = useState<OverviewResponse | null>(null);
   const [dimension, setDimension] = useState<AttributionDimension>("source");
+  const filtersCardRef = useRef<HTMLDivElement>(null);
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const [channelBreakdown, setChannelBreakdown] = useState<ChannelPerformanceBreakdown[]>([]);
 
@@ -421,79 +594,41 @@ export default function ProjectPage() {
         <div className="flex flex-1 flex-col gap-5">
           {usable && !isDemo && <DataFreshnessBanner projectId={projectId} />}
           <FadeIn delay={0.05}>
-          <Card className="py-4">
-            <CardContent className="grid grid-cols-1 gap-4 px-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="flex flex-col gap-4">
-                <Field label="Période" icon={<Calendar className="size-3.5" />}>
-                  <DateRangePicker
-                    from={from}
-                    to={to}
-                    onChange={(nextFrom, nextTo) => setRange({ from: nextFrom, to: nextTo })}
-                  />
-                </Field>
-                <Field label="Comparer à" icon={<GitCompare className="size-3.5" />}>
-                  <select
-                    className="h-9 w-full cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
-                    value={comparison}
-                    onChange={(e) => setComparison(e.target.value as ComparisonMode)}
-                  >
-                    {Object.entries(COMPARISON_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              </div>
-              <div className="flex flex-col gap-4">
-                <Field label="Modèle d'attribution" icon={<SlidersHorizontal className="size-3.5" />}>
-                  <select
-                    className="h-9 w-full cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
-                    value={model}
-                    onChange={(e) => setModel(e.target.value as AttributionModel)}
-                  >
-                    {Object.entries(MODEL_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Moodèle de comparaison" icon={<ChartPie className="size-3.5" />}>
-                  <select
-                    className="h-9 w-full cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
-                    value={compareModel}
-                    onChange={(e) => setCompareModel(e.target.value as AttributionModel | "none")}
-                  >
-                    <option value="none">Aucun</option>
-                    {Object.entries(MODEL_LABELS)
-                      .filter(([value]) => value !== model)
-                      .map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                  </select>
-                </Field>
-              </div>
-              <div className="flex flex-col gap-4">
-                <Field label="Regrouper par" icon={<Layers className="size-3.5" />}>
-                  <select
-                    className="h-9 w-full cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
-                    value={dimension}
-                    onChange={(e) => setDimension(e.target.value as AttributionDimension)}
-                  >
-                    {Object.entries(DIMENSION_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              </div>
-            </CardContent>
-          </Card>
+          <div ref={filtersCardRef}>
+            <Card className="py-4">
+              <CardContent className="px-4">
+                <DashboardFilterFields
+                  from={from}
+                  to={to}
+                  onRangeChange={(nextFrom, nextTo) => setRange({ from: nextFrom, to: nextTo })}
+                  comparison={comparison}
+                  onComparisonChange={setComparison}
+                  model={model}
+                  onModelChange={setModel}
+                  compareModel={compareModel}
+                  onCompareModelChange={setCompareModel}
+                  dimension={dimension}
+                  onDimensionChange={setDimension}
+                />
+              </CardContent>
+            </Card>
+          </div>
           </FadeIn>
+          <StickyFiltersToggle anchorRef={filtersCardRef}>
+            <DashboardFilterFields
+              from={from}
+              to={to}
+              onRangeChange={(nextFrom, nextTo) => setRange({ from: nextFrom, to: nextTo })}
+              comparison={comparison}
+              onComparisonChange={setComparison}
+              model={model}
+              onModelChange={setModel}
+              compareModel={compareModel}
+              onCompareModelChange={setCompareModel}
+              dimension={dimension}
+              onDimensionChange={setDimension}
+            />
+          </StickyFiltersToggle>
 
           {!connected && (
             <FadeIn delay={0.1}>
