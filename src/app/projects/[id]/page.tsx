@@ -215,6 +215,7 @@ function StickyFiltersToggle({
 }) {
   const [hidden, setHidden] = useState(true);
   const [open, setOpen] = useState(false);
+  const [width, setWidth] = useState<number | null>(null);
   const hasMounted = useHasMounted();
 
   useEffect(() => {
@@ -228,7 +229,18 @@ function StickyFiltersToggle({
       threshold: 0,
     });
     observer.observe(el);
-    return () => observer.disconnect();
+
+    // La bande repliée épouse exactement la largeur de la carte d'origine
+    // (colonne de droite, variable selon la présence de la sidebar) plutôt
+    // qu'une largeur arbitraire — elle doit lire comme "le même cadre,
+    // juste réduit à sa bordure basse", pas comme un popup sans rapport.
+    const resizeObserver = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    resizeObserver.observe(el);
+
+    return () => {
+      observer.disconnect();
+      resizeObserver.disconnect();
+    };
   }, [anchorRef]);
 
   // Referme à chaque bascule caché/visible (ajustement pendant le rendu
@@ -241,28 +253,34 @@ function StickyFiltersToggle({
     setOpen(false);
   }
 
-  if (hidden || !hasMounted) return null;
+  if (hidden || !hasMounted || !width) return null;
 
   return createPortal(
-    <div className="fixed top-20 left-1/2 z-30 -translate-x-1/2">
+    <div className="fixed top-20 left-1/2 z-30 -translate-x-1/2" style={{ width }}>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
+          {/* Juste la "bordure basse" du cadre complet : une fine bande, pas
+              une pastille — avec une poignée ronde qui déborde dessous,
+              seule à porter le halo néon (c'est elle qu'on doit avoir envie
+              de cliquer). */}
+          <button
             aria-label={open ? "Réduire les filtres" : "Afficher les filtres"}
-            // Le halo/reflet n'anime que replié : une fois ouvert, l'attention
-            // est déjà captée, plus besoin d'inciter au clic.
-            className={`group gap-2 rounded-full border-brand-accent/40 bg-background/90 backdrop-blur-md hover:border-brand-accent/70 hover:bg-accent ${open ? "shadow-lg" : "shine-pill"}`}
+            className="group relative flex h-2.5 w-full items-center justify-center rounded-full border-b-2 border-brand-accent/50 bg-background/90 shadow-sm backdrop-blur-md"
           >
-            <SlidersHorizontal className="size-3.5 text-muted-foreground" />
-            Filtres
-            <ChevronDown
-              className={`size-3.5 text-muted-foreground transition-transform duration-200 group-hover:scale-125 ${open ? "rotate-180" : ""}`}
-            />
-          </Button>
+            <span
+              className={`absolute top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-full border border-brand-accent/50 bg-background text-muted-foreground backdrop-blur-md transition-transform duration-200 group-hover:scale-125 ${open ? "shadow-lg" : "shine-glow"}`}
+            >
+              <ChevronDown className={`size-4 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+            </span>
+          </button>
         </PopoverTrigger>
-        <PopoverContent align="center" sideOffset={10} className="w-[min(92vw,640px)] rounded-2xl p-4 shadow-xl">
+        <PopoverContent
+          side="bottom"
+          align="center"
+          sideOffset={14}
+          style={{ width }}
+          className="rounded-2xl p-4 shadow-xl"
+        >
           {children}
         </PopoverContent>
       </Popover>

@@ -176,55 +176,29 @@
     background: color-mix(in oklch, var(--background) 32%, transparent);
   }
 
-  /* Pastille de filtres flottante (StickyFiltersToggle) : halo doré qui
-     respire + reflet qui balaie périodiquement, pour donner envie de cliquer
-     sans jurer avec la palette nude — jamais un néon criard, une brillance
-     discrète façon bijouterie. */
-  .shine-pill {
-    position: relative;
-    overflow: hidden;
-    animation: shine-pill-glow 2.6s ease-in-out infinite;
+  /* Poignée ronde de la bande de filtres repliée (StickyFiltersToggle) :
+     halo doré qui respire directement dans le box-shadow, pour donner envie
+     de cliquer sans jurer avec la palette nude — jamais un néon criard, une
+     brillance discrète façon bijouterie. */
+  .shine-glow {
+    animation: shine-glow-pulse 2.2s ease-in-out infinite;
   }
-  .shine-pill::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      115deg,
-      transparent 30%,
-      color-mix(in oklch, var(--brand-accent) 65%, transparent) 50%,
-      transparent 70%
-    );
-    background-size: 250% 100%;
-    background-position: 150% 0;
-    animation: shine-pill-sweep 3.4s ease-in-out infinite;
-    pointer-events: none;
-  }
-  @keyframes shine-pill-glow {
+  @keyframes shine-glow-pulse {
     0%,
     100% {
-      box-shadow: 0 4px 14px -2px color-mix(in oklch, var(--foreground) 15%, transparent);
+      box-shadow:
+        0 2px 8px -2px color-mix(in oklch, var(--foreground) 20%, transparent),
+        0 0 0 0 color-mix(in oklch, var(--brand-accent) 55%, transparent);
     }
     50% {
       box-shadow:
-        0 4px 14px -2px color-mix(in oklch, var(--foreground) 15%, transparent),
-        0 0 0 5px color-mix(in oklch, var(--brand-accent) 16%, transparent),
-        0 0 20px 2px color-mix(in oklch, var(--brand-accent) 45%, transparent);
-    }
-  }
-  @keyframes shine-pill-sweep {
-    0%,
-    15% {
-      background-position: 150% 0;
-    }
-    55%,
-    100% {
-      background-position: -50% 0;
+        0 2px 8px -2px color-mix(in oklch, var(--foreground) 20%, transparent),
+        0 0 0 4px color-mix(in oklch, var(--brand-accent) 22%, transparent),
+        0 0 16px 4px color-mix(in oklch, var(--brand-accent) 60%, transparent);
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .shine-pill,
-    .shine-pill::after {
+    .shine-glow {
       animation: none;
     }
   }
