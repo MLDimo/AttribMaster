@@ -51,11 +51,13 @@ V2 (multi-tenant) et V3 (Stripe) de la roadmap initiale sont livrées. La 2FA
 - `lib/attribution/queue.ts` — file `nightly_jobs` (claim atomique SKIP LOCKED) :
   cron nocturne avec fenêtre de rattrapage 3 jours (l'export GA4→BigQuery peut
   prendre 72h), refresh manuel, backfill historique complet à la connexion BigQuery.
-  Deuxième tick quotidien vers midi (`?mode=retry`, voir `vercel.json`) qui ne
-  retente QUE les jours de la fenêtre coincés à 0 ligne ou en échec
+  Deuxième tick quotidien vers midi (`?mode=retry`) qui ne retente QUE les
+  jours de la fenêtre coincés à 0 ligne ou en échec
   (`enqueueZeroRowRetryForAllProjects`) — sans retoucher aux jours déjà réussis,
-  pour ne pas doubler le coût BigQuery de tous les projets chaque jour. Corrige le
-  cas où l'export GA4 finit après le tick de 02h : sans ce second passage le jour
+  pour ne pas doubler le coût BigQuery de tous les projets chaque jour.
+  Déclenché par `.github/workflows/midday-retry.yml` (appel HTTP planifié), PAS
+  par un second cron Vercel : notre plan Vercel est limité à 1 cron job/projet.
+  Corrige le cas où l'export GA4 finit après le tick de 02h : sans ce second passage le jour
   restait coincé jusqu'à la nuit suivante (jusqu'à 24h de données manquantes en plus).
   `classifyNightlyFailure` distingue la panne de facturation GCP des autres :
   sans compte de facturation actif le projet client repasse en **sandbox

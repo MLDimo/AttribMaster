@@ -1,0 +1,29 @@
+name: Midday nightly-attribution retry
+
+# Vercel Cron Jobs sont limités à 1 par projet sur notre plan actuel — voir
+# vercel.json, qui ne porte donc que le tick de nuit (02h UTC). Ce workflow
+# est le second tick (~midi UTC) : il appelle en HTTP le même endpoint que
+# le cron Vercel, avec `mode=retry` (voir enqueueZeroRowRetryForAllProjects
+# dans lib/attribution/queue.ts), qui ne retente que les jours coincés à 0
+# ligne/en échec sans retoucher les jours déjà réussis.
+on:
+  schedule:
+    - cron: "0 12 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  retry:
+    name: Retry zero-row nightly jobs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the retry endpoint
+        run: |
+          status=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.PROD_CRON_SECRET }}" \
+            "https://attribmaster.com/api/cron/nightly-attribution?mode=retry")
+          cat /tmp/response.json
+          echo
+          if [ "$status" -ge 300 ]; then
+            echo "Retry endpoint returned HTTP $status"
+            exit 1
+          fi
