@@ -265,10 +265,20 @@ function StickyFiltersToggle({
               de cliquer). */}
           <button
             aria-label={open ? "Réduire les filtres" : "Afficher les filtres"}
-            className="group relative flex h-2.5 w-full items-center justify-center rounded-full border-b-2 border-brand-accent/50 bg-background/90 shadow-sm backdrop-blur-md"
+            // Fond OPAQUE (pas de /90 + backdrop-blur) : sur un fond de page
+            // en dégradé (voir globals.css), une bande semi-transparente
+            // aussi fine laissait voir le dégradé au travers de façon
+            // inégale — bicolore et sale à une largeur d'écran large, pas un
+            // effet voulu. Un fond plein (bg-card, même que les Card du site)
+            // reste net quelle que soit la largeur.
+            className="group relative h-2.5 w-full rounded-full border-b-2 border-brand-accent/50 bg-card shadow-sm"
           >
             <span
-              className={`absolute top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-full border border-brand-accent/50 bg-background text-muted-foreground backdrop-blur-md transition-transform duration-200 group-hover:scale-125 ${open ? "shadow-lg" : "shine-glow"}`}
+              // Élément en `absolute` : `justify-center` du parent flex n'a
+              // aucun effet dessus (sorti du flux), il faut le recentrer
+              // explicitement en X ET en Y, pas seulement en Y — bug
+              // constaté en prod (poignée décalée à droite du centre).
+              className={`absolute top-1/2 left-1/2 flex size-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-brand-accent/50 bg-background text-muted-foreground backdrop-blur-md transition-transform duration-200 group-hover:scale-125 ${open ? "shadow-lg" : "shine-glow"}`}
             >
               <ChevronDown className={`size-4 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
             </span>
