@@ -3,7 +3,8 @@
 import { Calendar, ChartPie, Check, ChevronDown, Eye, GitCompare, Layers, Pencil, Percent, Receipt, Settings2, SlidersHorizontal, Sparkles, TrendingUp, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -183,6 +184,12 @@ function DashboardFilterFields({
   );
 }
 
+const noopSubscribe = () => () => {};
+/** true seulement côté client, après hydratation — même idiome que ThemeToggle. */
+function useHasMounted() {
+  return useSyncExternalStore(noopSubscribe, () => true, () => false);
+}
+
 /**
  * Pastille flottante qui prend le relais de la carte de filtres une fois
  * qu'elle sort de l'écran (IntersectionObserver sur `anchorRef`, décalé de la
@@ -191,6 +198,13 @@ function DashboardFilterFields({
  * mêmes props contrôlées). Redevient invisible dès que la carte d'origine
  * revient à l'écran — elle "reste à sa place" en haut de page, jamais de
  * flottant redondant avec l'original visible.
+ *
+ * Rendue via un portail dans `document.body` : `<motion.main>` (app-shell.tsx)
+ * pose un `transform` inline pour ses animations d'entrée/sortie, ce qui crée
+ * un nouveau bloc de positionnement pour tout descendant `fixed` (règle CSS
+ * standard, pas un bug Framer Motion) — sans le portail, la pastille se
+ * positionnait par rapport à ce conteneur qui défile, pas par rapport au
+ * viewport, d'où le décalage constaté en prod (ni centrée, ni collée en haut).
  */
 function StickyFiltersToggle({
   anchorRef,
@@ -201,6 +215,7 @@ function StickyFiltersToggle({
 }) {
   const [hidden, setHidden] = useState(true);
   const [open, setOpen] = useState(false);
+  const hasMounted = useHasMounted();
 
   useEffect(() => {
     const el = anchorRef.current;
@@ -226,9 +241,9 @@ function StickyFiltersToggle({
     setOpen(false);
   }
 
-  if (hidden) return null;
+  if (hidden || !hasMounted) return null;
 
-  return (
+  return createPortal(
     <div className="fixed top-20 left-1/2 z-30 -translate-x-1/2">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
@@ -249,7 +264,8 @@ function StickyFiltersToggle({
           {children}
         </PopoverContent>
       </Popover>
-    </div>
+    </div>,
+    document.body
   );
 }
 
