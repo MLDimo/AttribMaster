@@ -215,31 +215,39 @@ function StickyFiltersToggle({
 }) {
   const [hidden, setHidden] = useState(true);
   const [open, setOpen] = useState(false);
-  const [width, setWidth] = useState<number | null>(null);
+  // Position ET largeur de la carte d'origine (colonne de droite, jamais la
+  // page entière — variable selon la présence de la sidebar), pas juste sa
+  // largeur : sans le `left` mesuré, un centrage sur le viewport entier
+  // désaligne la bande de la colonne qu'elle est censée représenter.
+  const [rect, setRect] = useState<{ left: number; width: number } | null>(null);
   const hasMounted = useHasMounted();
 
   useEffect(() => {
     const el = anchorRef.current;
     if (!el) return;
-    const observer = new IntersectionObserver(([entry]) => setHidden(entry.isIntersecting), {
-      // Décalage ~hauteur du header sticky : la carte d'origine ne compte
-      // comme "cachée" qu'une fois entièrement passée dessous, pas dès
-      // qu'elle touche le tout haut du viewport.
-      rootMargin: "-80px 0px 0px 0px",
-      threshold: 0,
-    });
+
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      setRect({ left: r.left, width: r.width });
+    };
+
+    // La bande n'apparaît qu'une fois la carte d'origine entièrement sortie
+    // du haut du viewport (pas de header sticky au-dessus d'elle à prendre
+    // en compte : voir app-shell.tsx, volontairement pas touché ici).
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setHidden(entry.isIntersecting);
+        measure();
+      },
+      { threshold: 0 }
+    );
     observer.observe(el);
 
-    // La bande repliée épouse exactement la largeur de la carte d'origine
-    // (colonne de droite, variable selon la présence de la sidebar) plutôt
-    // qu'une largeur arbitraire — elle doit lire comme "le même cadre,
-    // juste réduit à sa bordure basse", pas comme un popup sans rapport.
-    const resizeObserver = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
-    resizeObserver.observe(el);
-
+    measure();
+    window.addEventListener("resize", measure);
     return () => {
       observer.disconnect();
-      resizeObserver.disconnect();
+      window.removeEventListener("resize", measure);
     };
   }, [anchorRef]);
 
@@ -253,10 +261,13 @@ function StickyFiltersToggle({
     setOpen(false);
   }
 
-  if (hidden || !hasMounted || !width) return null;
+  if (hidden || !hasMounted || !rect) return null;
 
   return createPortal(
-    <div className="fixed top-20 left-1/2 z-30 -translate-x-1/2" style={{ width }}>
+    // Collée en haut (top-0, pas de header sticky pour lui faire de la
+    // place) et alignée exactement sur la colonne de droite (`left`/`width`
+    // mesurés), jamais centrée sur la page entière.
+    <div className="fixed top-0 z-30" style={{ left: rect.left, width: rect.width }}>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           {/* Juste la "bordure basse" du cadre complet : une fine bande, pas
@@ -271,14 +282,21 @@ function StickyFiltersToggle({
             // inégale — bicolore et sale à une largeur d'écran large, pas un
             // effet voulu. Un fond plein (bg-card, même que les Card du site)
             // reste net quelle que soit la largeur.
-            className="group relative h-2.5 w-full rounded-full border-b-2 border-brand-accent/50 bg-card shadow-sm"
+            // `block` (pas le défaut navigateur `inline-block` d'un
+            // <button>) : sans ça le bouton entre dans un bloc de ligne
+            // anonyme soumis au line-height/alignement de base, ce qui
+            // ajoutait un espace fantôme au-dessus (bug constaté : la bande
+            // measurait 9px sous le haut de son conteneur au lieu de 0).
+            className="group relative block h-2.5 w-full rounded-b-full border-b-2 border-brand-accent/50 bg-card shadow-sm"
           >
             <span
               // Élément en `absolute` : `justify-center` du parent flex n'a
               // aucun effet dessus (sorti du flux), il faut le recentrer
-              // explicitement en X ET en Y, pas seulement en Y — bug
-              // constaté en prod (poignée décalée à droite du centre).
-              className={`absolute top-1/2 left-1/2 flex size-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-brand-accent/50 bg-background text-muted-foreground backdrop-blur-md transition-transform duration-200 group-hover:scale-125 ${open ? "shadow-lg" : "shine-glow"}`}
+              // explicitement en X. En Y, suspendue SOUS la bande
+              // (`top-full`, pas centrée dessus) : la bande étant collée à
+              // `top-0`, centrer la poignée dessus la ferait déborder du
+              // haut du viewport et se faire couper.
+              className={`absolute top-full left-1/2 -mt-1 flex size-9 -translate-x-1/2 items-center justify-center rounded-full border border-brand-accent/50 bg-background text-muted-foreground backdrop-blur-md transition-transform duration-200 group-hover:scale-125 ${open ? "shadow-lg" : "shine-glow"}`}
             >
               <ChevronDown className={`size-4 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
             </span>
@@ -287,8 +305,8 @@ function StickyFiltersToggle({
         <PopoverContent
           side="bottom"
           align="center"
-          sideOffset={14}
-          style={{ width }}
+          sideOffset={18}
+          style={{ width: rect.width }}
           className="rounded-2xl p-4 shadow-xl"
         >
           {children}
