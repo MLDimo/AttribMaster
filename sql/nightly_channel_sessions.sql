@@ -18,6 +18,9 @@ DECLARE target_date_suffix STRING DEFAULT FORMAT_DATE('%Y%m%d', @target_date);
 DELETE FROM `@project.@dataset.sessions_par_canal`
 WHERE event_date = @target_date;
 
+INSERT INTO `@project.@dataset.sessions_par_canal`
+(event_date, source, medium, campaign, sessions)
+
 -- Même correctif que sessions_raw/sessions dans nightly_attribution.sql (voir
 -- ses commentaires pour le détail, y compris pourquoi pas de gbraid/wbraid) :
 -- un gclid prouve un clic Google Ads réel même quand GA4 classe la session en
@@ -26,6 +29,13 @@ WHERE event_date = @target_date;
 -- pendant que le numérateur (achats attribués) bascule sur "google / cpc"
 -- côté nightly_attribution.sql, faussant le taux de conversion affiché pour
 -- les deux canaux.
+--
+-- INSERT INTO ... (cols) doit précéder le WITH (pas l'inverse) : BigQuery
+-- rejette "WITH ... INSERT INTO ... SELECT" ("Unexpected keyword INSERT"),
+-- seul "INSERT INTO ... (cols) WITH ... SELECT" est valide — bug vécu en prod
+-- lors de l'ajout de ce correctif (l'échec de ce script est best-effort/non-
+-- bloquant pour le job nocturne principal, donc silencieux : rowsInserted
+-- retombe à 0 sans erreur visible côté dashboard).
 WITH sessions_raw AS (
   SELECT
     user_pseudo_id,
@@ -60,9 +70,6 @@ sessions AS (
     IF(is_google_ads_click, NULL, campaign) AS campaign
   FROM sessions_raw
 )
-
-INSERT INTO `@project.@dataset.sessions_par_canal`
-(event_date, source, medium, campaign, sessions)
 
 SELECT
   @target_date AS event_date,
