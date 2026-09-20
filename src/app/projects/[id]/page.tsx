@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Calendar, ChartPie, Check, ChevronDown, Eye, GitCompare, Layers, Pencil, Percent, Receipt, Settings2, SlidersHorizontal, Sparkles, TrendingUp, UsersRound } from "lucide-react";
+import { Calendar, ChartPie, Check, ChevronDown, Eye, GitCompare, Layers, Pencil, Percent, Plus, Receipt, Settings2, SlidersHorizontal, Sparkles, TrendingUp, UsersRound, X } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -89,6 +89,8 @@ function Field({
  * parent, donc les deux affichages restent toujours en phase sans dupliquer
  * l'état.
  */
+const ALL_MODELS = Object.keys(MODEL_LABELS) as AttributionModel[];
+
 function DashboardFilterFields({
   from,
   to,
@@ -97,8 +99,8 @@ function DashboardFilterFields({
   onComparisonChange,
   model,
   onModelChange,
-  compareModel,
-  onCompareModelChange,
+  compareModels,
+  onCompareModelsChange,
   dimension,
   onDimensionChange,
 }: {
@@ -109,11 +111,32 @@ function DashboardFilterFields({
   onComparisonChange: (value: ComparisonMode) => void;
   model: AttributionModel;
   onModelChange: (value: AttributionModel) => void;
-  compareModel: AttributionModel | "none";
-  onCompareModelChange: (value: AttributionModel | "none") => void;
+  compareModels: AttributionModel[];
+  onCompareModelsChange: (values: AttributionModel[]) => void;
   dimension: AttributionDimension;
   onDimensionChange: (value: AttributionDimension) => void;
 }) {
+  // Options d'une ligne de comparaison donnée : jamais le modèle principal,
+  // jamais un modèle déjà pris par une AUTRE ligne (sa propre valeur reste
+  // proposée, sinon elle disparaîtrait de son propre menu).
+  const optionsForRow = (rowIndex: number) =>
+    ALL_MODELS.filter((m) => m !== model && (m === compareModels[rowIndex] || !compareModels.includes(m)));
+  const canAddComparison = compareModels.length < ALL_MODELS.length - 1;
+
+  function updateComparisonRow(index: number, value: AttributionModel) {
+    const next = [...compareModels];
+    next[index] = value;
+    onCompareModelsChange(next);
+  }
+
+  function removeComparisonRow(index: number) {
+    onCompareModelsChange(compareModels.filter((_, i) => i !== index));
+  }
+
+  function addComparisonRow() {
+    const next = ALL_MODELS.find((m) => m !== model && !compareModels.includes(m));
+    if (next) onCompareModelsChange([...compareModels, next]);
+  }
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <div className="flex flex-col gap-4">
@@ -148,21 +171,66 @@ function DashboardFilterFields({
             ))}
           </select>
         </Field>
-        <Field label="Moodèle de comparaison" icon={<ChartPie className="size-3.5" />}>
-          <select
-            className="h-9 w-full cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
-            value={compareModel}
-            onChange={(e) => onCompareModelChange(e.target.value as AttributionModel | "none")}
-          >
-            <option value="none">Aucun</option>
-            {Object.entries(MODEL_LABELS)
-              .filter(([value]) => value !== model)
-              .map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
+        <Field label="Modèle de comparaison" icon={<ChartPie className="size-3.5" />}>
+          {compareModels.length === 0 ? (
+            <select
+              className="h-9 w-full cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
+              value="none"
+              onChange={(e) => {
+                if (e.target.value !== "none") onCompareModelsChange([e.target.value as AttributionModel]);
+              }}
+            >
+              <option value="none">Aucun</option>
+              {optionsForRow(0).map((m) => (
+                <option key={m} value={m}>
+                  {MODEL_LABELS[m]}
                 </option>
               ))}
-          </select>
+            </select>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {compareModels.map((cm, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <select
+                    className="h-9 w-full cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors hover:bg-accent"
+                    value={cm}
+                    onChange={(e) => updateComparisonRow(index, e.target.value as AttributionModel)}
+                  >
+                    {optionsForRow(index).map((m) => (
+                      <option key={m} value={m}>
+                        {MODEL_LABELS[m]}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="size-9 shrink-0"
+                    onClick={() => removeComparisonRow(index)}
+                    aria-label="Retirer cette comparaison"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                  {/* Petit + : seulement au bout de la dernière ligne, pour ajouter
+                      une comparaison de plus (3e, 4e...) tant qu'il reste des
+                      modèles disponibles. */}
+                  {index === compareModels.length - 1 && canAddComparison && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="size-9 shrink-0"
+                      onClick={addComparisonRow}
+                      aria-label="Ajouter une comparaison"
+                    >
+                      <Plus className="size-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </Field>
       </div>
       <div className="flex flex-col gap-4">
@@ -463,8 +531,8 @@ export default function ProjectPage() {
   const [model, setModel] = useState<AttributionModel>("linear");
   const [comparison, setComparison] = useState<ComparisonMode>("previous_period");
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
-  const [compareModel, setCompareModel] = useState<AttributionModel | "none">("none");
-  const [compareOverview, setCompareOverview] = useState<OverviewResponse | null>(null);
+  const [compareModels, setCompareModels] = useState<AttributionModel[]>([]);
+  const [compareOverviews, setCompareOverviews] = useState<Partial<Record<AttributionModel, OverviewResponse>>>({});
   const [dimension, setDimension] = useState<AttributionDimension>("source");
   const filtersCardRef = useRef<HTMLDivElement>(null);
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
@@ -552,29 +620,34 @@ export default function ProjectPage() {
     };
   }, [projectId, usable, from, to, model, comparison, dimension, selectedChannel, customModelConfig, channelBreakdown]);
 
-  // Purge du résultat comparé quand la comparaison est désactivée (ajustement
-  // pendant le rendu plutôt qu'un setState synchrone dans un effet).
-  const [prevCompareModel, setPrevCompareModel] = useState<AttributionModel | "none">(compareModel);
-  if (prevCompareModel !== compareModel) {
-    setPrevCompareModel(compareModel);
-    setCompareOverview(null);
+  // Purge les résultats comparés dès que l'ensemble des modèles comparés
+  // change (ajout/retrait/changement d'une ligne) — pas à chaque changement
+  // de période/dimension, où le résultat précédent peut rester affiché le
+  // temps du refetch (ajustement pendant le rendu plutôt qu'un setState
+  // synchrone dans un effet).
+  const [prevCompareModels, setPrevCompareModels] = useState(compareModels);
+  if (prevCompareModels !== compareModels) {
+    setPrevCompareModels(compareModels);
+    setCompareOverviews({});
   }
 
   useEffect(() => {
-    if (!projectId || !usable || compareModel === "none" || (compareModel === "custom" && !customModelConfig)) {
-      return;
-    }
-    const params = new URLSearchParams({ projectId, from, to, model: compareModel, comparison, dimension });
+    if (!projectId || !usable) return;
+    const modelsToFetch = compareModels.filter((m) => m !== "custom" || customModelConfig);
+    if (modelsToFetch.length === 0) return;
     let cancelled = false;
-    fetch(`/api/overview?${params.toString()}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json: OverviewResponse | null) => {
-        if (!cancelled && json) setCompareOverview(json);
-      });
+    for (const m of modelsToFetch) {
+      const params = new URLSearchParams({ projectId, from, to, model: m, comparison, dimension });
+      fetch(`/api/overview?${params.toString()}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((json: OverviewResponse | null) => {
+          if (!cancelled && json) setCompareOverviews((prev) => ({ ...prev, [m]: json }));
+        });
+    }
     return () => {
       cancelled = true;
     };
-  }, [projectId, usable, from, to, compareModel, comparison, dimension, customModelConfig]);
+  }, [projectId, usable, from, to, compareModels, comparison, dimension, customModelConfig]);
 
   // Fusionne le résultat d'un save/reset dans `project` plutôt qu'un refetch :
   // évite un aller-retour réseau pour 3 champs déjà connus côté client.
@@ -685,8 +758,8 @@ export default function ProjectPage() {
                   onComparisonChange={setComparison}
                   model={model}
                   onModelChange={setModel}
-                  compareModel={compareModel}
-                  onCompareModelChange={setCompareModel}
+                  compareModels={compareModels}
+                  onCompareModelsChange={setCompareModels}
                   dimension={dimension}
                   onDimensionChange={setDimension}
                 />
@@ -703,8 +776,8 @@ export default function ProjectPage() {
               onComparisonChange={setComparison}
               model={model}
               onModelChange={setModel}
-              compareModel={compareModel}
-              onCompareModelChange={setCompareModel}
+              compareModels={compareModels}
+              onCompareModelsChange={setCompareModels}
               dimension={dimension}
               onDimensionChange={setDimension}
             />
@@ -782,17 +855,17 @@ export default function ProjectPage() {
                   <TrendingUp className="size-4 text-muted-foreground" />
                   Revenu par jour
                 </CardTitle>
-                {compareModel !== "none" && (
+                {compareModels.length > 0 && (
                   <CardDescription>
-                    {MODEL_LABELS[model]} vs {MODEL_LABELS[compareModel]} — la courbe totale est
-                    identique, seule la répartition par canal change.
+                    {[model, ...compareModels].map((m) => MODEL_LABELS[m]).join(" vs ")} — la courbe totale
+                    est identique, seule la répartition par canal change.
                   </CardDescription>
                 )}
               </CardHeader>
               <CardContent className="flex flex-col gap-6">
                 {overview ? (
                   <div className="flex flex-col gap-3">
-                    {compareModel !== "none" && (
+                    {compareModels.length > 0 && (
                       <p className="text-sm font-medium text-muted-foreground">{MODEL_LABELS[model]}</p>
                     )}
                     <RevenueTrendChart
@@ -807,14 +880,14 @@ export default function ProjectPage() {
                   <Skeleton className="h-64 w-full" />
                 )}
 
-                {compareModel !== "none" && (
-                  <div className="flex flex-col gap-3 border-t pt-6">
-                    <p className="text-sm font-medium text-muted-foreground">{MODEL_LABELS[compareModel]}</p>
-                    {compareOverview ? (
+                {compareModels.map((cm) => (
+                  <div key={cm} className="flex flex-col gap-3 border-t pt-6">
+                    <p className="text-sm font-medium text-muted-foreground">{MODEL_LABELS[cm]}</p>
+                    {compareOverviews[cm] ? (
                       <RevenueTrendChart
-                        trend={compareOverview.trend}
-                        sourceTrend={compareOverview.sourceTrend}
-                        currencies={compareOverview.currencies}
+                        trend={compareOverviews[cm].trend}
+                        sourceTrend={compareOverviews[cm].sourceTrend}
+                        currencies={compareOverviews[cm].currencies}
                         selectedChannel={selectedChannel}
                         onSelectChannel={setSelectedChannel}
                       />
@@ -822,7 +895,7 @@ export default function ProjectPage() {
                       <Skeleton className="h-64 w-full" />
                     )}
                   </div>
-                )}
+                ))}
               </CardContent>
             </Card>
             </FadeIn>
@@ -837,15 +910,15 @@ export default function ProjectPage() {
                     <ChartPie className="size-4 text-muted-foreground" />
                     Répartition par {DIMENSION_LABELS_LOWER[dimension]}
                   </CardTitle>
-                  {compareModel !== "none" && (
+                  {compareModels.length > 0 && (
                     <CardDescription>
-                      {MODEL_LABELS[model]} vs {MODEL_LABELS[compareModel]} — même période, même
-                      revenu total : seule la répartition entre canaux change.
+                      {[model, ...compareModels].map((m) => MODEL_LABELS[m]).join(" vs ")} — même
+                      période, même revenu total : seule la répartition entre canaux change.
                     </CardDescription>
                   )}
                 </CardHeader>
                 <CardContent>
-                  {overview && compareModel !== "none" ? (
+                  {overview && compareModels.length > 0 ? (
                     <div className="flex flex-col gap-6">
                       <div className="flex flex-col gap-3">
                         <p className="text-sm font-medium text-muted-foreground">{MODEL_LABELS[model]}</p>
@@ -855,22 +928,24 @@ export default function ProjectPage() {
                           onSelectChannel={setSelectedChannel}
                         />
                       </div>
-                      <div className="flex flex-col gap-3 border-t pt-6">
-                        <p className="text-sm font-medium text-muted-foreground">
-                          {MODEL_LABELS[compareModel]}
-                        </p>
-                        {compareOverview ? (
-                          <AttributionChart
-                            sources={compareOverview.topSources}
-                            selectedChannel={selectedChannel}
-                            onSelectChannel={setSelectedChannel}
-                          />
-                        ) : (
-                          <div className="flex h-72 items-center justify-center">
-                            <Skeleton className="size-64 rounded-full" />
-                          </div>
-                        )}
-                      </div>
+                      {compareModels.map((cm) => (
+                        <div key={cm} className="flex flex-col gap-3 border-t pt-6">
+                          <p className="text-sm font-medium text-muted-foreground">
+                            {MODEL_LABELS[cm]}
+                          </p>
+                          {compareOverviews[cm] ? (
+                            <AttributionChart
+                              sources={compareOverviews[cm].topSources}
+                              selectedChannel={selectedChannel}
+                              onSelectChannel={setSelectedChannel}
+                            />
+                          ) : (
+                            <div className="flex h-72 items-center justify-center">
+                              <Skeleton className="size-64 rounded-full" />
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   ) : overview ? (
                     <AttributionChart
