@@ -49,20 +49,27 @@ V2 (multi-tenant) et V3 (Stripe) de la roadmap initiale sont livrées. La 2FA
   croissant, en U, Markov par effet de suppression, Shapley : exact ≤12 canaux,
   Monte Carlo au-delà)
 - `lib/attribution/queue.ts` — file `nightly_jobs` (claim atomique SKIP LOCKED) :
-  cron nocturne avec fenêtre de rattrapage 3 jours (l'export GA4→BigQuery peut
-  prendre 72h), refresh manuel, backfill historique complet à la connexion BigQuery.
-  Deuxième tick quotidien (`?mode=retry`) qui ne retente QUE les
-  jours de la fenêtre coincés à 0 ligne ou en échec
-  (`enqueueZeroRowRetryForAllProjects`) — sans retoucher aux jours déjà réussis,
-  pour ne pas doubler le coût BigQuery de tous les projets chaque jour.
-  Déclenché par `.github/workflows/midday-retry.yml` (appel HTTP planifié), PAS
-  par un second cron Vercel : notre plan Vercel est limité à 1 cron job/projet.
-  Programmé à 9h UTC (pas midi malgré le nom du fichier) : les `schedule`
-  GitHub Actions ne se déclenchent pas à l'heure pile (limitation connue,
-  file d'attente partagée), constaté avec un décalage de 3h+ deux jours de
-  suite — l'horaire est avancé pour absorber ce délai.
-  Corrige le cas où l'export GA4 finit après le tick de 02h : sans ce second passage le jour
-  restait coincé jusqu'à la nuit suivante (jusqu'à 24h de données manquantes en plus).
+  cron avec fenêtre de rattrapage 3 jours (l'export GA4→BigQuery peut prendre
+  72h), refresh manuel, backfill historique complet à la connexion BigQuery.
+  Tick principal à **10h UTC** (`vercel.json`), PAS 02h : mesuré en prod sur
+  plusieurs jours, les tables `events_YYYYMMDD` de GA4 ne se créent dans
+  BigQuery qu'entre ~07h et ~09h UTC le lendemain (parfois plus tard) — à 02h le
+  job tournait systématiquement avant que la table du jour n'existe, jour à 0
+  ligne garanti à chaque fois, pas un cas occasionnel.
+  Second tick quotidien (`?mode=retry`) qui ne retente QUE les jours de la
+  fenêtre coincés à 0 ligne ou en échec (`enqueueZeroRowRetryForAllProjects`)
+  — sans retoucher aux jours déjà réussis, pour ne pas doubler le coût
+  BigQuery de tous les projets chaque jour. Déclenché par
+  `.github/workflows/midday-retry.yml` (appel HTTP planifié), PAS par un
+  second cron Vercel : notre plan Vercel est limité à 1 cron job/projet.
+  Filet de sécurité pour les jours où l'export traîne au-delà de la fenêtre
+  habituelle — le tick principal étant maintenant après cette fenêtre, ce
+  second passage ne devrait avoir quelque chose à faire que rarement. Son
+  horaire programmé (9h UTC) n'est PAS fiable : les `schedule` GitHub Actions
+  ne se déclenchent pas à l'heure pile (limitation connue, file d'attente
+  partagée) — constaté en prod avec des déclenchements réels vers 15h-16h UTC
+  malgré différents horaires programmés testés. Acceptable pour un filet de
+  sécurité de fin de journée, pas pour le tick principal.
   `classifyNightlyFailure` distingue la panne de facturation GCP des autres :
   sans compte de facturation actif le projet client repasse en **sandbox
   BigQuery**, où les SELECT passent mais où toute écriture est refusée (DML du

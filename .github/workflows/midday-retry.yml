@@ -1,19 +1,22 @@
 name: Midday nightly-attribution retry
 
 # Vercel Cron Jobs sont limités à 1 par projet sur notre plan actuel — voir
-# vercel.json, qui ne porte donc que le tick de nuit (02h UTC). Ce workflow
-# est le second tick : il appelle en HTTP le même endpoint que le cron
-# Vercel, avec `mode=retry` (voir enqueueZeroRowRetryForAllProjects dans
-# lib/attribution/queue.ts), qui ne retente que les jours coincés à 0
-# ligne/en échec sans retoucher les jours déjà réussis.
+# vercel.json, qui porte donc le tick PRINCIPAL (10h UTC, choisi pour tomber
+# après la fenêtre de finalisation GA4->BigQuery observée en prod, ~07h-09h
+# UTC). Ce workflow est un second tick, filet de sécurité pour les jours où
+# l'export traîne au-delà de cette fenêtre : il appelle en HTTP le même
+# endpoint que le cron Vercel, avec `mode=retry` (voir
+# enqueueZeroRowRetryForAllProjects dans lib/attribution/queue.ts), qui ne
+# retente que les jours coincés à 0 ligne/en échec sans retoucher les jours
+# déjà réussis.
 #
-# Programmé à 9h UTC, PAS midi : les `schedule` GitHub Actions ne se
-# déclenchent pas à l'heure pile (limitation connue et documentée de GitHub —
-# file d'attente partagée), constaté en prod deux jours de suite avec un
-# décalage de 3h+ sur un cron à 12h (déclenchements réels à 15h20 et 15h48
-# UTC). Avancer l'horaire programmé absorbe ce délai pour viser un
-# déclenchement effectif en tout début d'après-midi plutôt qu'en fin
-# d'après-midi.
+# Programmé à 9h UTC mais se déclenche en réalité bien plus tard (~15h-16h
+# UTC constaté en prod, y compris après avoir avancé l'horaire programmé de
+# midi à 9h sans aucun effet sur l'heure réelle) : limitation connue et
+# documentée de GitHub Actions, dont les `schedule` passent par une file
+# d'attente partagée sans garantie d'horaire. Sans intérêt d'essayer de
+# recaler cet horaire plus finement — accepté tel quel puisque ce n'est plus
+# que le filet de sécurité de fin de journée, pas le tick principal.
 on:
   schedule:
     - cron: "0 9 * * *"
