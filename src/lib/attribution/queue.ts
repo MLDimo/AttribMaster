@@ -80,15 +80,16 @@ export async function enqueueBackfillForAllProjects(): Promise<NightlyJob[]> {
 }
 
 /**
- * Deuxième tick quotidien (~midi, voir vercel.json) : ne retente que les
- * jours de la fenêtre de rattrapage bloqués à 0 ligne ou en échec — jamais
- * les jours déjà réussis avec des données, pour ne pas doubler le coût
- * BigQuery de tous les projets chaque jour (ce que ferait un simple second
- * appel à enqueueBackfillForAllProjects). Corrige un cas observé en prod :
- * l'export GA4 -> BigQuery pas encore fini au tick de nuit (02h) laisse un
- * jour à 0 ligne, qui restait alors coincé jusqu'au tick de nuit SUIVANT
- * (jusqu'à 24h de données manquantes en plus côté client) faute d'un second
- * passage dans la même journée.
+ * Second tick quotidien (~fin d'après-midi UTC, voir
+ * .github/workflows/midday-retry.yml) : ne retente que les jours de la
+ * fenêtre de rattrapage bloqués à 0 ligne ou en échec — jamais les jours déjà
+ * réussis avec des données, pour ne pas doubler le coût BigQuery de tous les
+ * projets chaque jour (ce que ferait un simple second appel à
+ * enqueueBackfillForAllProjects). Filet de sécurité pour les jours où l'export
+ * GA4 -> BigQuery est anormalement lent : le tick principal (10h UTC, voir
+ * vercel.json) tourne déjà après la fenêtre habituelle de finalisation
+ * constatée en prod (~07h-09h UTC le lendemain), donc ce second passage ne
+ * devrait avoir quelque chose à faire que rarement.
  */
 export async function enqueueZeroRowRetryForAllProjects(): Promise<NightlyJob[]> {
   const db = getDbPool();
